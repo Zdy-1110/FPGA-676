@@ -1,0 +1,41 @@
+Reading pref.tcl
+
+# 2025.3
+
+# ** Note: (vsim-220) 'D:/Questa/questa_fse/win64/../modelsim.ini' is used as the ini file.
+# vsim -c -suppress 14408,16154 -t ps -do "run -all; quit -f" work_r6.tb_gl_board "+SEG=seg_board" "+NFRAMES=2" 
+# Start time: 03:16:05 on Oct 30,2026
+# ** Note: (vsim-3812) Design is being optimized...
+# ** Note: (vopt-220) 'D:/Questa/questa_fse/win64/../modelsim.ini' is used as the ini file.
+# ** Warning: tb_gl_board.v(41): (vopt-2685) [TFMPC] - Too few port connections for 'uut'.  Expected 41, found 38.
+# ** Warning: tb_gl_board.v(41): (vopt-2718) [TFMPC] - Missing connection for port 'dbg_bus'.
+# ** Warning: tb_gl_board.v(41): (vopt-2718) [TFMPC] - Missing connection for port 'dbg_x'.
+# ** Warning: tb_gl_board.v(41): (vopt-2718) [TFMPC] - Missing connection for port 'dbg_row'.
+# ** Note: (vsim-12126) Error and warning message counts have been restored: Errors=0, Warnings=4.
+# //  Questa Altera Starter FPGA Edition-64
+# //  Version 2025.3 win64 Sep 15 2025
+# //
+# // Unpublished work. Copyright 2025 Siemens
+# //
+# // This material contains trade secrets or otherwise confidential information
+# // owned by Siemens Industry Software Inc. or its affiliates (collectively,
+# // "SISW"), or its licensors. Access to and use of this information is strictly
+# // limited as set forth in the Customer's applicable agreements with SISW.
+# //
+# // This material may not be copied, distributed, or otherwise disclosed outside
+# // of the Customer's facilities without the express written permission of SISW,
+# // and may not be used in any way not expressly authorized by SISW.
+# //
+# Loading sv_std.std
+# Loading work.tb_gl_board(fast)
+# run -all
+# === Starting Gate-Level Netlist Simulation for seg_board (2 frames) ===
+# [FRAME 0] out_l_n=145 (exp 145), out_r_n=138 (exp 138), out_l_valid=1 (exp 1), out_l_a_q16=-63264 (exp -63264), out_l_b_q4=6402 (exp 6402)
+# [FRAME 1] out_l_n=146 (exp 146), out_r_n=138 (exp 138), out_l_valid=1 (exp 1), out_l_a_q16=-64808 (exp -64808), out_l_b_q4=6414 (exp 6414)
+# ==================================================
+# SEG seg_board: row_mismatch=0 frame_field_mismatch=0
+# ==================================================
+# ** Note: $finish    : tb_gl_board.v(266)
+#    Time: 4128080047 ps  Iteration: 1  Instance: /tb_gl_board
+# End time: 03:27:17 on Oct 30,2026, Elapsed time: 0:11:12
+# Errors: 0, Warnings: 4, Suppressed Errors: 2

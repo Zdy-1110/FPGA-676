@@ -202,6 +202,17 @@ def collect_whitelist_files(repo_root, with_assets):
     ]:
         add_single_file(rk_tool, rk_tool)
 
+    # 关键证据日志（放 evidence/，便于评委核对文档数字）
+    for ev in [
+        "log/rk_env/build_cam11_s1.log",
+        "log/rk_env/pcie_mrd1_L3_20261018.log",
+        "log/rk_env/pcie_fast2_soak_ext_20261018.log",
+        "log/npu_freq_20261029.md",
+        "log/lane_gl_repro_20261030/repro_board.log",
+        "log/lane_gl_repro_20261030/repro_recover40.log",
+    ]:
+        add_single_file(ev, "evidence/" + os.path.basename(ev), optional=True)
+
     # 3. 算法参考
     add_directory("tools/lane_fpga")
     add_directory("tools/zebra_fpga")
