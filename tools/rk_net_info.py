@@ -2,8 +2,10 @@
 """RK3568 串口只读查询：网络 / sshd / PCIe 链路基线。不改任何配置，不重启。
 
 用法: py -3 tools/rk_net_info.py [COM] [波特率]
-状态判断: U-Boot 提示符 (=>) 时只报告、不动板子；登录提示用文档记录的 root/root。
+环境变量: RK_USER (默认 root), RK_PASS (默认 root)
+状态判断: U-Boot 提示符 (=>) 时只报告、不动板子；登录提示用默认 root/root（可通过 RK_USER / RK_PASS 覆盖）。
 """
+import os
 import sys
 import threading
 import time
@@ -128,13 +130,15 @@ def main():
         low = out.lower()
         log("二次回车响应: " + (out.strip()[-200:] or "(仍无输出，板子可能没上电 / 串口线接了错误通道)"))
     if "login:" in low:
-        ser.write(b"root\r\n")
+        user = os.environ.get("RK_USER", "root")
+        passwd = os.environ.get("RK_PASS", "root")
+        ser.write(f"{user}\r\n".encode())
         ser.flush()
         time.sleep(1.2)
-        ser.write(b"root\r\n")
+        ser.write(f"{passwd}\r\n".encode())
         ser.flush()
         r = clean(read_for(ser, 3.0))
-        log("===== 登录 root/root =====")
+        log(f"===== 登录 {user}/{passwd} =====")
         log("\n".join([l for l in r.split("\n") if l.strip()][-6:]))
         log()
         if "incorrect" in r.lower() or "login:" in r.lower().split("password:")[-1]:
