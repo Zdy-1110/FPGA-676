@@ -1,0 +1,35 @@
+video,t_start,t_end,field,value,conf,note
+112507,0.0,1.0,junction,crossing,mid,片头正驶出上一个路口
+112507,0.0,45.0,ego_motion,moving,high,全程未停车
+112507,1.0,9.5,ego_left_line,white_dashed,mid,
+112507,1.0,9.5,ego_right_line,white_dashed,mid,
+112507,9.5,12.5,junction,approach,high,路口1：地面导向箭头；指路牌 左/直/直/直/直右
+112507,9.5,12.5,ego_left_line,white_solid,mid,路口前实线段
+112507,9.5,12.5,ego_right_line,white_solid,mid,路口前实线段
+112507,10.5,13.5,sig_straight,green,high,两组灯均为绿色直行箭头
+112507,10.5,13.5,sig_left,unknown,low,画面内未见左转灯头
+112507,10.5,13.5,sig_right,none,mid,
+112507,12.5,15.0,junction,crossing,high,
+112507,15.0,19.5,ego_left_line,white_dashed,mid,
+112507,15.0,19.5,ego_right_line,white_dashed,mid,
+112507,19.5,23.5,junction,approach,high,路口2：左侧车道地面左转箭头，自车在直行车道
+112507,19.5,23.0,ego_left_line,white_solid,mid,
+112507,19.5,23.0,ego_right_line,white_solid,mid,
+112507,22.5,25.0,sig_straight,green,high,两组绿色圆灯
+112507,22.5,25.0,sig_left,green,mid,圆灯，推定管所有方向
+112507,22.5,25.0,sig_right,none,mid,
+112507,23.5,26.0,junction,crossing,high,
+112507,26.0,30.0,ego_left_line,white_dashed,mid,
+112507,26.0,35.0,ego_right_line,white_dashed,mid,
+112507,30.0,35.0,ego_left_line,unknown,low,靠近中央隔离栏，左侧线型不清
+112507,28.0,39.0,comment,lead_truck,mid,蓝色厢式货车在前方中远距离，非紧急
+112507,35.5,39.0,junction,approach,high,路口3
+112507,36.0,38.5,ego_left_line,white_solid,mid,
+112507,36.0,38.5,ego_right_line,white_solid,mid,
+112507,39.0,40.0,sig_straight,green,high,两组绿色圆灯
+112507,39.0,40.0,sig_left,green,mid,圆灯推定
+112507,39.0,40.0,sig_right,none,mid,
+112507,39.0,42.5,junction,crossing,high,在路口3右转
+112507,40.0,41.5,hazard,ped_crossing_near,mid,右转路径旁人行横道有行人和电动车等候（行人灯红）
+112507,43.0,43.0,speed_limit,50,high,右转后路右侧限速 50
+112507,43.0,45.0,ego_left_line,white_dashed,low,

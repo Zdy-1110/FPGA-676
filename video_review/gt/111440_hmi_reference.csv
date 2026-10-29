@@ -1,0 +1,6 @@
+video,t_start,t_end,field,value,conf,note
+111440,0.0,100.5,comment,hmi_reference,high,量产车城市领航 HMI 录像，不作为测试输入，只作呈现效果参考
+111440,0.0,75.0,comment,noa_driving,mid,车速 12–56 km/h；导航多次右转提示（364 m、352 m、231 m…）；渲染车道、车辆、电动车、行人、斑马线、锥桶
+111440,0.0,0.0,comment,hmi_red_light,mid,顶部红绿灯图标为红
+111440,75.0,94.0,comment,hmi_stopped_red,mid,车速 0，顶部红灯图标；HMI 显示停止线与斑马线
+111440,95.0,100.5,comment,hmi_green_go,mid,顶部绿灯图标，车速 11 km/h 起步

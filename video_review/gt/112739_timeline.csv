@@ -1,0 +1,47 @@
+video,t_start,t_end,field,value,conf,note
+112739,0.0,1.0,comment,surround_view,high,中控显示 360 环视而非导航
+112739,2.0,2.0,nav_maneuver,right,high,西乡大道方向
+112739,2.0,2.0,nav_dist_m,886,high,
+112739,10.0,10.0,nav_maneuver,right,high,
+112739,10.0,10.0,nav_dist_m,706,high,
+112739,12.0,12.0,comment,green_lights,mid,前方两组绿色圆灯（远处，非本次转向路口）
+112739,14.0,14.0,speed_limit,50,low,路侧红圈标志，数字待核；导航地图 48–58 s 也显示限速 50
+112739,20.0,20.0,nav_maneuver,right,high,
+112739,20.0,20.0,nav_dist_m,501,high,
+112739,30.0,30.0,nav_maneuver,right,high,
+112739,30.0,30.0,nav_dist_m,321,high,
+112739,36.0,36.0,comment,lane_view,high,195 m 起导航出现路口车道图
+112739,38.0,38.0,nav_maneuver,right,high,
+112739,38.0,38.0,nav_dist_m,141,high,
+112739,42.0,42.0,nav_maneuver,right,high,
+112739,42.0,42.0,nav_dist_m,36,high,
+112739,36.0,43.0,junction,approach,mid,右转路口1
+112739,43.0,45.0,junction,crossing,mid,完成右转1（约 43 s）；路口有行人/电动车
+112739,44.0,44.0,nav_maneuver,right,high,紧接第二次右转
+112739,44.0,44.0,nav_dist_m,57,high,
+112739,46.0,46.0,nav_maneuver,right,high,
+112739,46.0,46.0,nav_dist_m,30,high,
+112739,47.0,49.0,junction,crossing,low,完成右转2（约 47 s）
+112739,48.0,48.0,nav_maneuver,left,high,兴业路方向
+112739,48.0,48.0,nav_dist_m,489,high,
+112739,54.0,54.0,nav_maneuver,left,high,
+112739,54.0,54.0,nav_dist_m,287,high,
+112739,58.0,58.0,nav_maneuver,left,high,出现左转车道图
+112739,58.0,58.0,nav_dist_m,152,high,
+112739,60.0,60.0,nav_maneuver,left,high,
+112739,60.0,60.0,nav_dist_m,100,high,
+112739,66.0,66.0,nav_maneuver,left,high,排队，距离停在 39–40 m
+112739,66.0,66.0,nav_dist_m,40,high,
+112739,0.0,62.0,ego_motion,moving,mid,
+112739,62.0,64.0,ego_motion,braking,low,
+112739,64.0,77.0,ego_motion,stopped,low,导航距离 64–72 s 保持 40/39 m
+112739,77.0,80.0,ego_motion,starting,low,
+112739,80.0,92.6,ego_motion,moving,low,
+112739,58.0,64.0,junction,approach,mid,左转路口
+112739,64.0,77.0,junction,approach,mid,排队等左转
+112739,50.0,77.0,sig_left,red,mid,依据导航地图上的红灯倒计时（50 s 时 46，68 s 时 10），约 78 s 转绿；路面灯头待核
+112739,77.0,83.0,junction,crossing,low,左转通过；74–83 s 中控切到 360 环视
+112739,84.0,84.0,nav_maneuver,uturn,high,掉头
+112739,84.0,84.0,nav_dist_m,345,high,
+112739,90.0,90.0,nav_maneuver,uturn,high,
+112739,90.0,90.0,nav_dist_m,195,high,

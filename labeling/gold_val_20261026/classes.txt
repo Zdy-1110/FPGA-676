@@ -1,0 +1,9 @@
+person
+rider
+car
+bus
+truck
+tricycle
+cone
+barrier
+speed_limit

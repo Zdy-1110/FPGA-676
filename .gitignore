@@ -1,0 +1,98 @@
+# Python / Virtualenv
+.venv*/
+.yolo_cfg*/
+__pycache__/
+*.pyc
+
+# Datasets and Runs
+datasets/
+runs/
+log/
+logbackup/
+
+# Models: models/ 整体排除，仅保留 models/npu/ 下的 b5/b6 及 *.json, *.md
+models/*
+!models/npu/
+models/npu/*
+!models/npu/b5_v6n_band.rknn
+!models/npu/b6_v6n_v3w.rknn
+!models/npu/*.json
+!models/npu/*.md
+
+# Video Review: video_review/** 整体忽略，保留 video_review/gt/** 与 video_review/baseline/**/*.md
+video_review/*
+!video_review/gt/
+!video_review/baseline/
+video_review/baseline/*
+!video_review/baseline/*.md
+!video_review/baseline/**/*.md
+*.mp4
+
+# Review: review/** 整体忽略，保留 review/*.md
+review/*
+!review/*.md
+
+# Third party and external docs
+third_party/
+docs_ext/
+fpga_docs/
+pcie_demo/
+
+# Temporary and stray artifacts
+tmp_extract/
+tmp_rk_pcie_pages/
+work/
+tmp_*.txt
+tmp_*.html
+tmp_*.log
+
+# FPGA exclusions
+fpga/ip/**/sim/
+
+# Tools specific exclusions
+tools/platform-tools.zip
+tools/kicad_out/
+tools/kicad_lib/
+tools/*kicad*
+tools/datasheet/
+tools/xr_usb_driver/
+tools/cam_accept/out/
+tools/ref_algo/bev_vectors/
+
+# Compilation artifacts
+tools/**/*.o
+tools/**/*.a
+tools/**/*.so
+
+# Executables without extension in tools/
+tools/npu_det/npu_bench
+tools/npu_det/npu_det
+tools/pcie_bench/pcie_bench
+tools/pcie_feed/pcie_feed
+tools/rga_smoke/rga_smoke
+tools/rk_hello/cma_phys_test
+tools/rk_hello/hello_mpp_rknn
+tools/test_feeder/test_feeder
+tools/usb_feed/qnpu_selftest
+tools/usb_feed/usb_feed
+
+# Host test: 排除大文件与二进制产物，只保留 *.c, *.h, *.sh, *.md
+tools/npu_det/host_test/*
+!tools/npu_det/host_test/*.c
+!tools/npu_det/host_test/*.h
+!tools/npu_det/host_test/*.sh
+!tools/npu_det/host_test/*.md
+
+# Labeling
+labeling/**/images/
+labeling/*.zip
+
+# Root artifacts
+check*.onnx
+run.log
+cmds.pds
+
+# 编辑器/临时文件
+*.swp
+*.sw[a-p]
+*~
