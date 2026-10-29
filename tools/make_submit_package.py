@@ -339,9 +339,17 @@ def main():
         for doc_name, content in memory_docs.items():
             zf.writestr(doc_name, content)
 
-        # 写入物理收集的文件
+        # 写入物理收集的文件，并生成 MANIFEST（路径/大小/SHA256）
+        import hashlib
+        manifest = ["# nesai2026 source package manifest", "# path\tsize_bytes\tsha256"]
         for arc_name, abs_path in sorted(entries.items()):
             zf.write(abs_path, arc_name)
+            h = hashlib.sha256()
+            with open(abs_path, "rb") as f:
+                for chunk in iter(lambda: f.read(1 << 20), b""):
+                    h.update(chunk)
+            manifest.append(f"{arc_name}\t{os.path.getsize(abs_path)}\t{h.hexdigest()}")
+        zf.writestr("MANIFEST.txt", "\n".join(manifest) + "\n")
 
     zip_size = os.path.getsize(out_path)
     size_mb = zip_size / (1024 * 1024)
