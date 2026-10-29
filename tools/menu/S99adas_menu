@@ -1,0 +1,40 @@
+#!/bin/sh
+# S99adas_menu — ADAS 演示启动守护
+#
+# 部署：cp S99adas_menu /etc/init.d/S99adas_menu && chmod +x /etc/init.d/S99adas_menu
+# 说明：
+#   - run_boot.sh 内部已有 mode_select 三次重试；本脚本再包一层守护，
+#     即使 run_boot 因连续失败退出，也会在 1 s 后重新拉起，避免现场白屏。
+#   - 日志统一写 /tmp/run_boot.log，并追加退出码与时间，便于现场排查。
+#   - stop 会清理整条链路的进程。
+
+case "$1" in
+  start)
+    (
+      while :; do
+        /userdata/quad/run_boot.sh >> /tmp/run_boot.log 2>&1
+        rc=$?
+        echo "[S99] run_boot exited rc=$rc at $(date)" >> /tmp/run_boot.log
+        sleep 1
+      done
+    ) &
+    echo "[S99] adas supervisor started"
+    ;;
+  stop)
+    pkill -f run_boot.sh 2>/dev/null
+    pkill -x mode_select 2>/dev/null
+    pkill -x menu_daemon 2>/dev/null
+    pkill -x usb_menu 2>/dev/null
+    pkill -x usb_feed 2>/dev/null
+    echo "[S99] adas supervisor stopped"
+    ;;
+  restart)
+    "$0" stop
+    sleep 1
+    "$0" start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+    ;;
+esac
