@@ -211,10 +211,7 @@ static int is_feed_alive(pid_t pid)
     if (pid <= 0) return 0;
     int status;
     pid_t r = waitpid(pid, &status, WNOHANG);
-    if (r == pid) {
-        return 0;
-    }
-    if (r == -1 && errno == ECHILD) {
+    if (r == pid || (r == -1 && errno == ECHILD)) {
         return 0;
     }
     return (kill(pid, 0) == 0);
@@ -228,6 +225,7 @@ static pid_t spawn_feed(const char *feed_bin, const char *bar1_arg, const char *
         return -1;
     }
     if (pid == 0) {
+        setpgid(0, 0);
         int log_fd = open("/tmp/menu_feed.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
         if (log_fd >= 0) {
             dup2(log_fd, STDOUT_FILENO);
@@ -257,28 +255,35 @@ static pid_t spawn_feed(const char *feed_bin, const char *bar1_arg, const char *
         perror("execvp feed");
         _exit(127);
     }
+    setpgid(pid, pid);
     return pid;
 }
 
 static void kill_feed(void)
 {
     if (g_feed_pid <= 0) return;
-    kill(g_feed_pid, SIGTERM);
+    pid_t pid = g_feed_pid;
+    g_feed_pid = -1;
+
+    if (kill(-pid, SIGTERM) < 0) {
+        kill(pid, SIGTERM);
+    }
     int status;
     int dead = 0;
-    for (int i = 0; i < 10; i++) {
-        pid_t r = waitpid(g_feed_pid, &status, WNOHANG);
-        if (r == g_feed_pid) {
+    for (int i = 0; i < 40; i++) {
+        pid_t r = waitpid(pid, &status, WNOHANG);
+        if (r == pid || (r == -1 && errno == ECHILD)) {
             dead = 1;
             break;
         }
         usleep(50000);
     }
     if (!dead) {
-        kill(g_feed_pid, SIGKILL);
-        waitpid(g_feed_pid, &status, 0);
+        if (kill(-pid, SIGKILL) < 0) {
+            kill(pid, SIGKILL);
+        }
+        waitpid(pid, &status, 0);
     }
-    g_feed_pid = -1;
 }
 
 int main(int argc, char **argv)

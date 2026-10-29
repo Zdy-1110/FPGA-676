@@ -1,3 +1,20 @@
+/*
+ * mode_select: 开机二选一选择界面
+ *
+ * 为什么需要等 DMA 静止：
+ *   从「实时四路」或播放模式退出返回开机选择界面时，若旧的 feed 进程（如 usb_feed）
+ *   尚未彻底退出，或 FPGA DMA 门铃队列中仍有残留分块未处理完，FPGA DMA 控制器仍会
+ *   持续搬运数据并自增 0x1C8 完成计数（usb_feed 在 30fps 下约以 397/s 速率自增）。
+ *   若 mode_select 此时读取 0x1C8 作为基准值 g_done_base，旧残留分块的完成会导致
+ *   完成计数突增，使无符号序列号差值计算 (g_seq - (rd(0x1C8) - g_done_base)) 发生下溢
+ *   成巨大正数（>= 16），进而导致首槽 DMA 超时（DMA chunk timeout on slot 0），屏幕
+ *   残留半幅画面。因此在首次推图前必须等待 0x1C8 保持静止。
+ *
+ * 0x1C8 的单位：
+ *   0x1C8 为 FPGA 门铃 DMA 完成计数器，其递增单位是 1 个 256 KB 的分块（chunk）。
+ *   usb_feed 推流时每帧划分为 13 个 256 KB 分块（4 路 960x540 YUV420sp/RGB565 总量）。
+ */
+
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -194,6 +211,83 @@ static void draw_highlight(volatile uint32_t *bar1, int sel)
     wr(bar1, 0x900u, lo);
 }
 
+static int wait_dma_idle(volatile uint32_t *bar1, uint32_t ms)
+{
+    uint64_t t_start = now_ns();
+    uint64_t timeout_ns = (uint64_t)ms * 1000000ULL;
+    uint64_t stable_required_ns = 100ULL * 1000000ULL; // 100 ms
+
+    uint32_t last_val = rd(bar1, 0x1C8u);
+    uint64_t last_change_time = t_start;
+
+    while (1) {
+        usleep(5000); // 5 ms 采样
+        uint64_t t_now = now_ns();
+        uint32_t cur_val = rd(bar1, 0x1C8u);
+
+        if (cur_val != last_val) {
+            last_val = cur_val;
+            last_change_time = t_now;
+        } else if (t_now - last_change_time >= stable_required_ns) {
+            return 0; // 100 ms 内计数未变，DMA 静止
+        }
+
+        if (t_now - t_start >= timeout_ns) {
+            return -1; // 超时
+        }
+    }
+}
+
+static int push_menu_screens(volatile uint32_t *bar1, const uint64_t *dma_pas)
+{
+    uint32_t fb_base = rd(bar1, 0x804u);
+    if (fb_base == 0) fb_base = 0x04000000u;
+    uint32_t fb_slot = rd(bar1, 0x808u);
+    if (fb_slot == 0) fb_slot = 0x00400000u;
+
+    uint32_t g_done_base = rd(bar1, 0x1C8u);
+    uint32_t g_seq = 0;
+    uint32_t fid = 1u;
+
+    for (int slot = 0; slot < 4; slot++) {
+        uint32_t dst_base = fb_base + (uint32_t)slot * fb_slot;
+        size_t frame_bytes = k_sel_sizes[slot];
+        uint64_t pa = dma_pas[slot];
+
+        for (size_t off = 0; off < frame_bytes; off += DMA_CHUNK_SIZE) {
+            uint32_t chunk_len = (uint32_t)(frame_bytes - off);
+            if (chunk_len > DMA_CHUNK_SIZE) chunk_len = DMA_CHUNK_SIZE;
+
+            uint64_t t0 = now_ns();
+            while ((uint32_t)(g_seq - (uint32_t)(rd(bar1, 0x1C8u) - g_done_base)) >= 16u) {
+                if (now_ns() - t0 >= DMA_TIMEOUT_NS) {
+                    fprintf(stderr, "DMA chunk timeout on slot %d\n", slot);
+                    return -1;
+                }
+            }
+
+            wr(bar1, 0x190u, (uint32_t)(pa + off));
+            wr(bar1, 0x194u, chunk_len);
+            wr(bar1, 0x198u, dst_base + (uint32_t)off);
+            g_seq++;
+            wr(bar1, 0x19Cu, g_seq);
+        }
+
+        uint64_t t0 = now_ns();
+        while ((uint32_t)(g_seq - (uint32_t)(rd(bar1, 0x1C8u) - g_done_base)) > 0u) {
+            if (now_ns() - t0 >= DMA_TIMEOUT_NS) {
+                fprintf(stderr, "DMA completion timeout on slot %d\n", slot);
+                return -1;
+            }
+        }
+
+        // 提交 0x814
+        wr(bar1, 0x814u, (((fid & 0xFFFFu) << 16) | (uint32_t)slot));
+        fid++;
+    }
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     uint64_t bar1_addr = 0xf0204000ULL;
@@ -281,10 +375,6 @@ int main(int argc, char **argv)
     clear_text_ram(bar1);
     clear_all_boxes(bar1);
 
-    // 读 0x1C8 作为完成计数基准
-    uint32_t g_done_base = rd(bar1, 0x1C8u);
-    uint32_t g_seq = 0;
-
     // 3. 读入 4 个 sel 素材并分配 DMA 缓冲
     int dma_fds[4] = { -1, -1, -1, -1 };
     void *dma_vas[4] = { NULL, NULL, NULL, NULL };
@@ -328,54 +418,43 @@ int main(int argc, char **argv)
         }
     }
 
-    // 4. 逐槽 DMA 提交素材
-    uint32_t fb_base = rd(bar1, 0x804u);
-    if (fb_base == 0) fb_base = 0x04000000u;
-    uint32_t fb_slot = rd(bar1, 0x808u);
-    if (fb_slot == 0) fb_slot = 0x00400000u;
+    // 等待 DMA 静止（启动流程：写 0x1A0=1 等初始化之后、第一次推图之前）
+    if (wait_dma_idle(bar1, 2000) < 0) {
+        fprintf(stderr, "mode_select: DMA still busy (0x1C8=%u), retry\n", rd(bar1, 0x1C8u));
+    }
 
-    uint32_t fid = 1u;
-    for (int slot = 0; slot < 4; slot++) {
-        uint32_t dst_base = fb_base + (uint32_t)slot * fb_slot;
-        size_t frame_bytes = k_sel_sizes[slot];
-        uint64_t pa = dma_pas[slot];
-
-        for (size_t off = 0; off < frame_bytes; off += DMA_CHUNK_SIZE) {
-            uint32_t chunk_len = (uint32_t)(frame_bytes - off);
-            if (chunk_len > DMA_CHUNK_SIZE) chunk_len = DMA_CHUNK_SIZE;
-
-            uint64_t t0 = now_ns();
-            while ((uint32_t)(g_seq - (uint32_t)(rd(bar1, 0x1C8u) - g_done_base)) >= 16u) {
-                if (now_ns() - t0 >= DMA_TIMEOUT_NS) {
-                    fprintf(stderr, "DMA chunk timeout on slot %d\n", slot);
-                    clear_all_boxes(bar1);
-                    munmap(map, 4096 + page_off);
-                    close(mem_fd);
-                    return 4;
-                }
-            }
-
-            wr(bar1, 0x190u, (uint32_t)(pa + off));
-            wr(bar1, 0x194u, chunk_len);
-            wr(bar1, 0x198u, dst_base + (uint32_t)off);
-            g_seq++;
-            wr(bar1, 0x19Cu, g_seq);
+    // 4. 逐槽 DMA 提交素材（推图超时后重试最多 3 次，每次间隔 300 ms，重试前重新写寄存器）
+    int push_ok = 0;
+    for (int retry = 0; retry <= 3; retry++) {
+        if (retry > 0) {
+            usleep(300000); // 间隔 300 ms
+            wr(bar1, 0x1A0u, 1u);
+            wr(bar1, 0x80Cu, 960u);
+            wr(bar1, 0x810u, 518400u);
+            wr(bar1, 0x804u, 0x04000000u);
+            wr(bar1, 0x808u, 0x00400000u);
         }
 
-        uint64_t t0 = now_ns();
-        while ((uint32_t)(g_seq - (uint32_t)(rd(bar1, 0x1C8u) - g_done_base)) > 0u) {
-            if (now_ns() - t0 >= DMA_TIMEOUT_NS) {
-                fprintf(stderr, "DMA completion timeout on slot %d\n", slot);
-                clear_all_boxes(bar1);
-                munmap(map, 4096 + page_off);
-                close(mem_fd);
-                return 4;
+        if (push_menu_screens(bar1, dma_pas) == 0) {
+            push_ok = 1;
+            break;
+        }
+    }
+
+    if (!push_ok) {
+        clear_all_boxes(bar1);
+        for (int i = 0; i < 4; i++) {
+            if (dma_vas[i] && dma_vas[i] != MAP_FAILED) {
+                size_t alloc_len = (k_sel_sizes[i] + 4095u) & ~(size_t)4095u;
+                munmap(dma_vas[i], alloc_len);
+            }
+            if (dma_fds[i] >= 0) {
+                close(dma_fds[i]);
             }
         }
-
-        // 提交 0x814
-        wr(bar1, 0x814u, (((fid & 0xFFFFu) << 16) | (uint32_t)slot));
-        fid++;
+        munmap(map, 4096 + page_off);
+        close(mem_fd);
+        return 4;
     }
 
     // 5. 写 0x800=0x65
