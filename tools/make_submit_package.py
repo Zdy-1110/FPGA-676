@@ -185,9 +185,10 @@ def collect_whitelist_files(repo_root, with_assets):
     add_directory("tools/usb_feed")
     add_directory(
         "tools/menu",
-        filter_fn=lambda f, p: f.lower().endswith((".c", ".h", ".sh", ".py")),
+        filter_fn=lambda f, p: f.lower().endswith((".c", ".h", ".sh", ".py", ".md")),
     )
     add_directory("tools/adas")
+    add_directory("tools/docs_figs", filter_fn=lambda f, p: f.lower().endswith(".py"))
     add_directory("tools/npu_det")
     for rk_tool in [
         "tools/rk_build.sh",
@@ -227,6 +228,7 @@ def collect_whitelist_files(repo_root, with_assets):
     add_single_file("docs/演示视频_分镜.md", "docs/演示视频_分镜.md", optional=True)
     add_single_file("docs/附录A_寄存器映射.md", "docs/附录A_寄存器映射.md", optional=True)
     add_single_file("docs/附录B_验证复现.md", "docs/附录B_验证复现.md", optional=True)
+    add_single_file("docs/附录C_术语与缩写.md", "docs/附录C_术语与缩写.md", optional=True)
     add_single_file("docs/答辩要点_评委问答.md", "docs/答辩要点_评委问答.md", optional=True)
     add_single_file("docs/演示现场运行手册.md", "docs/演示现场运行手册.md", optional=True)
     add_directory("docs/figs", optional=True)
