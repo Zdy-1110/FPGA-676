@@ -87,7 +87,7 @@ def check_docs() -> None:
     missing = [f for f in FIGURES if not os.path.isfile(os.path.join(ROOT, "docs", "figs", f))]
     record("doc:figures", not missing, ", ".join(missing))
 
-    for name in ("附录A_寄存器映射.md", "附录B_验证复现.md", "演示视频_分镜.md", "答辩要点_评委问答.md", "演示现场运行手册.md"):
+    for name in ("附录A_寄存器映射.md", "附录B_验证复现.md", "演示视频_分镜.md", "答辩要点_评委问答.md", "演示现场运行手册.md", "提交清单与待办.md"):
         p = os.path.join(ROOT, "docs", name)
         record(f"doc:{name}", os.path.isfile(p))
 
