@@ -1,0 +1,73 @@
+Reading pref.tcl
+
+# 2025.3
+
+# ** Note: (vsim-220) 'D:/Questa/questa_fse/win64/../modelsim.ini' is used as the ini file.
+# vsim -c -suppress 14408,16154 -t ps -do "run -all; quit -f" work_r6.tb_gl_board "+SEG=seg_recover" "+NFRAMES=40" 
+# Start time: 03:27:49 on Oct 30,2026
+# ** Note: (vsim-8009) Loading existing optimized design _opt2
+# //  Questa Altera Starter FPGA Edition-64
+# //  Version 2025.3 win64 Sep 15 2025
+# //
+# // Unpublished work. Copyright 2025 Siemens
+# //
+# // This material contains trade secrets or otherwise confidential information
+# // owned by Siemens Industry Software Inc. or its affiliates (collectively,
+# // "SISW"), or its licensors. Access to and use of this information is strictly
+# // limited as set forth in the Customer's applicable agreements with SISW.
+# //
+# // This material may not be copied, distributed, or otherwise disclosed outside
+# // of the Customer's facilities without the express written permission of SISW,
+# // and may not be used in any way not expressly authorized by SISW.
+# //
+# Loading sv_std.std
+# Loading work.tb_gl_board(fast)
+# run -all
+# === Starting Gate-Level Netlist Simulation for seg_recover (40 frames) ===
+# [FRAME 0] out_l_n=0 (exp 0), out_r_n=0 (exp 0), out_l_valid=0 (exp 0), out_l_a_q16=-62259 (exp -62259), out_l_b_q4=6400 (exp 6400)
+# [FRAME 1] out_l_n=0 (exp 0), out_r_n=0 (exp 0), out_l_valid=0 (exp 0), out_l_a_q16=-62259 (exp -62259), out_l_b_q4=6400 (exp 6400)
+# [FRAME 2] out_l_n=0 (exp 0), out_r_n=0 (exp 0), out_l_valid=0 (exp 0), out_l_a_q16=-62259 (exp -62259), out_l_b_q4=6400 (exp 6400)
+# [FRAME 3] out_l_n=0 (exp 0), out_r_n=0 (exp 0), out_l_valid=0 (exp 0), out_l_a_q16=-62259 (exp -62259), out_l_b_q4=6400 (exp 6400)
+# [FRAME 4] out_l_n=0 (exp 0), out_r_n=0 (exp 0), out_l_valid=0 (exp 0), out_l_a_q16=-62259 (exp -62259), out_l_b_q4=6400 (exp 6400)
+# [FRAME 5] out_l_n=0 (exp 0), out_r_n=0 (exp 0), out_l_valid=0 (exp 0), out_l_a_q16=-62259 (exp -62259), out_l_b_q4=6400 (exp 6400)
+# [FRAME 6] out_l_n=0 (exp 0), out_r_n=0 (exp 0), out_l_valid=0 (exp 0), out_l_a_q16=-62259 (exp -62259), out_l_b_q4=6400 (exp 6400)
+# [FRAME 7] out_l_n=0 (exp 0), out_r_n=0 (exp 0), out_l_valid=0 (exp 0), out_l_a_q16=-62259 (exp -62259), out_l_b_q4=6400 (exp 6400)
+# [FRAME 8] out_l_n=0 (exp 0), out_r_n=0 (exp 0), out_l_valid=0 (exp 0), out_l_a_q16=-62259 (exp -62259), out_l_b_q4=6400 (exp 6400)
+# [FRAME 9] out_l_n=0 (exp 0), out_r_n=0 (exp 0), out_l_valid=0 (exp 0), out_l_a_q16=-62259 (exp -62259), out_l_b_q4=6400 (exp 6400)
+# [FRAME 10] out_l_n=0 (exp 0), out_r_n=0 (exp 0), out_l_valid=0 (exp 0), out_l_a_q16=-62259 (exp -62259), out_l_b_q4=6400 (exp 6400)
+# [FRAME 11] out_l_n=0 (exp 0), out_r_n=0 (exp 0), out_l_valid=0 (exp 0), out_l_a_q16=-62259 (exp -62259), out_l_b_q4=6400 (exp 6400)
+# [FRAME 12] out_l_n=0 (exp 0), out_r_n=0 (exp 0), out_l_valid=0 (exp 0), out_l_a_q16=-62259 (exp -62259), out_l_b_q4=6400 (exp 6400)
+# [FRAME 13] out_l_n=0 (exp 0), out_r_n=0 (exp 0), out_l_valid=0 (exp 0), out_l_a_q16=-62259 (exp -62259), out_l_b_q4=6400 (exp 6400)
+# [FRAME 14] out_l_n=0 (exp 0), out_r_n=0 (exp 0), out_l_valid=0 (exp 0), out_l_a_q16=-62259 (exp -62259), out_l_b_q4=6400 (exp 6400)
+# [FRAME 15] out_l_n=0 (exp 0), out_r_n=0 (exp 0), out_l_valid=0 (exp 0), out_l_a_q16=-62259 (exp -62259), out_l_b_q4=6400 (exp 6400)
+# [FRAME 16] out_l_n=145 (exp 145), out_r_n=138 (exp 138), out_l_valid=1 (exp 1), out_l_a_q16=-63264 (exp -63264), out_l_b_q4=6402 (exp 6402)
+# [FRAME 17] out_l_n=146 (exp 146), out_r_n=138 (exp 138), out_l_valid=1 (exp 1), out_l_a_q16=-64808 (exp -64808), out_l_b_q4=6414 (exp 6414)
+# [FRAME 18] out_l_n=137 (exp 137), out_r_n=173 (exp 173), out_l_valid=1 (exp 1), out_l_a_q16=-64883 (exp -64883), out_l_b_q4=6412 (exp 6412)
+# [FRAME 19] out_l_n=137 (exp 137), out_r_n=173 (exp 173), out_l_valid=1 (exp 1), out_l_a_q16=-64920 (exp -64920), out_l_b_q4=6411 (exp 6411)
+# [FRAME 20] out_l_n=178 (exp 178), out_r_n=193 (exp 193), out_l_valid=1 (exp 1), out_l_a_q16=-67015 (exp -67015), out_l_b_q4=6437 (exp 6437)
+# [FRAME 21] out_l_n=189 (exp 189), out_r_n=193 (exp 193), out_l_valid=1 (exp 1), out_l_a_q16=-69211 (exp -69211), out_l_b_q4=6458 (exp 6458)
+# [FRAME 22] out_l_n=193 (exp 193), out_r_n=140 (exp 140), out_l_valid=1 (exp 1), out_l_a_q16=-72094 (exp -72094), out_l_b_q4=6521 (exp 6521)
+# [FRAME 23] out_l_n=194 (exp 194), out_r_n=142 (exp 142), out_l_valid=1 (exp 1), out_l_a_q16=-74835 (exp -74835), out_l_b_q4=6587 (exp 6587)
+# [FRAME 24] out_l_n=187 (exp 187), out_r_n=144 (exp 144), out_l_valid=1 (exp 1), out_l_a_q16=-74066 (exp -74066), out_l_b_q4=6578 (exp 6578)
+# [FRAME 25] out_l_n=187 (exp 187), out_r_n=146 (exp 146), out_l_valid=1 (exp 1), out_l_a_q16=-73592 (exp -73592), out_l_b_q4=6573 (exp 6573)
+# [FRAME 26] out_l_n=142 (exp 142), out_r_n=156 (exp 156), out_l_valid=1 (exp 1), out_l_a_q16=-72422 (exp -72422), out_l_b_q4=6543 (exp 6543)
+# [FRAME 27] out_l_n=149 (exp 149), out_r_n=162 (exp 162), out_l_valid=1 (exp 1), out_l_a_q16=-70252 (exp -70252), out_l_b_q4=6495 (exp 6495)
+# [FRAME 28] out_l_n=151 (exp 151), out_r_n=157 (exp 157), out_l_valid=1 (exp 1), out_l_a_q16=-70252 (exp -70252), out_l_b_q4=6495 (exp 6495)
+# [FRAME 29] out_l_n=151 (exp 151), out_r_n=156 (exp 156), out_l_valid=1 (exp 1), out_l_a_q16=-70252 (exp -70252), out_l_b_q4=6495 (exp 6495)
+# [FRAME 30] out_l_n=136 (exp 136), out_r_n=142 (exp 142), out_l_valid=1 (exp 1), out_l_a_q16=-71003 (exp -71003), out_l_b_q4=6489 (exp 6489)
+# [FRAME 31] out_l_n=139 (exp 139), out_r_n=141 (exp 141), out_l_valid=1 (exp 1), out_l_a_q16=-71525 (exp -71525), out_l_b_q4=6482 (exp 6482)
+# [FRAME 32] out_l_n=145 (exp 145), out_r_n=137 (exp 137), out_l_valid=1 (exp 1), out_l_a_q16=-71008 (exp -71008), out_l_b_q4=6463 (exp 6463)
+# [FRAME 33] out_l_n=145 (exp 145), out_r_n=137 (exp 137), out_l_valid=1 (exp 1), out_l_a_q16=-70598 (exp -70598), out_l_b_q4=6450 (exp 6450)
+# [FRAME 34] out_l_n=135 (exp 135), out_r_n=122 (exp 122), out_l_valid=1 (exp 1), out_l_a_q16=-70924 (exp -70924), out_l_b_q4=6437 (exp 6437)
+# [FRAME 35] out_l_n=134 (exp 134), out_r_n=122 (exp 122), out_l_valid=1 (exp 1), out_l_a_q16=-71472 (exp -71472), out_l_b_q4=6428 (exp 6428)
+# [FRAME 36] out_l_n=127 (exp 127), out_r_n=110 (exp 110), out_l_valid=1 (exp 1), out_l_a_q16=-74426 (exp -74426), out_l_b_q4=6485 (exp 6485)
+# [FRAME 37] out_l_n=130 (exp 130), out_r_n=109 (exp 109), out_l_valid=1 (exp 1), out_l_a_q16=-77487 (exp -77487), out_l_b_q4=6547 (exp 6547)
+# [FRAME 38] out_l_n=130 (exp 130), out_r_n=99 (exp 99), out_l_valid=1 (exp 1), out_l_a_q16=-80103 (exp -80103), out_l_b_q4=6580 (exp 6580)
+# [FRAME 39] out_l_n=133 (exp 133), out_r_n=99 (exp 99), out_l_valid=1 (exp 1), out_l_a_q16=-82652 (exp -82652), out_l_b_q4=6617 (exp 6617)
+# ==================================================
+# SEG seg_recover: row_mismatch=0 frame_field_mismatch=0
+# ==================================================
+# ** Note: $finish    : tb_gl_board.v(266)
+#    Time: 82555907343 ps  Iteration: 1  Instance: /tb_gl_board
+# End time: 05:42:58 on Oct 30,2026, Elapsed time: 2:15:09
+# Errors: 0, Warnings: 0, Suppressed Errors: 1
