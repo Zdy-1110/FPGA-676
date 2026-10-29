@@ -51,6 +51,7 @@
 #include "im2d.h"
 #include "vdec_mpp.h"
 #include "quad_npu.h"
+#include "adas.h"
 
 #if defined(__has_include) && __has_include(<linux/dma-heap.h>)
 #include <linux/dma-heap.h>
@@ -131,6 +132,7 @@ typedef struct {
     int slot0_rgb565;         /* 1 = slot0 outputs RGB565 (960x540, stride 1920) */
     int dec_bufs;             /* decoder external buffer count per video */
     const char *npu_model;    /* RKNN model path (NULL = disabled) */
+    const char *adas_cfg;     /* ADAS config path (NULL = disabled) */
     int npu_weights[4];       /* SWRR weights */
     float npu_conf;           /* confidence threshold */
     int npu_dump;             /* dump count */
@@ -1085,6 +1087,19 @@ static int cam_run(Cam *c)
                 nsrc.frame_id = c->frames_done;
                 qnpu_offer(c->slot, &nsrc);
             }
+            if (g_opt.adas_cfg && c->slot == 0 && (c->frames_done % 6 == 0)) {
+                QnpuSrc asrc;
+                memset(&asrc, 0, sizeof(asrc));
+                asrc.handle = (uint32_t)src_h;
+                asrc.fd = vf.fd;
+                asrc.width = (int)vf.width;
+                asrc.height = (int)vf.height;
+                asrc.wstride = (int)vf.hor_stride;
+                asrc.hstride = (int)vf.ver_stride;
+                asrc.format = RK_FORMAT_YCbCr_420_SP;
+                asrc.frame_id = c->frames_done;
+                adas_offer(0, &asrc);
+            }
             vdec_release(&c->vdec, &vf);
             dst_idx = d;
             c->dst_idx = (c->dst_idx + 1) % RGA_DST_BUFS;
@@ -1168,6 +1183,19 @@ static int cam_run(Cam *c)
                     nsrc.frame_id = c->frames_done;
                     qnpu_offer(c->slot, &nsrc);
                 }
+            }
+            if (g_opt.adas_cfg && c->slot == 0 && (c->frames_done % 6 == 0)) {
+                QnpuSrc asrc;
+                memset(&asrc, 0, sizeof(asrc));
+                asrc.handle = (uint32_t)c->src_handle;
+                asrc.fd = c->cap_fd;
+                asrc.width = c->src_w;
+                asrc.height = c->src_h;
+                asrc.wstride = c->src_w;
+                asrc.hstride = c->is_file ? c->src_pad_h : c->src_h;
+                asrc.format = RK_FORMAT_YCbCr_420_SP;
+                asrc.frame_id = c->frames_done;
+                adas_offer(0, &asrc);
             }
         }
 
@@ -1325,6 +1353,11 @@ static void print_stat(void)
         qnpu_stats_line(nbuf, sizeof(nbuf));
         printf("npu: %s\n", nbuf);
     }
+    if (g_opt.adas_cfg) {
+        char abuf[256];
+        adas_stats_line(abuf, sizeof(abuf));
+        printf("%s\n", abuf);
+    }
     g_last_print_ns = now;
     for (i = 0; i < g_ncams; i++) if (g_cams[i].csv) fflush(g_cams[i].csv);
 }
@@ -1399,6 +1432,7 @@ static void usage(const char *p)
         "  --npu-weights a,b,c,d        SWRR scheduling weights for 4 channels (default 2,1,1,1)\n"
         "  --npu-conf F                 confidence threshold (default 0.25)\n"
         "  --npu-dump N                 dump N frames per channel to /tmp/qnpu_dump (default 0)\n"
+        "  --adas <cfg>                 enable ADAS lane/traffic light assistant (cfg optional)\n"
         "  --file-once                  play video files once and exit (default: loop)\n"
         "  --slot0-rgb565               output RGB565 (stride 1920, 960x540) for slot 0\n"
         "  --dump-slot0 N[:K]           dump N frames from slot0 (every K, def 30) to /tmp/slot0_dump (RGB565 LE: R[15:11], G[10:5], B[4:0])\n"
@@ -1560,6 +1594,7 @@ int main(int argc, char **argv)
     g_opt.gst_log = "/tmp/usb_feed_gst.log";
     g_opt.dec_bufs = 10;
     g_opt.npu_model = NULL;
+    g_opt.adas_cfg = NULL;
     g_opt.npu_weights[0] = 2;
     g_opt.npu_weights[1] = 1;
     g_opt.npu_weights[2] = 1;
@@ -1615,6 +1650,7 @@ int main(int argc, char **argv)
             }
         }
         else if (!strcmp(a, "--npu") && i + 1 < argc) g_opt.npu_model = argv[++i];
+        else if (!strcmp(a, "--adas") && i + 1 < argc) g_opt.adas_cfg = argv[++i];
         else if (!strcmp(a, "--npu-weights") && i + 1 < argc) {
             if (sscanf(argv[++i], "%d,%d,%d,%d", &g_opt.npu_weights[0], &g_opt.npu_weights[1],
                        &g_opt.npu_weights[2], &g_opt.npu_weights[3]) != 4) {
@@ -1882,6 +1918,14 @@ int main(int argc, char **argv)
         }
     }
 
+    /* Initialize ADAS if requested */
+    if (g_opt.adas_cfg) {
+        if (adas_init(g_reg, g_opt.adas_cfg) != 0) {
+            fprintf(stderr, "adas_init failed, continuing without ADAS\n");
+            g_opt.adas_cfg = NULL;
+        }
+    }
+
     /* Worker threads must not take SIGINT/SIGTERM: main is the only thread that
      * handles them, so it can kill the gst children and unblock the readers. */
     {
@@ -1933,6 +1977,10 @@ int main(int argc, char **argv)
     if (g_opt.npu_model) {
         qnpu_stop();
     }
+    if (g_opt.adas_cfg) {
+        adas_stop();
+        g_opt.adas_cfg = NULL;
+    }
 
     print_summary();
     rc = 0;
@@ -1940,6 +1988,10 @@ int main(int argc, char **argv)
     if (g_stop) rc = 0;
 
 out:
+    if (g_opt.adas_cfg) {
+        adas_stop();
+        g_opt.adas_cfg = NULL;
+    }
     if (g_opt.npu_model) {
         qnpu_stop();
     }
