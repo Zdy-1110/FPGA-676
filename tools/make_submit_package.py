@@ -197,6 +197,7 @@ def collect_whitelist_files(repo_root, with_assets):
         "tools/rk_put.py",
         "tools/rk_diag.py",
         "tools/selftest.py",
+        "tools/make_demo_udisk.py",
     ]:
         add_single_file(rk_tool, rk_tool)
 
