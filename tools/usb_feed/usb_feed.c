@@ -145,6 +145,7 @@ typedef struct {
     int index;
     int is_file;              /* 0 = cam (v4l2src), 1 = file (filesrc) */
     int is_video;             /* 1 = video (MPP direct decode to CMA) */
+    int is_still;             /* 1 = still image (decode once, loop push) */
     char dev[512];            /* device path or video file path */
     int slot;
     int fps;                  /* effective per-channel rate */
@@ -158,6 +159,11 @@ typedef struct {
     size_t dst_len;           /* dma buffer allocation bytes */
     char csv_path[512];
     char log_path[512];
+
+    /* still image buffer */
+    void *still_nv12;
+    size_t still_bytes;
+    int still_w, still_h;
 
     /* gst child + pipe */
     pid_t pid;
@@ -509,6 +515,99 @@ static int probe_video_codec(const char *path)
     return is_h264 ? CODEC_H264 : CODEC_H265;
 }
 
+static int probe_png(FILE *fp, int *w, int *h)
+{
+    uint8_t hdr[24];
+    if (fseek(fp, 0, SEEK_SET) != 0) return -1;
+    if (fread(hdr, 1, 24, fp) != 24) return -1;
+    if (memcmp(hdr, "\x89PNG\r\n\x1a\n", 8) != 0) return -1;
+    if (memcmp(hdr + 12, "IHDR", 4) != 0) return -1;
+    *w = (int)((hdr[16] << 24) | (hdr[17] << 16) | (hdr[18] << 8) | hdr[19]);
+    *h = (int)((hdr[20] << 24) | (hdr[21] << 16) | (hdr[22] << 8) | hdr[23]);
+    return (*w > 0 && *h > 0) ? 0 : -1;
+}
+
+static int probe_bmp(FILE *fp, int *w, int *h)
+{
+    uint8_t hdr[26];
+    if (fseek(fp, 0, SEEK_SET) != 0) return -1;
+    if (fread(hdr, 1, 26, fp) != 26) return -1;
+    if (hdr[0] != 'B' || hdr[1] != 'M') return -1;
+    int32_t width = (int32_t)(hdr[18] | (hdr[19] << 8) | (hdr[20] << 16) | (hdr[21] << 24));
+    int32_t height = (int32_t)(hdr[22] | (hdr[23] << 8) | (hdr[24] << 16) | (hdr[25] << 24));
+    if (height < 0) height = -height;
+    if (width <= 0 || height <= 0) return -1;
+    *w = (int)width;
+    *h = (int)height;
+    return 0;
+}
+
+static int probe_jpeg(FILE *fp, int *w, int *h)
+{
+    uint8_t b[8];
+    if (fseek(fp, 0, SEEK_SET) != 0) return -1;
+    if (fread(b, 1, 2, fp) != 2 || b[0] != 0xFF || b[1] != 0xD8) return -1;
+    while (!feof(fp)) {
+        int c;
+        do {
+            c = fgetc(fp);
+            if (c == EOF) return -1;
+        } while (c != 0xFF);
+        do {
+            c = fgetc(fp);
+            if (c == EOF) return -1;
+        } while (c == 0xFF);
+        uint8_t marker = (uint8_t)c;
+        if (marker == 0xD9 || marker == 0xDA) return -1; /* EOI or SOS */
+        if (fread(b, 1, 2, fp) != 2) return -1;
+        uint16_t len = (uint16_t)((b[0] << 8) | b[1]);
+        if (len < 2) return -1;
+        if ((marker >= 0xC0 && marker <= 0xC3) ||
+            (marker >= 0xC5 && marker <= 0xC7) ||
+            (marker >= 0xC9 && marker <= 0xCB) ||
+            (marker >= 0xCD && marker <= 0xCF)) {
+            if (fread(b, 1, 5, fp) != 5) return -1;
+            *h = (int)((b[1] << 8) | b[2]);
+            *w = (int)((b[3] << 8) | b[4]);
+            return (*w > 0 && *h > 0) ? 0 : -1;
+        }
+        if (fseek(fp, (long)len - 2, SEEK_CUR) != 0) return -1;
+    }
+    return -1;
+}
+
+static int probe_image_file(const char *path, int *out_w, int *out_h)
+{
+    FILE *fp = fopen(path, "rb");
+    if (fp) {
+        if (probe_png(fp, out_w, out_h) == 0) { fclose(fp); return 0; }
+        if (probe_bmp(fp, out_w, out_h) == 0) { fclose(fp); return 0; }
+        if (probe_jpeg(fp, out_w, out_h) == 0) { fclose(fp); return 0; }
+        fclose(fp);
+    }
+    /* Fallback: gst-discoverer-1.0 */
+    char cmd[1024];
+    snprintf(cmd, sizeof(cmd), "gst-discoverer-1.0 \"%s\" 2>/dev/null", path);
+    FILE *pfp = popen(cmd, "r");
+    if (pfp) {
+        char line[512];
+        int w = 0, h = 0;
+        while (fgets(line, sizeof(line), pfp)) {
+            char *pw = strstr(line, "Width: ");
+            if (pw) { int v = atoi(pw + 7); if (v > 0) w = v; }
+            char *ph = strstr(line, "Height: ");
+            if (ph) { int v = atoi(ph + 8); if (v > 0) h = v; }
+        }
+        pclose(pfp);
+        if (w > 0 && h > 0) {
+            *out_w = w;
+            *out_h = h;
+            return 0;
+        }
+    }
+    return -1;
+}
+
 /* ---------------- gst pipeline child ---------------- */
 
 static int gst_open(Cam *c)
@@ -543,6 +642,22 @@ static int gst_open(Cam *c)
             argv[n++] = "!";
             argv[n++] = "video/x-h264,stream-format=byte-stream,alignment=au";
         }
+        argv[n++] = "!";
+        argv[n++] = "fdsink";
+        argv[n++] = "fd=1";
+        argv[n] = NULL;
+    } else if (c->is_still) {
+        snprintf(locarg, sizeof(locarg), "location=%s", c->dev);
+        argv[n++] = "gst-launch-1.0";
+        argv[n++] = "-q";
+        argv[n++] = "filesrc";
+        argv[n++] = locarg;
+        argv[n++] = "!";
+        argv[n++] = "decodebin";
+        argv[n++] = "!";
+        argv[n++] = "videoconvert";
+        argv[n++] = "!";
+        argv[n++] = "video/x-raw,format=NV12";
         argv[n++] = "!";
         argv[n++] = "fdsink";
         argv[n++] = "fd=1";
@@ -860,6 +975,9 @@ static int cam_alloc(Cam *c)
     if (c->is_file) {
         printf("cam%d: file %s src=%dx%d pad_h=%d read_bytes=%zu\n",
                c->index, c->dev, c->src_w, c->src_h, c->src_pad_h, c->cap_bytes);
+    } else if (c->is_still) {
+        printf("cam%d: still %s src=%dx%d pad_h=%d read_bytes=%zu\n",
+               c->index, c->dev, c->src_w, c->src_h, c->src_pad_h, c->cap_bytes);
     }
     snprintf(tag, sizeof(tag), "cam%d cap", c->index);
     if (alloc_dma_buf(tag, c->cap_bytes, &c->cap_fd, &c->cap_va, NULL) < 0) return -1;
@@ -905,6 +1023,11 @@ static void cam_release(Cam *c)
             c->vdec_src_fds[i] = -1;
         }
         vdec_close(&c->vdec);
+    }
+
+    if (c->is_still && c->still_nv12) {
+        free(c->still_nv12);
+        c->still_nv12 = NULL;
     }
 
     if (c->src_handle > 0) { releasebuffer_handle(c->src_handle); c->src_handle = 0; }
@@ -1103,6 +1226,40 @@ static int cam_run(Cam *c)
             vdec_release(&c->vdec, &vf);
             dst_idx = d;
             c->dst_idx = (c->dst_idx + 1) % RGA_DST_BUFS;
+        } else if (c->is_still) {
+            dst_idx = rga_convert(c, &t_rga);
+            if (dst_idx < 0) {
+                c->err++;
+                c->rga_err++;
+                continue;
+            }
+            c->grabbed++;
+            if (g_opt.npu_model) {
+                QnpuSrc nsrc;
+                memset(&nsrc, 0, sizeof(nsrc));
+                nsrc.handle = (uint32_t)c->src_handle;
+                nsrc.fd = c->cap_fd;
+                nsrc.width = c->src_w;
+                nsrc.height = c->src_h;
+                nsrc.wstride = c->src_w;
+                nsrc.hstride = c->src_h;
+                nsrc.format = RK_FORMAT_YCbCr_420_SP;
+                nsrc.frame_id = c->frames_done;
+                qnpu_offer(c->slot, &nsrc);
+            }
+            if (g_opt.adas_cfg && c->slot == 0 && (c->frames_done % 6 == 0)) {
+                QnpuSrc asrc;
+                memset(&asrc, 0, sizeof(asrc));
+                asrc.handle = (uint32_t)c->src_handle;
+                asrc.fd = c->cap_fd;
+                asrc.width = c->src_w;
+                asrc.height = c->src_h;
+                asrc.wstride = c->src_w;
+                asrc.hstride = c->src_h;
+                asrc.format = RK_FORMAT_YCbCr_420_SP;
+                asrc.frame_id = c->frames_done;
+                adas_offer(0, &asrc);
+            }
         } else {
             size_t got = 0;
             int r;
@@ -1305,12 +1462,49 @@ static void *cam_thread(void *arg)
         return NULL;
     }
     if (gst_open(c) < 0) {
+        if (c->is_still) {
+            fprintf(stderr, "still: decode failed for %s\n", c->dev);
+        }
         c->err++;
         c->rc = 1;
         c->dead = 1;
         cam_release(c);
         c->finished = 1;
         return NULL;
+    }
+
+    if (c->is_still) {
+        c->still_nv12 = malloc(c->still_bytes);
+        if (!c->still_nv12) {
+            fprintf(stderr, "cam%d: out of memory allocating still buffer (%zu bytes)\n",
+                    c->index, c->still_bytes);
+            fprintf(stderr, "still: decode failed for %s\n", c->dev);
+            c->err++;
+            c->rc = 1;
+            c->dead = 1;
+            cam_release(c);
+            c->finished = 1;
+            return NULL;
+        }
+        size_t got = 0;
+        int r = read_full(c->fd, c->still_nv12, c->still_bytes, &got);
+        gst_close(c);
+        if (r != 1 || got < c->still_bytes) {
+            fprintf(stderr, "still: decode failed for %s\n", c->dev);
+            free(c->still_nv12);
+            c->still_nv12 = NULL;
+            c->err++;
+            c->rc = 1;
+            c->dead = 1;
+            cam_release(c);
+            c->finished = 1;
+            return NULL;
+        }
+        if (c->cap_va && c->cap_bytes >= c->still_bytes) {
+            memcpy(c->cap_va, c->still_nv12, c->still_bytes);
+        }
+        printf("cam%d: still image %s decoded ok (%dx%d, %zu bytes)\n",
+               c->index, c->dev, c->still_w, c->still_h, c->still_bytes);
     }
 
     c->rc = cam_run(c);
@@ -1427,6 +1621,7 @@ static void usage(const char *p)
         "  --cam <dev>:<slot>[:<fps>]   repeatable (max %d), capture thread per camera\n"
         "  --file <path>:<slot>[:<fps>] repeatable (max %d), playback thread per video file\n"
         "  --video <path>:<slot>[:<fps>] repeatable (max %d), hardware decode video file (MPP+CMA)\n"
+        "  --still <path>:<slot>[:<fps>] repeatable (max %d), display still image loop\n"
         "  --dec-bufs N                 decoder external buffer count per video (default 10)\n"
         "  --npu <model.rknn>           enable quad NPU inference with specified model\n"
         "  --npu-weights a,b,c,d        SWRR scheduling weights for 4 channels (default 2,1,1,1)\n"
@@ -1446,7 +1641,7 @@ static void usage(const char *p)
         "  --csv <path>     per-frame CSV (<path>.<slot>.csv when multi-camera)\n"
         "  --gst-log <path> gst stderr log (<path>.<slot>.log when multi-camera)\n"
         "  --help, -h       show this help message\n",
-        p, MAX_CAMS, MAX_CAMS, MAX_CAMS);
+        p, MAX_CAMS, MAX_CAMS, MAX_CAMS, MAX_CAMS);
 }
 
 static int parse_size(const char *s, int *w, int *h)
@@ -1555,6 +1750,38 @@ static int parse_video_spec(const char *s, Cam *c)
     return 0;
 }
 
+/* <path>:<slot>[:<fps>] (path does not contain colons) */
+static int parse_still_spec(const char *s, Cam *c)
+{
+    c->is_still = 1;
+    c->is_video = 0;
+    c->is_file = 0;
+    const char *sep = strchr(s, ':');
+    char *end = NULL;
+    size_t len;
+    long v, f;
+
+    if (!sep || sep == s) return -1;
+    len = (size_t)(sep - s);
+    if (len >= sizeof(c->dev)) return -1;
+    memcpy(c->dev, s, len);
+    c->dev[len] = '\0';
+
+    v = strtol(sep + 1, &end, 10);
+    if (end == sep + 1 || v < 0 || v > 3) return -1;
+    c->slot = (int)v;
+    c->fps = -1;
+    if (*end == ':') {
+        const char *fs = end + 1;
+        f = strtol(fs, &end, 10);
+        if (end == fs || *end != '\0' || f < 0 || f > 1000) return -1;
+        c->fps = (int)f;
+    } else if (*end != '\0') {
+        return -1;
+    }
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     int i, rc = 0;
@@ -1567,6 +1794,11 @@ int main(int argc, char **argv)
         g_cams[i].index = i;
         g_cams[i].is_file = 0;
         g_cams[i].is_video = 0;
+        g_cams[i].is_still = 0;
+        g_cams[i].still_nv12 = NULL;
+        g_cams[i].still_bytes = 0;
+        g_cams[i].still_w = 0;
+        g_cams[i].still_h = 0;
         g_cams[i].fd = -1;
         g_cams[i].pid = -1;
         g_cams[i].cap_fd = -1;
@@ -1637,6 +1869,18 @@ int main(int argc, char **argv)
             }
             if (parse_video_spec(argv[++i], &g_cams[g_ncams]) < 0) {
                 fprintf(stderr, "bad --video '%s' (want <path>:<slot>[:<fps>], slot 0..3)\n", argv[i]);
+                usage(argv[0]);
+                return 2;
+            }
+            g_ncams++;
+        }
+        else if (!strcmp(a, "--still") && i + 1 < argc) {
+            if (g_ncams >= MAX_CAMS) {
+                fprintf(stderr, "--still: at most %d channels total\n", MAX_CAMS);
+                return 2;
+            }
+            if (parse_still_spec(argv[++i], &g_cams[g_ncams]) < 0) {
+                fprintf(stderr, "bad --still '%s' (want <path>:<slot>[:<fps>], slot 0..3)\n", argv[i]);
                 usage(argv[0]);
                 return 2;
             }
@@ -1768,6 +2012,19 @@ int main(int argc, char **argv)
             c->src_h = 0;
             c->src_pad_h = 0;
             c->cap_bytes = 0;
+        } else if (c->is_still) {
+            int probe_rc = probe_image_file(c->dev, &c->still_w, &c->still_h);
+            if (probe_rc < 0 || c->still_w <= 0 || c->still_h <= 0) {
+                c->still_w = g_opt.dst_w;
+                c->still_h = g_opt.dst_h;
+            }
+            c->still_w &= ~1;
+            c->still_h &= ~1;
+            c->src_w = c->still_w;
+            c->src_h = c->still_h;
+            c->src_pad_h = c->still_h;
+            c->still_bytes = (size_t)c->still_w * (size_t)c->still_h * 3u / 2u;
+            c->cap_bytes = c->still_bytes;
         } else if (c->is_file) {
             int probe_rc = probe_video_file(c->dev, &c->codec, &c->src_w, &c->src_h);
             if (probe_rc < 0 || c->codec == CODEC_UNKNOWN) {
