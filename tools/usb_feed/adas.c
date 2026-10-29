@@ -1,9 +1,27 @@
+/*
+ * ADAS 驾驶状态基线逻辑：
+ * FPGA (fpga/src/disp/rt_osd_ctl.v:318-339) 将物理按键直接映射为驾驶状态：
+ *   KEY0 短按: 自车车道循环切换 (lane 0->1->2->0)
+ *   KEY1 短按: 行驶/停止切换 (moving 0<->1)
+ *   KEY2/KEY3: 转向请求；KEY4: 显示模式/信号源/cal_mode
+ * 菜单程序 (menu_daemon / usb_menu) 同样复用 KEY0 (移动光标) 与 KEY1 (确认/选中)。
+ * 用户在浏览菜单时会无意中改写 FPGA 内部的 lane 与 moving 寄存器状态 (经 0x848 回读)。
+ * 导致进入视频播放后 ADAS 读取到被菜单污染的 moving/lane，从而产生误报（如误判闯红灯）。
+ *
+ * 为此引入基线逻辑 (g_lane_base / g_moving_base)：
+ * 1. 初值由环境变量 ADAS_LANE_BASE / ADAS_MOVING_BASE 读取，缺省 -1 表示未定；
+ * 2. 首次采样若基线仍为 -1，则以当前 0x848 raw 状态为基线，首帧生效值置为 lane=1 (直行)、moving=0 (停止)；
+ * 3. 运行期间支持 SIGUSR1 信号触发重新采样基线 (rebaseline)；
+ * 4. ADAS 所有决策与 OSD 显示均使用相对基线的生效状态 (lane_eff / moving_eff)。
+ */
+
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <signal.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -55,6 +73,16 @@ static double g_adas_fps = 0.0;
 static int g_adas_processed_frames = 0;
 static int g_last_sig[3] = { 0, 0, 0 };
 static int g_last_dec = 0;
+
+static int g_lane_base = -1;
+static int g_moving_base = -1;
+static volatile sig_atomic_t g_rebaseline = 0;
+
+static void adas_sigusr1_handler(int sig)
+{
+    (void)sig;
+    g_rebaseline = 1;
+}
 
 static int alloc_dma_bgr_buf(void)
 {
@@ -218,12 +246,35 @@ static void *adas_thread(void *arg)
 
         if (g_bar1) {
             uint32_t drv = g_bar1[0x848u / 4];
-            int lane = drv & 3;
-            int moving = (drv >> 2) & 1;
+            int raw_lane = (int)(drv & 3u);
+            if (raw_lane > 2) raw_lane = 2;
+            int raw_moving = (int)((drv >> 2) & 1u);
             int lreq = (drv >> 3) & 1;
             int rreq = (drv >> 4) & 1;
 
-            tl_filter_update(&g_tl_filter, raw3, !moving, g_last_sig);
+            int lane_eff;
+            int moving_eff;
+
+            if (g_rebaseline) {
+                g_rebaseline = 0;
+                g_lane_base = raw_lane;
+                g_moving_base = raw_moving;
+                lane_eff = 1;
+                moving_eff = 0;
+                fprintf(stderr, "adas: rebaseline lane=%d moving=%d\n", g_lane_base, g_moving_base);
+            } else if (g_lane_base < 0 || g_moving_base < 0) {
+                if (g_lane_base < 0) g_lane_base = raw_lane;
+                if (g_moving_base < 0) g_moving_base = raw_moving;
+                lane_eff = 1;
+                moving_eff = 0;
+                fprintf(stderr, "adas: baseline lane=%d moving=%d\n", g_lane_base, g_moving_base);
+            } else {
+                /* 基线视为直行，KEY0 每按一次相对偏移一格；这样菜单浏览期间的按键不会改变开播瞬间的车道语义 */
+                lane_eff = (raw_lane - g_lane_base + 1 + 3) % 3;
+                moving_eff = raw_moving ^ g_moving_base;
+            }
+
+            tl_filter_update(&g_tl_filter, raw3, !moving_eff, g_last_sig);
 
             uint32_t ls = g_bar1[0x8D0u / 4];
             uint32_t rs = g_bar1[0x8DCu / 4];
@@ -249,14 +300,14 @@ static void *adas_thread(void *arg)
 
             uint32_t dec = 0;
             if (hazard) {
-                dec = (3u << (2 * lane)) | (1u << 8);
+                dec = (3u << (2 * lane_eff)) | (1u << 8);
             } else {
-                int sig = (lane >= 0 && lane < 3) ? g_last_sig[lane] : 0;
+                int sig = (lane_eff >= 0 && lane_eff < 3) ? g_last_sig[lane_eff] : 0;
                 if (sig == 1 || sig == 2) {
-                    dec |= (3u << (2 * lane));
-                    if (moving) dec |= (1u << 8);
+                    dec |= (3u << (2 * lane_eff));
+                    if (moving_eff) dec |= (1u << 8);
                 } else if (sig == 3) {
-                    dec |= (2u << (2 * lane));
+                    dec |= (2u << (2 * lane_eff));
                 } else {
                     dec |= (2u << (2 * 1));
                 }
@@ -275,11 +326,12 @@ static void *adas_thread(void *arg)
             g_bar1[0x850u / 4] = dec;
             g_last_dec = dec;
 
-            char ln_ch = (lane == 0) ? 'L' : ((lane == 2) ? 'R' : 'S');
+            char ln_ch = (lane_eff == 0) ? 'L' : ((lane_eff == 2) ? 'R' : 'S');
             memset(text, ' ', sizeof(text));
-            snprintf(text, sizeof(text), "L:%s S:%s R:%s LN:%c MOV:%d HZ:%d",
+            snprintf(text, sizeof(text), "L:%s S:%s R:%s LN:%c MOV:%d HZ:%d B:%d%d",
                      tl_str_abbr(g_last_sig[0]), tl_str_abbr(g_last_sig[1]),
-                     tl_str_abbr(g_last_sig[2]), ln_ch, moving, hazard);
+                     tl_str_abbr(g_last_sig[2]), ln_ch, moving_eff, hazard,
+                     raw_lane, raw_moving);
             int len = strlen(text);
             if (len < 64) text[len] = ' ';
             for (int i = 0; i < 16; i++) {
@@ -306,6 +358,30 @@ int adas_init(volatile uint32_t *bar1, const char *cfg_path)
     tl_params_default(&g_tl_params);
     g_tl_params.roi_y_max_frac = 1.0;
     tl_filter_init(&g_tl_filter, &g_tl_params, 10.0);
+
+    g_lane_base = -1;
+    g_moving_base = -1;
+    const char *env_lane = getenv("ADAS_LANE_BASE");
+    if (env_lane && *env_lane) {
+        int v = atoi(env_lane);
+        if (v >= 0 && v <= 2) {
+            g_lane_base = v;
+        }
+    }
+    const char *env_mov = getenv("ADAS_MOVING_BASE");
+    if (env_mov && *env_mov) {
+        int v = atoi(env_mov);
+        if (v >= 0 && v <= 1) {
+            g_moving_base = v;
+        }
+    }
+
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = adas_sigusr1_handler;
+    sa.sa_flags = SA_RESTART;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGUSR1, &sa, NULL);
 
     if (alloc_dma_bgr_buf() != 0) {
         fprintf(stderr, "ADAS: CMA buffer allocation failed, ADAS disabled\n");
