@@ -67,3 +67,20 @@ sh tools/rk_build.sh tools/npu_det/npu_bench tools/npu_det/npu_bench.c tools/npu
   板端程序可直接加载使用。
 - 离线模型转换脚本：
   脚本路径为 `tools/npu_convert/convert_rknn.py`，依赖 `rknn-toolkit2 1.5.0`，用于将 ONNX 模型量化转换为 RKNN 格式。
+
+## 四、一键自检
+
+```sh
+python tools/selftest.py          # 全量：menu_daemon / mode_select / usb_menu / usb_feed + 脚本语法 + 文档不变量
+python tools/selftest.py --quick  # 跳过最慢的 usb_feed
+```
+
+自检覆盖：交叉编译（`-Wall -Wextra`，0 warning）、`run_boot.sh` 与 `S99adas_menu` 的 `sh -n`、文档章节数与禁用表述、图片与字库资产完整性。退出码 0 表示全部通过。
+
+## 五、现场诊断
+
+```sh
+python tools/rk_diag.py 192.168.3.51
+```
+
+检查 PCIe 端点使能/速率/宽度、固件版本 `0x838`、显示主控 `0x800`、欠载 `0x82C`、门铃计数、关键进程、U 盘挂载与 CMA 余量；任一项失败返回 1。
