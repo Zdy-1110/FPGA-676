@@ -15,6 +15,8 @@ fail_cnt=0
 while :; do
   sel=$(./mode_select --bar1 0xf0204000 --dir /userdata/quad/menu); rc=$?
   if [ $rc -ne 0 ]; then
+    # rc=2 是用户在 mode_select 里主动退出，直接回到选择界面，不计失败
+    [ $rc -eq 2 ] && continue
     fail_cnt=$((fail_cnt + 1))
     if [ $fail_cnt -ge 3 ]; then
       echo "mode_select failed 3x" >> /tmp/run_boot.log
