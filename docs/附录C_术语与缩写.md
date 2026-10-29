@@ -3,12 +3,12 @@
 | 缩写/术语 | 全称 | 在本项目中的含义 |
 |---|---|---|
 | ADAS | Advanced Driver Assistance System | 高级驾驶辅助系统；本项目实现红绿灯判决、变道合规、危险目标预警 |
-| APM | Adder/Multiplier block | 盘古 FPGA 内的乘加硬核；本设计占用 61/240 |
+| APM | （Pango 资源统计口径，不做英文展开） | 盘古 FPGA 内的乘加硬核；本设计占用 61/240 |
 | BEV | Bird's Eye View | 俯视/鸟瞰视图；本项目保留标定与透视图层，未做完整环视融合 |
 | CMA | Contiguous Memory Allocator | Linux 连续物理内存；本项目预留 256 MB 给视频/NPU 缓冲 |
 | DMA | Direct Memory Access | 直接内存访问；本项目指 PCIe 门铃触发的 FPGA Master 读 |
 | DMA-BUF | DMA Buffer | 内核跨设备共享缓冲，MPP/RGA/PCIe 零拷贝的基础 |
-| DRM | Dedicated RAM Module | 盘古 FPGA 的块存储（等效 BRAM）；本设计占用 99/155 |
+| DRM | （Pango 资源统计口径，不做英文展开） | 盘古 FPGA 的块存储（等效 BRAM）；本设计占用 99/155 |
 | FF | Flip-Flop | 触发器；本设计占用 25,730/133,200 |
 | FUSE | Filesystem in Userspace | 用户态文件系统；exFAT U 盘在板端走 FUSE |
 | GBK | 汉字内码扩展规范 | 中文位图字库的索引编码 |
