@@ -1735,3 +1735,70 @@ set_option -options {master_configuration_clock_frequency	25M} [get_actions gen_
 set_option -options { master_configuration_clock_frequency {25M}} [get_actions gen_bit_stream -of_objects [get_tasks pnr_1]]
 launch_tasks [get_tasks {pnr_1}] -to_action gen_bit_stream
 wait_on_tasks [get_tasks {pnr_1}] -to_action gen_bit_stream
+add_design "D:/pango_build/4_15_PCIE_DMA/src/disp/rt_zebra_det.v" -library work -verilog
+set_option -options {top_module	pango_pcie_dma_top} [get_filesets design_1]
+set_option max_threads 0
+set_arch -family Logos2 -device PG2L100H -speedgrade -6 -package FBG676
+set_option -options { top_module {pango_pcie_dma_top}} [get_filesets design_1]
+launch_tasks [get_tasks {syn_1}] -to_action compile
+wait_on_tasks [get_tasks {syn_1}] -to_action compile
+launch_tasks [get_tasks {syn_1}] -to_action synthesize
+wait_on_tasks [get_tasks {syn_1}] -to_action synthesize
+launch_tasks [get_tasks {pnr_1}] -to_action dev_map
+wait_on_tasks [get_tasks {pnr_1}] -to_action dev_map
+set_option -options {strategy	0} [get_tasks pnr_1]
+set_option -options {gplace_times	6	seed_step	1	pick_first_timing_convergence_seed	true} [get_actions pnr -of_objects [get_tasks pnr_1]]
+set_option -options {strategy	0} [get_tasks pnr_1]
+set_option -options {planning_before_place	Enable} [get_actions place -of_objects [get_tasks pnr_1]]
+set_option -options {strategy	0} [get_tasks pnr_1]
+set_option -options {strategy	0} [get_tasks pnr_1]
+set_option -options {top_module	pango_pcie_dma_top} [get_filesets design_1]
+set_option max_threads 0
+set_arch -family Logos2 -device PG2L100H -speedgrade -6 -package FBG676
+set_option -options { top_module {pango_pcie_dma_top}} [get_filesets design_1]
+launch_tasks [get_tasks {syn_1}] -to_action compile
+wait_on_tasks [get_tasks {syn_1}] -to_action compile
+launch_tasks [get_tasks {syn_1}] -to_action synthesize
+wait_on_tasks [get_tasks {syn_1}] -to_action synthesize
+launch_tasks [get_tasks {pnr_1}] -to_action dev_map
+wait_on_tasks [get_tasks {pnr_1}] -to_action dev_map
+set_option -options {strategy	0} [get_tasks pnr_1]
+set_option -options {gplace_times	6	seed_step	1	pick_first_timing_convergence_seed	true} [get_actions pnr -of_objects [get_tasks pnr_1]]
+set_option -options {strategy	0} [get_tasks pnr_1]
+set_option -options {planning_before_place	Enable} [get_actions place -of_objects [get_tasks pnr_1]]
+set_option -options {strategy	0} [get_tasks pnr_1]
+set_option -options {strategy	0} [get_tasks pnr_1]
+set_option -options {top_module	pango_pcie_dma_top} [get_filesets design_1]
+set_option max_threads 0
+set_arch -family Logos2 -device PG2L100H -speedgrade -6 -package FBG676
+set_option -options { top_module {pango_pcie_dma_top}} [get_filesets design_1]
+launch_tasks [get_tasks {syn_1}] -to_action compile
+wait_on_tasks [get_tasks {syn_1}] -to_action compile
+set_option -options { gplace_times {6} pick_first_timing_convergence_seed {true}} [get_actions pnr -of_objects [get_tasks pnr_1]]
+set_option -options { planning_before_place {Enable}} [get_actions place -of_objects [get_tasks pnr_1]]
+launch_tasks [get_tasks {pnr_1}] -to_action pnr
+wait_on_tasks [get_tasks {pnr_1}] -to_action pnr
+launch_tasks [get_tasks {syn_1}] -to_action synthesize
+wait_on_tasks [get_tasks {syn_1}] -to_action synthesize
+launch_tasks [get_tasks {pnr_1}] -to_action dev_map
+wait_on_tasks [get_tasks {pnr_1}] -to_action dev_map
+set_option -options {strategy	0} [get_tasks pnr_1]
+set_option -options {gplace_times	1	seed_step	1	pick_first_timing_convergence_seed	true} [get_actions pnr -of_objects [get_tasks pnr_1]]
+set_option -options {strategy	0} [get_tasks pnr_1]
+set_option -options {planning_before_place	Enable} [get_actions place -of_objects [get_tasks pnr_1]]
+set_option -options {strategy	0} [get_tasks pnr_1]
+set_option -options {strategy	0} [get_tasks pnr_1]
+set_option -options { pick_first_timing_convergence_seed {true}} [get_actions pnr -of_objects [get_tasks pnr_1]]
+set_option -options { planning_before_place {Enable}} [get_actions place -of_objects [get_tasks pnr_1]]
+launch_tasks [get_tasks {pnr_1}] -to_action place
+wait_on_tasks [get_tasks {pnr_1}] -to_action place
+launch_tasks [get_tasks {pnr_1}] -to_action route
+wait_on_tasks [get_tasks {pnr_1}] -to_action route
+launch_tasks [get_tasks {pnr_1}] -to_action route_optimize
+wait_on_tasks [get_tasks {pnr_1}] -to_action route_optimize
+launch_tasks [get_tasks {pnr_1}] -to_action report_timing
+wait_on_tasks [get_tasks {pnr_1}] -to_action report_timing
+set_option -options {master_configuration_clock_frequency	25M} [get_actions gen_bit_stream -of_objects [get_tasks pnr_1]]
+set_option -options { master_configuration_clock_frequency {25M}} [get_actions gen_bit_stream -of_objects [get_tasks pnr_1]]
+launch_tasks [get_tasks {pnr_1}] -to_action gen_bit_stream
+wait_on_tasks [get_tasks {pnr_1}] -to_action gen_bit_stream

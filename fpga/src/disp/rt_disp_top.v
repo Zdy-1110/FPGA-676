@@ -90,6 +90,12 @@ module rt_disp_top #(
     output wire [223:0] lane_dbg_bus      ,
     output wire         lane_stat_tgl     ,
 
+    // 20261029 zebra detection registers (from/to rt_ext_regs)
+    input       [47:0]  zebra_cfg_bus     ,
+    input               zebra_cfg_tgl     ,
+    output wire [95:0]  zebra_stat_bus    ,
+    output wire         zebra_stat_tgl    ,
+
     // HDMI
 
     output wire         pix_clk           ,
@@ -564,6 +570,99 @@ module rt_disp_top #(
         lane_l_x_bot_w, 13'd0, lane_l_double_w, lane_l_solid_w, lane_l_valid_w
     };
 
+    //------------------------------------------------------------------
+    // 20261029 zebra detection : sync zebra_cfg into pix_clk & instantiate
+    //------------------------------------------------------------------
+    reg zc_s1, zc_s2, zc_s2d;
+    reg [1:0] zc_wait_cnt;
+    reg [47:0] zebra_cfg_pix;
+
+    always @(posedge pix_clk or negedge rstn_out) begin
+        if (!rstn_out) begin
+            zc_s1         <= 1'b0;
+            zc_s2         <= 1'b0;
+            zc_s2d        <= 1'b0;
+            zc_wait_cnt   <= 2'd0;
+            zebra_cfg_pix <= 48'd0;
+        end else begin
+            zc_s1  <= zebra_cfg_tgl;
+            zc_s2  <= zc_s1;
+            zc_s2d <= zc_s2;
+
+            if (zc_s2 ^ zc_s2d) begin
+                zc_wait_cnt <= 2'd2;
+            end else if (zc_wait_cnt == 2'd1) begin
+                zc_wait_cnt   <= 2'd0;
+                zebra_cfg_pix <= zebra_cfg_bus;
+            end else if (zc_wait_cnt != 2'd0) begin
+                zc_wait_cnt   <= zc_wait_cnt - 1'b1;
+            end
+        end
+    end
+
+    wire        zebra_en_pix    = zebra_cfg_pix[0];
+    wire [7:0]  zebra_nmin_pix  = zebra_cfg_pix[15:8];
+    wire [15:0] zebra_span_pix  = zebra_cfg_pix[31:16];
+    wire [7:0]  zebra_gap_pix   = zebra_cfg_pix[39:32];
+
+    wire        zebra_de_in = zebra_en_pix ? q0_de : 1'b0;
+    wire        zebra_vs_in = zebra_en_pix ? q0_vs : 1'b0;
+    wire        zebra_hs_in = zebra_en_pix ? q0_hs : 1'b0;
+    wire [7:0]  zebra_r_in  = zebra_en_pix ? q0_r  : 8'd0;
+    wire [7:0]  zebra_g_in  = zebra_en_pix ? q0_g  : 8'd0;
+    wire [7:0]  zebra_b_in  = zebra_en_pix ? q0_b  : 8'd0;
+
+    wire        zebra_det_w;
+    wire        zebra_raw_w;
+    wire [7:0]  zebra_n_rows_w;
+    wire [9:0]  zebra_y_min_w;
+    wire [9:0]  zebra_y_max_w;
+    wire [7:0]  zebra_max_cont_w;
+    wire        zebra_frame_done_w;
+
+    rt_zebra_det u_rt_zebra_det (
+        .pix_clk   (pix_clk           ),
+        .rst_n     (rstn_out          ),
+        .de        (zebra_de_in       ),
+        .hs        (zebra_hs_in       ),
+        .vs        (zebra_vs_in       ),
+        .r         (zebra_r_in        ),
+        .g         (zebra_g_in        ),
+        .b         (zebra_b_in        ),
+        .n_min     (zebra_nmin_pix    ),
+        .reg_pct   (8'd0              ), // 0 = default (120)
+        .span_q10  (zebra_span_pix    ),
+        .gap_max_w (zebra_gap_pix     ),
+        .zebra     (zebra_det_w       ),
+        .zebra_raw (zebra_raw_w       ),
+        .n_rows    (zebra_n_rows_w    ),
+        .y_min     (zebra_y_min_w     ),
+        .y_max     (zebra_y_max_w     ),
+        .max_cont  (zebra_max_cont_w  ),
+        .frame_done(zebra_frame_done_w)
+    );
+
+    reg [7:0] zebra_frame_cnt_r;
+    reg       zebra_stat_tgl_r;
+
+    always @(posedge pix_clk or negedge rstn_out) begin
+        if (!rstn_out) begin
+            zebra_frame_cnt_r <= 8'd0;
+            zebra_stat_tgl_r  <= 1'b0;
+        end else if (zebra_en_pix && zebra_frame_done_w) begin
+            zebra_frame_cnt_r <= zebra_frame_cnt_r + 1'b1;
+            zebra_stat_tgl_r  <= ~zebra_stat_tgl_r;
+        end
+    end
+
+    assign zebra_stat_tgl = zebra_stat_tgl_r;
+
+    assign zebra_stat_bus = {
+        32'd0, // [95:64] Reserved
+        zebra_max_cont_w[7:0], 6'd0, zebra_y_max_w[9:0], zebra_frame_cnt_r[7:0], // [63:32] -> 0xA28
+        6'd0, zebra_y_min_w[9:0], zebra_n_rows_w[7:0], 6'd0, zebra_raw_w, zebra_det_w // [31:0] -> 0xA24
+    };
+
 
     rt_disp_win_reader #(
         .H_ACT(H_ACT), .V_ACT(V_ACT),
@@ -802,12 +901,63 @@ module rt_disp_top #(
     end
 
     //------------------------------------------------------------------
+    // 20261029: Window 0 view mode effect (DISP_CTRL[9:8])
+    // 0 = Original, 1 = Grayscale, 2 = Binary (White mask), 3 = Reserved (Binary)
+    // Synchronized to pix_clk; gated by q0_de to protect other windows & OSD.
+    //------------------------------------------------------------------
+    reg [1:0] view_mode_pix;
+    always @(posedge pix_clk or negedge rstn_out) begin
+        if (!rstn_out) view_mode_pix <= 2'b00;
+        else           view_mode_pix <= cfg_ctrl[9:8];
+    end
+
+    // Grayscale: gray = (r + 2*g + b) >> 2
+    wire [7:0] q0_gray = ({2'b00, q0_r} + {1'b0, q0_g, 1'b0} + {2'b00, q0_b}) >> 2;
+
+    // Binary: same white criteria as zebra (v_min=140, c_max=30)
+    wire [7:0] q0_rq = q0_r & 8'hF8;
+    wire [7:0] q0_gq = q0_g & 8'hFC;
+    wire [7:0] q0_bq = q0_b & 8'hF8;
+    wire [7:0] q0_max_rg = (q0_rq > q0_gq) ? q0_rq : q0_gq;
+    wire [7:0] q0_max_c  = (q0_max_rg > q0_bq) ? q0_max_rg : q0_bq;
+    wire [7:0] q0_min_rg = (q0_rq < q0_gq) ? q0_rq : q0_gq;
+    wire [7:0] q0_min_c  = (q0_min_rg < q0_bq) ? q0_min_rg : q0_bq;
+    wire       q0_is_white = (q0_rq >= 8'd140) && (q0_gq >= 8'd140) && (q0_bq >= 8'd140) &&
+                             ((q0_max_c - q0_min_c) <= 8'd30);
+    wire [7:0] q0_bin = q0_is_white ? 8'hFF : 8'h00;
+
+    reg [7:0] q0_mux_r, q0_mux_g, q0_mux_b;
+    always @(*) begin
+        case (view_mode_pix)
+            2'b01: begin // Grayscale
+                q0_mux_r = q0_gray;
+                q0_mux_g = q0_gray;
+                q0_mux_b = q0_gray;
+            end
+            2'b10, 2'b11: begin // Binary
+                q0_mux_r = q0_bin;
+                q0_mux_g = q0_bin;
+                q0_mux_b = q0_bin;
+            end
+            default: begin // 2'b00: Original
+                q0_mux_r = q0_r;
+                q0_mux_g = q0_g;
+                q0_mux_b = q0_b;
+            end
+        endcase
+    end
+
+    wire [7:0] q0_eff_r = q0_de ? q0_mux_r : 8'd0;
+    wire [7:0] q0_eff_g = q0_de ? q0_mux_g : 8'd0;
+    wire [7:0] q0_eff_b = q0_de ? q0_mux_b : 8'd0;
+
+    //------------------------------------------------------------------
     // 2x2 composite : the four windows never overlap, so the pixel buses of
     // the same clock edge are simply OR-ed back into one stream
     //------------------------------------------------------------------
-    wire [7:0] qz_r = q0_r | q1_r | q2_r | q3_r;
-    wire [7:0] qz_g = q0_g | q1_g | q2_g | q3_g;
-    wire [7:0] qz_b = q0_b | q1_b | q2_b | q3_b;
+    wire [7:0] qz_r = q0_eff_r | q1_r | q2_r | q3_r;
+    wire [7:0] qz_g = q0_eff_g | q1_g | q2_g | q3_g;
+    wire [7:0] qz_b = q0_eff_b | q1_b | q2_b | q3_b;
     wire       qz_de = q0_de | q1_de | q2_de | q3_de;
     wire       qz_hs = q0_hs | q1_hs | q2_hs | q3_hs;
     wire       qz_vs = q0_vs | q1_vs | q2_vs | q3_vs;
