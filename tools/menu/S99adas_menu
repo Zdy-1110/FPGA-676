@@ -10,6 +10,10 @@
 
 case "$1" in
   start)
+    if [ -f /tmp/adas_supervisor.pid ] && kill -0 "$(cat /tmp/adas_supervisor.pid)" 2>/dev/null; then
+        echo "[S99] adas supervisor already running"
+        exit 0
+    fi
     (
       while :; do
         /userdata/quad/run_boot.sh >> /tmp/run_boot.log 2>&1
@@ -18,9 +22,14 @@ case "$1" in
         sleep 1
       done
     ) &
-    echo "[S99] adas supervisor started"
+    echo $! > /tmp/adas_supervisor.pid
+    echo "[S99] adas supervisor started (pid $(cat /tmp/adas_supervisor.pid))"
     ;;
   stop)
+    if [ -f /tmp/adas_supervisor.pid ]; then
+        kill "$(cat /tmp/adas_supervisor.pid)" 2>/dev/null
+        rm -f /tmp/adas_supervisor.pid
+    fi
     pkill -f run_boot.sh 2>/dev/null
     pkill -x mode_select 2>/dev/null
     pkill -x menu_daemon 2>/dev/null
