@@ -94,6 +94,10 @@ static quad_osd_cache_t g_osd_cache;
 static uint64_t g_ch_last_det_ns[4];
 static bool g_ch_has_boxes[4];
 
+static pthread_mutex_t g_box_mutex = PTHREAD_MUTEX_INITIALIZER;
+static npu_det_t g_last_boxes[4][4];
+static int g_last_box_count[4];
+
 static pthread_mutex_t g_stats_mutex = PTHREAD_MUTEX_INITIALIZER;
 static uint64_t g_ch_frames[4];
 static uint64_t g_ch_last_sec_frames[4];
@@ -545,6 +549,13 @@ static void *npu_worker_thread(void *arg)
                 quad_band_to_screen_det(cur_ch, &top4[k], &screen_top4[k]);
             }
 
+            pthread_mutex_lock(&g_box_mutex);
+            g_last_box_count[cur_ch] = n4;
+            for (int k = 0; k < n4; k++) {
+                g_last_boxes[cur_ch][k] = screen_top4[k];
+            }
+            pthread_mutex_unlock(&g_box_mutex);
+
             uint32_t regs[8];
             quad_pack_ch_regs(screen_top4, n4, regs);
 
@@ -591,6 +602,9 @@ static void *npu_worker_thread(void *arg)
                     }
                 }
                 g_ch_has_boxes[ch] = false;
+                pthread_mutex_lock(&g_box_mutex);
+                g_last_box_count[ch] = 0;
+                pthread_mutex_unlock(&g_box_mutex);
             }
         }
 
@@ -623,6 +637,12 @@ int qnpu_init(const QnpuCfg *cfg, volatile uint32_t *bar1)
 
     quad_swrr_init(&g_swrr, g_cfg.weights, 0);
     quad_osd_cache_init(&g_osd_cache);
+
+    pthread_mutex_lock(&g_box_mutex);
+    for (int i = 0; i < 4; i++) {
+        g_last_box_count[i] = 0;
+    }
+    pthread_mutex_unlock(&g_box_mutex);
 
     if (bar1) {
         g_bar1 = bar1;
@@ -847,6 +867,12 @@ void qnpu_stop(void)
 
     pthread_join(g_worker_thread, NULL);
 
+    pthread_mutex_lock(&g_box_mutex);
+    for (int i = 0; i < 4; i++) {
+        g_last_box_count[i] = 0;
+    }
+    pthread_mutex_unlock(&g_box_mutex);
+
     if (g_bar1) {
         for (uint32_t i = 0; i < 32; i++) {
             g_bar1[(0x900u + i * 4) / 4] = 0;
@@ -890,6 +916,21 @@ void qnpu_stop(void)
     pthread_mutex_destroy(&g_nom.mutex);
     pthread_cond_destroy(&g_nom.cond);
     g_inited = 0;
+}
+
+int qnpu_get_boxes(int ch, npu_det_t *out, int max)
+{
+    if (ch < 0 || ch >= 4 || !out || max <= 0) {
+        return 0;
+    }
+    pthread_mutex_lock(&g_box_mutex);
+    int cnt = g_last_box_count[ch];
+    if (cnt > max) cnt = max;
+    for (int i = 0; i < cnt; i++) {
+        out[i] = g_last_boxes[ch][i];
+    }
+    pthread_mutex_unlock(&g_box_mutex);
+    return cnt;
 }
 
 int qnpu_direct_infer(const void *rgb_data, int ch,

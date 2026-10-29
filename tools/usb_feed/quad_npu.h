@@ -62,6 +62,11 @@ int qnpu_direct_infer(const void *rgb_data, int ch,
                       npu_det_t *band_dets, npu_det_t *screen_dets,
                       int *num_dets, double *run_ms);
 
+/* Copy up to max detected boxes for channel ch into out.
+ * Returns number of copied boxes (0..4). Returns 0 if ch out of range [0..3].
+ */
+int qnpu_get_boxes(int ch, npu_det_t *out, int max);
+
 #ifdef __cplusplus
 }
 #endif

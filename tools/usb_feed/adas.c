@@ -231,24 +231,44 @@ static void *adas_thread(void *arg)
             int rvalid = rs & 1, rsolid = (rs >> 1) & 1;
             int force = (g_bar1[0x8E8u / 4] >> 21) & 1;
 
-            uint32_t dec = 0;
-            int sig = (lane >= 0 && lane < 3) ? g_last_sig[lane] : 0;
-            if (sig == 1 || sig == 2) {
-                dec |= (3u << (2 * lane));
-                if (moving) dec |= (1u << 8);
-            } else if (sig == 3) {
-                dec |= (2u << (2 * lane));
-            } else {
-                dec |= (2u << (2 * 1));
+            npu_det_t ch0_boxes[4];
+            int n_boxes = qnpu_get_boxes(0, ch0_boxes, 4);
+            int hazard = 0;
+            for (int i = 0; i < n_boxes; i++) {
+                const npu_det_t *b = &ch0_boxes[i];
+                if (b->cls == 0 || b->cls == 1 || b->cls == 6) {
+                    if (b->score >= 0.30f && b->y1 >= 0.75f * 540.0f) {
+                        float cx = (b->x0 + b->x1) * 0.5f;
+                        if (cx >= 0.30f * 960.0f && cx <= 0.70f * 960.0f) {
+                            hazard = 1;
+                            break;
+                        }
+                    }
+                }
             }
 
-            if (lreq && lvalid) {
-                if (!lsolid) dec = (dec & ~0x3u) | 2u;
-                else if (force) { dec = (dec & ~0x3u) | 3u; dec |= (1u << 8); }
-            }
-            if (rreq && rvalid) {
-                if (!rsolid) dec = (dec & ~(3u << 4)) | (2u << 4);
-                else if (force) { dec = (dec & ~(3u << 4)) | (3u << 4); dec |= (1u << 8); }
+            uint32_t dec = 0;
+            if (hazard) {
+                dec = (3u << (2 * lane)) | (1u << 8);
+            } else {
+                int sig = (lane >= 0 && lane < 3) ? g_last_sig[lane] : 0;
+                if (sig == 1 || sig == 2) {
+                    dec |= (3u << (2 * lane));
+                    if (moving) dec |= (1u << 8);
+                } else if (sig == 3) {
+                    dec |= (2u << (2 * lane));
+                } else {
+                    dec |= (2u << (2 * 1));
+                }
+
+                if (lreq && lvalid) {
+                    if (!lsolid) dec = (dec & ~0x3u) | 2u;
+                    else if (force) { dec = (dec & ~0x3u) | 3u; dec |= (1u << 8); }
+                }
+                if (rreq && rvalid) {
+                    if (!rsolid) dec = (dec & ~(3u << 4)) | (2u << 4);
+                    else if (force) { dec = (dec & ~(3u << 4)) | (3u << 4); dec |= (1u << 8); }
+                }
             }
 
             g_bar1[0x8C0u / 4] &= ~4u;
@@ -257,9 +277,9 @@ static void *adas_thread(void *arg)
 
             char ln_ch = (lane == 0) ? 'L' : ((lane == 2) ? 'R' : 'S');
             memset(text, ' ', sizeof(text));
-            snprintf(text, sizeof(text), "L:%s S:%s R:%s LN:%c MOV:%d",
+            snprintf(text, sizeof(text), "L:%s S:%s R:%s LN:%c MOV:%d HZ:%d",
                      tl_str_abbr(g_last_sig[0]), tl_str_abbr(g_last_sig[1]),
-                     tl_str_abbr(g_last_sig[2]), ln_ch, moving);
+                     tl_str_abbr(g_last_sig[2]), ln_ch, moving, hazard);
             int len = strlen(text);
             if (len < 64) text[len] = ' ';
             for (int i = 0; i < 16; i++) {
@@ -267,7 +287,7 @@ static void *adas_thread(void *arg)
                                ((uint8_t)text[i * 4 + 1] << 8) |
                                ((uint8_t)text[i * 4 + 2] << 16) |
                                ((uint8_t)text[i * 4 + 3] << 24);
-                g_bar1[(0xC0C0u + (uint32_t)(i * 4)) / 4] = val;
+                g_bar1[(0xCC0u + (uint32_t)(i * 4)) / 4] = val;
             }
         }
 
