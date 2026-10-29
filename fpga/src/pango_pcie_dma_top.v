@@ -897,6 +897,12 @@ wire [223:0] ext_lane_stat_bus;
 wire [223:0] ext_lane_dbg_bus;
 wire         ext_lane_stat_tgl;
 
+// 20261029 zebra wires
+wire [47:0]  ext_zebra_cfg_bus;
+wire         ext_zebra_cfg_tgl;
+wire [95:0]  ext_zebra_stat_bus;
+wire         ext_zebra_stat_tgl;
+
 // 20261018 disp: extended BAR1 registers (pclk_div2 domain)
 rt_ext_regs u_rt_ext_regs (
     .clk           (pclk_div2        ),
@@ -957,7 +963,12 @@ rt_ext_regs u_rt_ext_regs (
     .o_lane_cfg_tgl   (ext_lane_cfg_tgl ),
     .i_lane_stat_bus  (ext_lane_stat_bus),
     .i_lane_dbg_bus   (ext_lane_dbg_bus ),
-    .i_lane_stat_tgl  (ext_lane_stat_tgl)
+    .i_lane_stat_tgl  (ext_lane_stat_tgl),
+    // 20261029 zebra
+    .o_zebra_cfg_bus  (ext_zebra_cfg_bus ),
+    .o_zebra_cfg_tgl  (ext_zebra_cfg_tgl ),
+    .i_zebra_stat_bus (ext_zebra_stat_bus),
+    .i_zebra_stat_tgl (ext_zebra_stat_tgl)
 );
 
 // 20261018 disp: display subsystem
@@ -1021,6 +1032,11 @@ rt_disp_top u_rt_disp_top (
     .lane_stat_bus  (ext_lane_stat_bus),
     .lane_dbg_bus   (ext_lane_dbg_bus),
     .lane_stat_tgl  (ext_lane_stat_tgl),
+    // 20261029 zebra
+    .zebra_cfg_bus  (ext_zebra_cfg_bus),
+    .zebra_cfg_tgl  (ext_zebra_cfg_tgl),
+    .zebra_stat_bus (ext_zebra_stat_bus),
+    .zebra_stat_tgl (ext_zebra_stat_tgl),
     .pix_clk        (pix_clk         ),
 
     .vs_out         (vs_out          ),

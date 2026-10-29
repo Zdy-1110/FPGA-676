@@ -108,7 +108,13 @@ module rt_ext_regs
     output reg          o_lane_cfg_tgl = 1'b0   ,
     input       [223:0] i_lane_stat_bus         ,
     input       [223:0] i_lane_dbg_bus          ,
-    input               i_lane_stat_tgl
+    input               i_lane_stat_tgl         ,
+
+    // 20261029 zebra detection registers (BAR1 0xA20 - 0xA2C)
+    output wire [47:0]  o_zebra_cfg_bus         ,
+    output reg          o_zebra_cfg_tgl = 1'b0  ,
+    input       [95:0]  i_zebra_stat_bus        ,
+    input               i_zebra_stat_tgl
 );
 
 
@@ -132,6 +138,11 @@ module rt_ext_regs
     reg [31:0] reg_lane_roi;
     reg [31:0] reg_lane_thr;
     reg [31:0] reg_lane_dbg_sel;
+
+    // 20261029 zebra registers
+    reg [31:0] reg_zebra_ctrl;
+    reg [31:0] reg_zebra_gap;
+    assign o_zebra_cfg_bus = { reg_zebra_gap[7:0], 8'd0, reg_zebra_ctrl };
     assign o_lane_cfg_bus = { reg_lane_dbg_sel, reg_lane_thr, reg_lane_roi, reg_lane_geom, reg_lane_ctrl };
 
     // osd registers
@@ -209,6 +220,10 @@ module rt_ext_regs
             reg_lane_thr  <= {8'd60, 8'd14, 8'd120, 8'd18};  // [31:24]=60, [23:16]=14, [15:8]=120, [7:0]=18
             reg_lane_dbg_sel <= {6'd0, 10'd480, 6'd0, 10'd360}; // [25:16]=dbg_x(480), [9:0]=dbg_row(360)
             o_lane_cfg_tgl<= 1'b0;
+            // 20261029 zebra defaults
+            reg_zebra_ctrl  <= 32'd0;
+            reg_zebra_gap   <= 32'd0;
+            o_zebra_cfg_tgl <= 1'b0;
             for (bi=0; bi<16; bi=bi+1) begin box_lo[bi]<=32'd0; box_hi[bi]<=32'd0; end
             cfg_tgl       <= 1'b0;
             commit_tgl    <= 1'b0;
@@ -294,6 +309,8 @@ module rt_ext_regs
                     12'h8C8: begin reg_lane_roi  <= i_tap_data; o_lane_cfg_tgl <= ~o_lane_cfg_tgl; end
                     12'h8CC: begin reg_lane_thr  <= i_tap_data; o_lane_cfg_tgl <= ~o_lane_cfg_tgl; end
                     12'hA00: begin reg_lane_dbg_sel <= i_tap_data; o_lane_cfg_tgl <= ~o_lane_cfg_tgl; end
+                    12'hA20: begin reg_zebra_ctrl <= i_tap_data; o_zebra_cfg_tgl <= ~o_zebra_cfg_tgl; end
+                    12'hA2C: begin reg_zebra_gap  <= i_tap_data; o_zebra_cfg_tgl <= ~o_zebra_cfg_tgl; end
                     default: ;
 
                 endcase
@@ -343,6 +360,8 @@ module rt_ext_regs
         cfg_ctrl[4] = reg_disp_ctrl[4];
         cfg_ctrl[5] = reg_disp_ctrl[5];   // 20261026 quad: QUAD_EN
         cfg_ctrl[6] = reg_disp_ctrl[6];   // 20261027 cam: CAM_OFF
+        cfg_ctrl[8] = reg_disp_ctrl[8];   // 20261029 view_mode[0]
+        cfg_ctrl[9] = reg_disp_ctrl[9];   // 20261029 view_mode[1]
         cfg_ctrl[12]= reg_disp_ctrl[12];
         cfg_ctrl[13]= reg_disp_ctrl[13];
         cfg_ctrl[14]= reg_disp_ctrl[14];
@@ -579,6 +598,36 @@ module rt_ext_regs
         end
     end
 
+    //------------------------------------------------------------------
+    // 20261029 zebra : sync zebra_stat_tgl and latch shadow register
+    //------------------------------------------------------------------
+    reg zs_s1, zs_s2, zs_s2d;
+    reg [1:0] zs_wait_cnt;
+    reg [95:0] zebra_stat_shadow;
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            zs_s1             <= 1'b0;
+            zs_s2             <= 1'b0;
+            zs_s2d            <= 1'b0;
+            zs_wait_cnt       <= 2'd0;
+            zebra_stat_shadow <= 96'd0;
+        end else begin
+            zs_s1  <= i_zebra_stat_tgl;
+            zs_s2  <= zs_s1;
+            zs_s2d <= zs_s2;
+
+            if (zs_s2 ^ zs_s2d) begin
+                zs_wait_cnt <= 2'd2;
+            end else if (zs_wait_cnt == 2'd1) begin
+                zs_wait_cnt       <= 2'd0;
+                zebra_stat_shadow <= i_zebra_stat_bus;
+            end else if (zs_wait_cnt != 2'd0) begin
+                zs_wait_cnt       <= zs_wait_cnt - 1'b1;
+            end
+        end
+    end
+
 
     //------------------------------------------------------------------
     // read decode : 128-bit group selected by i_rd_addr[11:4]
@@ -602,7 +651,7 @@ module rt_ext_regs
                 8'h80: o_rd128 <= { reg_stride    , reg_slot_size, reg_fb_base  , reg_disp_ctrl };
                 8'h81: o_rd128 <= { 32'd0, 32'd0       , 32'd0        , reg_uv_off    };
                 8'h82: o_rd128 <= { stat_underflow, stat_newfr, stat_frames, fb_stat_w };
-                8'h83: o_rd128 <= { 32'h4F53_4431, 32'h2026_1019, hdmi_stat_r, stat_dbg };   // "OSD1"
+                8'h83: o_rd128 <= { 32'h4F53_4431, 32'h2026_1029, hdmi_stat_r, stat_dbg };   // "OSD1", 0x838=0x20261029
                 8'h84: o_rd128 <= { led_rd_w, drv_state_w, key_evt_w, key_stat_w };
                 8'h85: o_rd128 <= { 32'd0, 32'd0, 32'd0, reg_decision };
                 8'h88: o_rd128 <= { 32'd0, 32'd0, 32'd0, reg_osd_ctrl };
@@ -633,6 +682,8 @@ module rt_ext_regs
                 // 20261028 lane debug : 0xA00 DBG_SEL, 0xA04-0xA0C, 0xA10-0xA1C
                 8'hA0: o_rd128 <= { lane_dbg_shadow[95:64], lane_dbg_shadow[63:32], lane_dbg_shadow[31:0], reg_lane_dbg_sel };
                 8'hA1: o_rd128 <= { lane_dbg_shadow[223:192], lane_dbg_shadow[191:160], lane_dbg_shadow[159:128], lane_dbg_shadow[127:96] };
+                // 20261029 zebra : 0xA20 CTRL, 0xA24 STAT, 0xA28 FRAME, 0xA2C GAP
+                8'hA2: o_rd128 <= { reg_zebra_gap, zebra_stat_shadow[63:32], zebra_stat_shadow[31:0], reg_zebra_ctrl };
                 default: o_rd128 <= 128'd0;
 
             endcase
