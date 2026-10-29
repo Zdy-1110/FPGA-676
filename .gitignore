@@ -99,3 +99,38 @@ cmds.pds
 *.swp
 *.sw[a-p]
 *~
+
+# --- submission hygiene (20261030) ---
+*.bak_*
+*.bak_*.*
+*.bak_preddr
+*.exe
+*.pdb
+*.o
+*.a
+*.so
+tools/menu/menu
+tools/menu/menu_daemon
+tools/menu/menu_launcher
+tools/menu/mode_select
+tools/menu/usb_menu
+tools/usb_feed/usb_feed
+tools/test_feeder/test_feeder
+tools/pcie_feed/pcie_feed
+tools/usb_feed/qnpu_selftest
+menu/*.rgb565
+menu/*.nv12
+menu/ui_cjk.bin
+menu/*.png
+dist/
+
+
+# local ELF without suffix
+tools/adas/host_test/tl_host_main
+
+# 文档构建产物（由 tools/docs_figs/build_doc.py 生成）
+docs/技术文档_最终稿.docx
+docs/技术文档_最终稿.pdf
+
+# 临时预览
+tmp_test/

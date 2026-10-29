@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""通过 SFTP 上传文件到 RK（root/root），失败返回非零退出码。
+"""通过 SFTP 上传文件到 RK（默认 root/root，可通过环境变量 RK_USER / RK_PASS 覆盖），失败返回非零退出码。
 
 用法: py -3 tools/rk_push.py <host> <local_file> <remote_file>
+环境变量: RK_USER (默认 root), RK_PASS (默认 root)
 """
 import os
 import sys
@@ -31,10 +32,12 @@ def main():
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
     try:
+        user = os.environ.get("RK_USER", "root")
+        passwd = os.environ.get("RK_PASS", "root")
         client.connect(
             host,
-            username="root",
-            password="root",
+            username=user,
+            password=passwd,
             timeout=10,
             banner_timeout=15,
             allow_agent=False,
