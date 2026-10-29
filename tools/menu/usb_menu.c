@@ -1093,10 +1093,12 @@ static void clear_all_boxes(volatile uint32_t *bar1)
 static void kill_pid_gracefully(pid_t pid)
 {
     if (pid <= 0) return;
-    kill(pid, SIGTERM);
+    if (kill(-pid, SIGTERM) < 0) {
+        kill(pid, SIGTERM);
+    }
     int status;
     int dead = 0;
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 40; i++) {
         pid_t r = waitpid(pid, &status, WNOHANG);
         if (r == pid || (r == -1 && errno == ECHILD)) {
             dead = 1;
@@ -1105,7 +1107,9 @@ static void kill_pid_gracefully(pid_t pid)
         usleep(50000);
     }
     if (!dead) {
-        kill(pid, SIGKILL);
+        if (kill(-pid, SIGKILL) < 0) {
+            kill(pid, SIGKILL);
+        }
         waitpid(pid, &status, 0);
     }
 }
@@ -1202,6 +1206,9 @@ static pid_t start_feed(const char *feed_bin, const char *bar1_str, const char *
     }
     argv[argc++] = "--adas";
     argv[argc++] = "/dev/null";
+    /* 4 路 1080p 解码时 CMA 余量紧张：3 路及以上降到 8 个外部缓冲，避免分配失败 */
+    argv[argc++] = "--dec-bufs";
+    argv[argc++] = (num_selected >= 3) ? "8" : "10";
     argv[argc++] = "--frames";
     argv[argc++] = "0";
     argv[argc] = NULL;
@@ -1212,6 +1219,7 @@ static pid_t start_feed(const char *feed_bin, const char *bar1_str, const char *
         return -1;
     }
     if (pid == 0) {
+        setpgid(0, 0);
         int log_fd = open("/tmp/usb_menu_feed.log", O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (log_fd >= 0) {
             dup2(log_fd, STDOUT_FILENO);
@@ -1222,6 +1230,7 @@ static pid_t start_feed(const char *feed_bin, const char *bar1_str, const char *
         perror("execvp usb_feed");
         _exit(127);
     }
+    setpgid(pid, pid);
     return pid;
 }
 
@@ -1280,9 +1289,13 @@ static int run_playback(volatile uint32_t *bar1,
     while (1) {
         usleep(30000); // 30 ms
 
+        if (pid <= 0) {
+            break;
+        }
         int status;
         pid_t r = waitpid(pid, &status, WNOHANG);
         if (r == pid || (r == -1 && errno == ECHILD)) {
+            pid = -1;
             break;
         }
 
@@ -1296,6 +1309,7 @@ static int run_playback(volatile uint32_t *bar1,
             if (key == 4 && type == 3) {
                 // KEY4 HOLD3：退出整个程序
                 kill_pid_gracefully(pid);
+                pid = -1;
                 wait_cal_mode_cleared(bar1);
                 exit_app = 1;
                 break;
@@ -1310,6 +1324,7 @@ static int run_playback(volatile uint32_t *bar1,
                     popup_dirty = 0;
                 } else {
                     kill_pid_gracefully(pid);
+                    pid = -1;
                     break;
                 }
             } else if (key == 4 && type == 1) {
@@ -1365,6 +1380,11 @@ static int run_playback(volatile uint32_t *bar1,
                 }
             }
         }
+    }
+
+    if (pid > 0) {
+        kill_pid_gracefully(pid);
+        pid = -1;
     }
 
     // 6. 恢复硬件
