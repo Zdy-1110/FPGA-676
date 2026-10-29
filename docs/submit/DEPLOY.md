@@ -16,36 +16,20 @@
 
 ## 二、开机启动脚本 `/etc/init.d/S99adas_menu`
 
-在板端 `/etc/init.d/S99adas_menu` 写入以下内容（`chmod +x`）：
+仓库内提供 `tools/menu/S99adas_menu`（POSIX sh），部署到板端并加执行权限：
 
 ```sh
-#!/bin/sh
-case "$1" in
-  start)
-    echo "Starting ADAS Menu Daemon..."
-    killall weston 2>/dev/null || true
-    E=/sys/bus/pci/devices/0002:21:00.0
-    if [ -e "$E" ]; then
-        echo 1 > "$E/enable"
-        printf '\006' | dd of="$E/config" bs=1 seek=4 count=1 conv=notrunc 2>/dev/null
-    fi
-    cd /userdata/quad && /userdata/quad/run_boot.sh &
-    ;;
-  stop)
-    killall usb_feed menu_daemon usb_menu mode_select 2>/dev/null || true
-    ;;
-  restart)
-    $0 stop
-    sleep 1
-    $0 start
-    ;;
-  *)
-    echo "Usage: $0 {start|stop|restart}"
-    exit 1
-    ;;
-esac
-exit 0
+cp tools/menu/S99adas_menu /etc/init.d/S99adas_menu
+chmod +x /etc/init.d/S99adas_menu
 ```
+
+与早期版本相比，它增加了一层**守护循环**：`run_boot.sh` 连续三次 `mode_select` 失败退出后，脚本会在 1 s 后重新拉起整条链路，避免现场停留在半幅画面或黑屏；每次退出的返回码与时间都会追加到 `/tmp/run_boot.log`。
+
+要点：
+- PCIe 端点使能（`enable=1` + 写 Command 寄存器）由 `run_boot.sh` 负责，S99 不重复；
+- 若板端启用了 Weston 桌面，可在 `start)` 前加 `killall weston 2>/dev/null || true` 释放显示资源（本项目不依赖 DRM）；
+- `stop)` 会清理 `run_boot.sh`、`mode_select`、`menu_daemon`、`usb_menu`、`usb_feed` 全链路进程。
+
 
 ## 三、FPGA Flash 固化步骤
 

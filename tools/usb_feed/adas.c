@@ -285,14 +285,18 @@ static void *adas_thread(void *arg)
             npu_det_t ch0_boxes[4];
             int n_boxes = qnpu_get_boxes(0, ch0_boxes, 4);
             int hazard = 0;
+            int limit_sign = 0;
             for (int i = 0; i < n_boxes; i++) {
                 const npu_det_t *b = &ch0_boxes[i];
+                /* 限速标志只做 OSD 提示，不参与决策字（无车速来源，不能判超速） */
+                if (b->cls == 8 && b->score >= 0.50f) {
+                    limit_sign = 1;
+                }
                 if (b->cls == 0 || b->cls == 1 || b->cls == 6) {
                     if (b->score >= 0.30f && b->y1 >= 0.75f * 540.0f) {
                         float cx = (b->x0 + b->x1) * 0.5f;
                         if (cx >= 0.30f * 960.0f && cx <= 0.70f * 960.0f) {
                             hazard = 1;
-                            break;
                         }
                     }
                 }
@@ -328,9 +332,9 @@ static void *adas_thread(void *arg)
 
             char ln_ch = (lane_eff == 0) ? 'L' : ((lane_eff == 2) ? 'R' : 'S');
             memset(text, ' ', sizeof(text));
-            snprintf(text, sizeof(text), "L:%s S:%s R:%s LN:%c MOV:%d HZ:%d B:%d%d",
+            snprintf(text, sizeof(text), "L:%s S:%s R:%s LN:%c MOV:%d HZ:%d LIM:%d B:%d%d",
                      tl_str_abbr(g_last_sig[0]), tl_str_abbr(g_last_sig[1]),
-                     tl_str_abbr(g_last_sig[2]), ln_ch, moving_eff, hazard,
+                     tl_str_abbr(g_last_sig[2]), ln_ch, moving_eff, hazard, limit_sign,
                      raw_lane, raw_moving);
             int len = strlen(text);
             if (len < 64) text[len] = ' ';

@@ -87,6 +87,10 @@ def check_docs() -> None:
     missing = [f for f in FIGURES if not os.path.isfile(os.path.join(ROOT, "docs", "figs", f))]
     record("doc:figures", not missing, ", ".join(missing))
 
+    for name in ("附录A_寄存器映射.md", "附录B_验证复现.md", "演示视频_分镜.md", "答辩要点_评委问答.md"):
+        p = os.path.join(ROOT, "docs", name)
+        record(f"doc:{name}", os.path.isfile(p))
+
 
 def check_assets() -> None:
     for rel, min_size in (("tools/menu/ui_assets.h", 20_000),
@@ -112,6 +116,7 @@ def main() -> int:
         build("usb_feed", FEED_SOURCES)
 
     check_sh_syntax("tools/menu/run_boot.sh")
+    check_sh_syntax("tools/menu/S99adas_menu")
     check_docs()
     check_assets()
 
