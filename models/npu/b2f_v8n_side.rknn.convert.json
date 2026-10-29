@@ -1,0 +1,63 @@
+{
+  "params": {
+    "onnx": "/mnt/e/Project/nesai2026/models/npu/b2f_v8n_side.onnx",
+    "dataset": "/mnt/e/Project/nesai2026/models/npu/calib/side_640x224/dataset.txt",
+    "out": "/mnt/e/Project/nesai2026/models/npu/b2f_v8n_side.rknn",
+    "platform": "rk3568",
+    "quant": "i8",
+    "algo": "normal",
+    "method": "channel",
+    "opt_level": 3,
+    "sim_check": 0,
+    "accuracy_analysis": 0,
+    "dry_run": false
+  },
+  "rknn_version": "rknn-toolkit2 1.5.0+1fa95b5c",
+  "steps": {
+    "config": 0,
+    "load_onnx": 0,
+    "build": 0,
+    "export_rknn": 0,
+    "release": 0
+  },
+  "durations": {
+    "config": 0.001,
+    "load_onnx": 0.148,
+    "build": 16.156,
+    "export_rknn": 0.016,
+    "release": 0.003
+  },
+  "dataset": {
+    "path": "/mnt/e/Project/nesai2026/models/npu/calib/side_640x224/dataset.txt",
+    "count": 200
+  },
+  "first_image_size": [
+    640,
+    224
+  ],
+  "config_kwargs": {
+    "mean_values": [
+      [
+        0,
+        0,
+        0
+      ]
+    ],
+    "std_values": [
+      [
+        255,
+        255,
+        255
+      ]
+    ],
+    "target_platform": "rk3568",
+    "quantized_dtype": "asymmetric_quantized-8",
+    "quantized_algorithm": "normal",
+    "quantized_method": "channel",
+    "optimization_level": 3
+  },
+  "onnx_md5": "c78608ef567ea16b088babdf49f1e68b",
+  "rknn_size": 3311487,
+  "result": "ok",
+  "total_seconds": 17.138
+}

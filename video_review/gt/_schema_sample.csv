@@ -1,0 +1,13 @@
+video,t_start,t_end,field,value,conf,note
+112454,0.0,3.5,junction,at_stop_line,high,停止线后静止
+112454,0.0,3.5,ego_motion,stopped,high,
+112454,0.0,3.5,sig_left,red,high,左转红箭头
+112454,0.0,3.5,sig_straight,red,high,直行红箭头
+112454,0.0,3.5,sig_right,none,mid,无右转灯
+112507,10.0,18.0,ego_left_line,white_dashed,mid,
+112507,10.0,18.0,ego_right_line,white_dashed,mid,
+112507,12.0,14.5,lane_change,left,low,
+112739,12.0,12.0,nav_maneuver,right,high,
+112739,12.0,12.0,nav_dist_m,684,high,
+113452,8.0,14.4,hazard,lead_close,mid,前车距离持续缩小至停车
+112507,42.5,42.5,speed_limit,50,high,限速牌

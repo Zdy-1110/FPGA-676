@@ -1,0 +1,25 @@
+# Ultralytics YOLOv8 training hyperparameters for RK3568 NPU (road-band 960x320)
+imgsz: 960            # 输入图像尺寸 (长边/尺寸)
+epochs: 150           # 最大训练轮数
+patience: 40          # 早停等待轮数 (40 轮无提升则停止)
+close_mosaic: 15      # 最后 15 轮关闭 mosaic 增强以稳定微调
+batch: 16             # 训练批次大小
+workers: 4            # 数据加载线程数
+cache: ram            # 图像缓存方式 (ram 内存缓存加速读取)
+optimizer: auto       # 优化器选择 (auto 自动选择 SGD/AdamW)
+cos_lr: false         # 学习率调度策略 (false 使用线性衰减)
+hsv_h: 0.015          # 色调增强系数 (HSV-Hue 抖动)
+hsv_s: 0.6            # 饱和度增强系数 (HSV-Saturation 抖动)
+hsv_v: 0.5            # 亮度增强系数 (HSV-Value 抖动)
+degrees: 2.0          # 旋转角度范围 (±2.0 度)
+translate: 0.1        # 平移比例 (±10%)
+scale: 0.4            # 缩放比例 (增益因子 0.4)
+fliplr: 0.5           # 水平翻转概率 (0.5)
+mosaic: 1.0           # Mosaic 数据增强概率 (1.0 全程开启)
+mixup: 0.0            # Mixup 数据增强概率 (0.0 关闭)
+seed: 0               # 随机种子 (保证可复现性)
+deterministic: true   # 确定性模式 (开启以保证结果一致)
+amp: true             # 自动混合精度训练 (AMP 加速)
+plots: true           # 训练过程中保存评估曲线与图表
+rect: false           # 矩形训练模式 (false 使用统一尺寸)
+val: true             # 训练过程中各 epoch 进行验证

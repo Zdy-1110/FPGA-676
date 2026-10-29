@@ -1,0 +1,38 @@
+# 2026 嵌赛紫光同创杯资料包 —— 上一轮下载实测记录（2026-09-23）
+
+## 上一轮完整落盘时的统计
+- 2788 个文件 / 579 个目录
+- 其中 104 个压缩包：98 个完好，6 个损坏
+- 这个文件夹实际是 5 个板卡包的合集：
+  盘古100Pro+（MES2L676-100HP）、盘古100K200K MINI、盘古50K、
+  RK3568_MES2L50H_100H、Kosmo2-MES2K100
+
+## 上一轮确认损坏的 6 个（重新下载后重点验这几个）
+- 盘古100Pro+开发板（MES2L676-100HP）配套资料\5_Software\PDS\PDS_2022.2-SP6.4-win64.zip  (98.3% 全零)
+- 盘古50K开发板资料\PDS开发软件安装包\PDS_2022.2-SP6.4-win64.zip                         (24.5% 全零)
+- Kosmo2-MES2K100配套资料\2. Software\PDS_2025.2-ads-win64.zip                            (65% 全零)
+- 盘古100Pro+开发板（MES2L676-100HP）配套资料\8_软核\Embedded.zip                          (25.7% 全零)
+- RK3568_MES2L50H_100H开发板资料\02-软件工具\02-Docker-SDK编译环境\RKLinux_SDK_Build_Environment_Docker_V1.0.tar  (10.5% 全零)
+- 盘古50K开发板资料\PCIE资料\pcie_test_platform_v1_0(1).zip                                (380 个条目坏 352 个)
+
+## 实测字节数（供核对下载是否完整）
+字节数            路径（相对资料包根目录）
+1934650447        盘古100K200K MINI开发板\5_Software\PDS\PDS_2022.2-SP6.4-win64.zip
+1934650447        盘古100Pro+开发板（MES2L676-100HP）配套资料\5_Software\PDS\PDS_2022.2-SP6.4-win64.zip
+1934650447        盘古50K开发板资料\PDS开发软件安装包\PDS_2022.2-SP6.4-win64.zip
+9193644542        Kosmo2-MES2K100配套资料\2. Software\PDS_2025.2-ads-win64.zip
+2276928124        盘古100Pro+开发板（MES2L676-100HP）配套资料\8_软核\Embedded.zip
+1357122048        RK3568_MES2L50H_100H开发板资料\02-软件工具\02-Docker-SDK编译环境\RKLinux_SDK_Build_Environment_Docker_V1.0.tar
+12798451397       RK3568_MES2L50H_100H开发板资料\05-开发资料\01-Linux系统\Linux源码\MES_3568JBAF.tar.gz
+13913834          盘古50K开发板资料\PCIE资料\pcie_test_platform_v1_0(1).zip
+
+## 重要：字节数对不上不代表一定坏，字节数对也不代表一定好
+损坏副本的字节数和完好副本**完全相同**（例如 PDS 安装包三份都是 1934650447 字节），
+所以比大小只能发现「下载被截断」，发现不了「内容被写成大片全零」。
+真正的验证必须跑：python tools/check_archives.py <目录> 报告.txt
+
+## 百度网盘的损坏机制（推断）
+客户端会**先把文件预分配成完整大小**再逐块写入（实测：下载进行中 36 个文件已占 8.74 GB，
+而客户端显示实际已下 656 MB）。因此下载中断/漏写时，会得到「大小完全正确、
+没有 .downloading 标记、内容却是 MB 对齐全零块」的文件。
+对策：下载过程中别暂停/别中断，下完立刻跑一次 check_archives.py。

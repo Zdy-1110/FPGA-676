@@ -1,0 +1,13 @@
+video,t_start,t_end,field,value,conf,note
+113452,0.0,8.0,ego_motion,moving,high,跟随蓝色荣威 MPV
+113452,8.0,10.5,ego_motion,braking,high,前车刹车灯亮
+113452,10.5,14.37,ego_motion,stopped,high,
+113452,0.0,5.0,ego_left_line,white_dashed,low,
+113452,0.0,5.0,ego_right_line,unknown,low,右侧为绿化带/非机动车道
+113452,2.0,4.0,comment,rider_close_right,mid,黄衣外卖电动车在右前方近距离
+113452,6.0,14.37,junction,approach,high,
+113452,9.0,10.0,sig_straight,red,mid,远处两盏红灯，形状不清
+113452,9.0,10.0,sig_left,red,low,
+113452,10.0,14.37,sig_straight,red,low,被前车遮挡，推定
+113452,9.0,14.37,sig_right,none,low,
+113452,8.0,10.5,hazard,lead_close,high,前车刹车、距离缩小至停车

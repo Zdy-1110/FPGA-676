@@ -1,0 +1,132 @@
+{
+  "weights": {
+    "path": "/mnt/e/Project/nesai2026/runs/npu_train/b2f_v8n_band_freeze10/weights/best.pt",
+    "md5": "7b99ef464db6745844cd2127532525d4"
+  },
+  "profile": "side",
+  "input": {
+    "name": "images",
+    "shape": [
+      1,
+      3,
+      224,
+      640
+    ],
+    "layout": "NCHW",
+    "color": "RGB",
+    "normalize": "x/255",
+    "mean": [
+      0,
+      0,
+      0
+    ],
+    "std": [
+      255,
+      255,
+      255
+    ]
+  },
+  "strides": [
+    8,
+    16,
+    32
+  ],
+  "reg_max": 16,
+  "nc": 9,
+  "names": [
+    "person",
+    "rider",
+    "car",
+    "bus",
+    "truck",
+    "tricycle",
+    "cone",
+    "barrier",
+    "speed_limit"
+  ],
+  "outputs": [
+    {
+      "name": "box_s8",
+      "shape": [
+        1,
+        64,
+        28,
+        80
+      ]
+    },
+    {
+      "name": "cls_s8",
+      "shape": [
+        1,
+        9,
+        28,
+        80
+      ]
+    },
+    {
+      "name": "sum_s8",
+      "shape": [
+        1,
+        1,
+        28,
+        80
+      ]
+    },
+    {
+      "name": "box_s16",
+      "shape": [
+        1,
+        64,
+        14,
+        40
+      ]
+    },
+    {
+      "name": "cls_s16",
+      "shape": [
+        1,
+        9,
+        14,
+        40
+      ]
+    },
+    {
+      "name": "sum_s16",
+      "shape": [
+        1,
+        1,
+        14,
+        40
+      ]
+    },
+    {
+      "name": "box_s32",
+      "shape": [
+        1,
+        64,
+        7,
+        20
+      ]
+    },
+    {
+      "name": "cls_s32",
+      "shape": [
+        1,
+        9,
+        7,
+        20
+      ]
+    },
+    {
+      "name": "sum_s32",
+      "shape": [
+        1,
+        1,
+        7,
+        20
+      ]
+    }
+  ],
+  "opset": 12,
+  "ir_version": 7
+}

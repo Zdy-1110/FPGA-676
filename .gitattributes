@@ -1,0 +1,7 @@
+* text=auto
+*.sbit binary
+*.mp4 binary
+*.rknn binary
+*.onnx binary
+*.jpg binary
+*.png binary

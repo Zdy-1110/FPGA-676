@@ -1,0 +1,12 @@
+video,t_start,t_end,field,value,conf,note
+113421,0.0,1.5,ego_motion,stopped,high,与 113343 同一路口，约 16 s 后
+113421,1.5,4.0,ego_motion,starting,high,
+113421,4.0,13.07,ego_motion,moving,high,
+113421,0.0,6.0,junction,approach,high,
+113421,6.0,10.0,junction,crossing,high,
+113421,0.0,1.0,sig_straight,green,mid,0 s 灯头部分遮挡
+113421,1.0,10.0,sig_straight,green,high,两组绿色圆灯
+113421,0.0,10.0,sig_left,green,mid,圆灯推定
+113421,0.0,10.0,sig_right,none,mid,
+113421,7.0,10.0,hazard,cut_in,low,前车由揽胜变为蓝色宝马（宝马并入或自车偏移），待核对
+113421,11.0,11.0,speed_limit,40,high,路右侧限速 40 与禁停标志

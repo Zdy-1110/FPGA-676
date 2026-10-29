@@ -1,0 +1,6 @@
+video,t_start,t_end,field,value,conf,note
+112454,0.0,3.55,junction,at_stop_line,high,停止线后，前方斑马线
+112454,0.0,3.55,ego_motion,stopped,high,
+112454,0.0,3.55,sig_left,red,high,左转红箭头（三灯横排箭头灯）
+112454,0.0,3.55,sig_straight,red,high,直行红箭头
+112454,0.0,3.55,sig_right,none,mid,未见右转灯；右转是否受灯控待组委会口径

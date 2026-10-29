@@ -1,0 +1,161 @@
+待测压缩包: 104
+
+[OK]    8767.7 MB  Kosmo2-MES2K100配套资料\2. Software\PDS_2025.2-ads-win64.zip
+        4 个条目（大文件仅结构检查）
+[OK]      39.4 MB  Kosmo2-MES2K100配套资料\5.SD制卡文件\sd_sh.tar.gz
+        4 个条目（遍历通过）
+[OK]     413.0 MB  RK3568_MES2L50H_100H开发板资料\01-系统镜像\OH5.0\images.rar
+[OK]       1.7 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\linux\Linux_SecureBoot\SecureBootTool_v1.85_foruser.zip
+        17 个条目，CRC 全通过
+[OK]       5.1 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\linux\Linux_SecurityDM_v1_01.tar.gz
+        5 个条目（遍历通过）
+[OK]       1.3 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\linux\Linux_Upgrade_Tool\upgrade_tool_v2.44_for_linux.zip
+        5 个条目，CRC 全通过
+[OK]     170.3 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\linux\PinDebug\pin_debug_tool_v1.11_for_linux.tar
+        41 个条目（遍历通过）
+[OK]       2.5 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\linux\programming_image_tool\programmer_image_tool_v1.26_linux.tar
+        4 个条目（遍历通过）
+[OK]      78.0 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\linux\rk_ddrbin_tool_V1.01.7z
+        39 个条目，CRC 全通过
+[OK]      21.4 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\linux\rk_sign_tool_v1.42_linux.zip
+        9 个条目，CRC 全通过
+[OK]       0.1 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\mac\boot_merger\boot_merger_v1.3_mac.zip
+        3 个条目，CRC 全通过
+[OK]       0.1 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\mac\rockdev\rockdev_v2.1_mac.zip
+        4 个条目，CRC 全通过
+[OK]       1.5 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\mac\sign_tool\sign_tool_v1.2_mac.zip
+        9 个条目，CRC 全通过
+[OK]       0.5 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\mac\upgrade_tool\upgrade_tool_v2.13_for_mac.zip
+        5 个条目，CRC 全通过
+[OK]      10.8 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\BoardProofTool_v1.0_20231201.zip
+        12 个条目，CRC 全通过
+[OK]      26.2 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\DDR_UserTool_v1.41.zip
+        667 个条目，CRC 全通过
+[OK]       9.3 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\DriverAssitant_v5.13.zip
+        61 个条目，CRC 全通过
+[OK]       0.7 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\EfuseTool_v1.42.zip
+        7 个条目，CRC 全通过
+[OK]       5.4 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\FactoryTool_v1.91.zip
+        13 个条目，CRC 全通过
+[OK]      18.5 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\ParameterTool_v1.2.zip
+        8 个条目，CRC 全通过
+[OK]      10.1 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\RKDevInfoWriteTool_v1.2.4.zip
+        25 个条目，CRC 全通过
+[OK]       2.7 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\RKDevTool_Release_v3.36.zip
+        15 个条目，CRC 全通过
+[OK]       4.0 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\RKImageMaker_20230109.zip
+        12 个条目，CRC 全通过
+[OK]       4.0 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\RKPCBATool_V1.0.9.zip
+        2 个条目，CRC 全通过
+[OK]       4.1 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\Rockchip_HdcpKey_Writer_V1.0.5.7z
+        48 个条目，CRC 全通过
+[OK]      16.5 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\Rockchip_USB_SQ_Tool_V1.5.7z
+        3 个条目，CRC 全通过
+[OK]       0.3 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\SDDiskTool_v1.78.zip
+        8 个条目，CRC 全通过
+[OK]       2.9 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\SecureBootTool_v2.2.zip
+        11 个条目，CRC 全通过
+[OK]       6.8 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\boot_merger_v1.32.zip
+        3 个条目，CRC 全通过
+[OK]      51.0 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\pin_debug_tool_v1.17_20240814_win.zip
+        49 个条目，CRC 全通过
+[OK]       0.4 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\programmer_image_tool_v1.26.zip
+        4 个条目，CRC 全通过
+[OK]      58.0 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\rk_ddrBin_tool_V1.07.0.7z
+        56 个条目，CRC 全通过
+[OK]      24.9 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\rk_sign_tool_v1.42.zip
+        9 个条目，CRC 全通过
+[OK]       0.7 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\01-RKTools\windows\upgrade_tool_v2.44.zip
+        5 个条目，CRC 全通过
+[OK]    1294.3 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\02-Docker-SDK编译环境\RKLinux_SDK_Build_Environment_Docker_V1.0.tar
+        大文件仅检查头部，首项: b8fcdeca007273c65d107d07a8a943b5ea21a4661b710288c167ff0ca1b19033
+[OK]      40.2 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\03-SSH远程登录软件\MobaXterm_Installer_v24.2.0.5220.zip
+        2 个条目，CRC 全通过
+[OK]      78.1 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\03-SSH远程登录软件\VanDyke SecureCRT and SecureFX 9.4.0.3072 x64+x32.rar
+[OK]       0.6 MB  RK3568_MES2L50H_100H开发板资料\02-软件工具\04-USB转串口驱动\CH341SER.zip
+        93 个条目，CRC 全通过
+[OK]   12205.6 MB  RK3568_MES2L50H_100H开发板资料\05-开发资料\01-Linux系统\Linux源码\MES_3568JBAF.tar.gz
+        大文件仅检查头部，首项: RK3568J_SDK
+[OK]    1845.0 MB  盘古100K200K MINI开发板\5_Software\PDS\PDS_2022.2-SP6.4-win64.zip
+        3 个条目（大文件仅结构检查）
+[OK]       0.8 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\2_10_hdmi_loop.rar
+[OK]       4.8 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\2_11_ethernet_test.rar
+[OK]       3.2 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\2_12_hsst_test_demo.rar
+[OK]      18.3 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\2_13_pcie_test.rar
+[OK]       0.2 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\2_2_sim.rar
+[OK]       0.2 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\2_3_sim.rar
+[OK]       3.3 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\2_4_ip_setup.rar
+[OK]       0.1 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\2_5_pll_test.rar
+[OK]       0.8 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\2_6_ram_rom_fifo.rar
+[OK]       0.2 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\2_7_key_led_test.rar
+[OK]       0.8 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\2_8_uart_test.rar
+[OK]      18.0 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\2_9_ddr3_test.rar
+[OK]      25.5 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\3_10_HDMI_IN_DDR3_gamma.rar
+[OK]      14.1 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\3_11_HDMI_IN_DDR3_char.rar
+[OK]       7.1 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\3_1_img_sim.rar
+[OK]      22.0 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\3_2_HDMI_IN_DDR3_YCbCr.rar
+[OK]       0.5 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\3_3_matrix_tb.rar
+[OK]      33.4 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\3_4_HDMI_IN_DDR3_bin.rar
+[OK]      22.9 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\3_5_HDMI_IN_DDR3_bin_ero_dil.rar
+[OK]      35.3 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\3_6_HDMI_IN_DDR3_mid_filter.rar
+[OK]      35.2 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\3_7_HDMI_IN_DDR3_aver_filter.rar
+[OK]      35.2 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\3_8_HDMI_IN_DDR3_gauss_filter.rar
+[OK]      33.7 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\3_9_HDMI_IN_DDR3_sobel.rar
+[OK]      12.5 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\4_10_timing.rar
+[OK]       2.4 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\4_11_lvds_test.rar
+[OK]      12.5 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\4_12_HDMI_IN_DDR3_HDMI_OUT.rar
+[OK]       1.3 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\4_13_tri_eth_test.rar
+[OK]     182.8 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\4_14_hdmi_in_sfp_hdmi_out.rar
+[OK]      33.0 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\4_15_PCIE_DMA.rar
+[OK]       0.3 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\4_1_led_test.rar
+[OK]       0.7 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\4_2_clm_single_ram_test.rar
+[OK]       1.1 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\4_3_dram_single_ram_test.rar
+[OK]       0.2 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\4_4_DSP_mult.rar
+[OK]       0.1 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\4_5_DSP_mult_as_cas.rar
+[OK]       1.3 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\4_6_hdmi_dyn_ppll.rar
+[OK]       3.6 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\4_7_adc_top.rar
+[OK]       3.9 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\2_Demo\4_9_encryption.rar
+[OK]    1845.0 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\5_Software\PDS\PDS_2022.2-SP6.4-win64.zip
+        3 个条目（大文件仅结构检查）
+[OK]    2171.4 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\8_软核\Embedded.zip
+        9 个条目（大文件仅结构检查）
+[OK]       4.4 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\9_远程升级\FPGA jtag远程升级方案\FPGA_CFG_JTAG_DEMO_V1.0.7z
+        756 个条目，CRC 全通过
+[OK]       5.5 MB  盘古100Pro+开发板（MES2L676-100HP）配套资料\9_远程升级\FPGA jtag远程升级方案\LOGOS2远程升级V1.4.7z
+        61 个条目，CRC 全通过
+[OK]       0.0 MB  盘古50K开发板资料\ADDA模块资料\3-SPI显示屏硬件手册\2.4TFT7789V横屏显示代码.rar
+[OK]       0.2 MB  盘古50K开发板资料\ADDA模块资料\3-SPI显示屏硬件手册\2.4TFTST7789参考代码STM32(1).zip
+        21 个条目，CRC 全通过
+[OK]      24.1 MB  盘古50K开发板资料\ADDA模块资料\3-SPI显示屏硬件手册\ESP32-ISP屏接线图-库文件.zip
+        772 个条目，CRC 全通过
+[OK]       4.3 MB  盘古50K开发板资料\MES50H-HDMI视频板\demo\hdmi_base.zip
+        253 个条目，CRC 全通过
+[OK]      21.2 MB  盘古50K开发板资料\MES50HP-网口板\demo\eth_test.rar
+[OK]      13.3 MB  盘古50K开发板资料\PCIE资料\pcie_test_platform_v1_0(1).zip
+        380 个条目，CRC 全通过
+[OK]    1845.0 MB  盘古50K开发板资料\PDS开发软件安装包\PDS_2022.2-SP6.4-win64.zip
+        3 个条目（大文件仅结构检查）
+[OK]     730.2 MB  盘古50K开发板资料\PDS开发软件安装包\lite版本的软件，不用license\PDS_2022.2-SP1-Lite.zip
+        5 个条目（大文件仅结构检查）
+[OK]      40.5 MB  盘古50K开发板资料\PDS开发软件安装包\lite版本的软件，不用license\system_ip_lite.zip
+        13 个条目，CRC 全通过
+[OK]       1.0 MB  盘古50K开发板资料\盘古50K开发板\2_Demo\01_led_test.rar
+[OK]       0.4 MB  盘古50K开发板资料\盘古50K开发板\2_Demo\02_key_led_test.rar
+[OK]       0.6 MB  盘古50K开发板资料\盘古50K开发板\2_Demo\03_i2c_eeprom_test.rar
+[OK]       0.5 MB  盘古50K开发板资料\盘古50K开发板\2_Demo\04_uart_test.rar
+[OK]       1.2 MB  盘古50K开发板资料\盘古50K开发板\2_Demo\05_hdmi_test.rar
+[OK]       1.4 MB  盘古50K开发板资料\盘古50K开发板\2_Demo\06_hdmi_loop.rar
+[OK]      17.7 MB  盘古50K开发板资料\盘古50K开发板\2_Demo\07_ddr3_test.rar
+[OK]       5.3 MB  盘古50K开发板资料\盘古50K开发板\2_Demo\08_hsst_test.rar
+[OK]      16.9 MB  盘古50K开发板资料\盘古50K开发板\2_Demo\09_pcie_test.rar
+[OK]      13.6 MB  盘古50K开发板资料\盘古50K开发板\2_Demo\10_HDMI_DDR3_OV5640_test.rar
+[OK]       4.0 MB  盘古50K开发板资料\盘古50K开发板\2_Demo\11_ethernet_test.rar
+[OK]       2.0 MB  盘古50K开发板资料\盘古50K开发板\4_IC_datasheet\HDMI PHY\2023.03.13 MS7200寄存器配置说明.7z
+        3 个条目，CRC 全通过
+[OK]       1.9 MB  盘古50K开发板资料\盘古50K开发板\4_IC_datasheet\HDMI PHY\2023.03.13 MS7210寄存器配置说明.7z
+        3 个条目，CRC 全通过
+[OK]       1.8 MB  盘古50K开发板资料\盘古50K开发板\5_Software\pcie_test_platform.rar
+
+===== 汇总 =====
+完好 : 104
+损坏 : 0

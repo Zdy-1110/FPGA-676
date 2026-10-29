@@ -1,0 +1,16 @@
+video,t_start,t_end,field,value,conf,note
+113343,0.0,12.0,ego_motion,moving,high,
+113343,12.0,14.0,ego_motion,braking,mid,
+113343,14.0,21.85,ego_motion,stopped,high,排队，前车为银色揽胜
+113343,0.0,8.0,ego_left_line,yellow_solid,mid,靠中央隔离栏
+113343,0.0,8.0,ego_right_line,white_dashed,mid,
+113343,9.0,11.0,lane_change,right,low,疑似向右变道，待核对
+113343,9.0,14.0,junction,approach,high,
+113343,14.0,21.85,junction,approach,high,在路口排队（不是停止线前第一辆）
+113343,12.5,15.5,sig_left,red,high,两组红色圆灯
+113343,12.5,15.5,sig_straight,red,high,
+113343,12.5,15.5,sig_right,none,mid,
+113343,15.5,21.85,sig_left,red,low,灯头被前车遮挡，推定未变；右侧行人灯为红
+113343,15.5,21.85,sig_straight,red,low,同上
+113343,15.5,21.85,sig_right,none,mid,
+113343,12.0,14.0,hazard,lead_close,mid,接近排队车辆并刹停

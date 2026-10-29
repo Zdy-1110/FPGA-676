@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FPGA 工作原理 · 架构图解（以盘古100Pro+ / PG2L100H 为例）</title>
+<style>
+:root{
+  --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --panel:#f8fafc;
+  --logic:#3b82f6; --logicbg:#eff6ff;
+  --route:#64748b; --routebg:#f1f5f9;
+  --mem:#10b981;   --membg:#ecfdf5;
+  --dsp:#f59e0b;   --dspbg:#fffbeb;
+  --hard:#8b5cf6;  --hardbg:#f5f3ff;
+  --clk:#ef4444;   --clkbg:#fef2f2;
+  --io:#14b8a6;    --iobg:#f0fdfa;
+  --cfg:#ca8a04;   --cfgbg:#fefce8;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;padding:56px 24px 120px;background:#fff;color:var(--ink);
+  font:16px/1.8 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+}
+.wrap{max-width:1080px;margin:0 auto}
+
+/* ---------- 标题层级 ---------- */
+h1{font-size:30px;line-height:1.35;margin:0 0 10px;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:15px;margin:0 0 8px}
+.meta{color:var(--muted);font-size:13px;border-bottom:2px solid var(--line);padding-bottom:24px;margin-bottom:8px}
+
+h2{
+  font-size:21px;margin:56px 0 6px;padding-top:8px;letter-spacing:-.01em;
+  display:flex;align-items:baseline;gap:12px;
+}
+h2 .n{
+  flex:none;font-size:13px;font-weight:700;color:#fff;background:var(--ink);
+  border-radius:6px;padding:3px 9px;letter-spacing:.02em;
+}
+h2 .n.b{background:var(--logic)} h2 .n.g{background:var(--mem)}
+h2 .n.o{background:var(--dsp)} h2 .n.v{background:var(--hard)}
+h2 .n.r{background:var(--clk)} h2 .n.t{background:var(--io)}
+h2 .n.y{background:var(--cfg)} h2 .n.s{background:var(--route)}
+h3{font-size:16px;margin:32px 0 8px;color:var(--ink)}
+p{margin:12px 0}
+.lead{color:var(--muted);font-size:14.5px;margin:0 0 22px}
+
+/* ---------- 通用方块 ---------- */
+.box{
+  border:2px solid var(--line);border-radius:10px;padding:10px 14px;
+  text-align:center;font-weight:600;font-size:13.5px;line-height:1.4;
+  background:#fff;
+}
+.box small{display:block;font-weight:400;font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.3}
+.b-logic{border-color:var(--logic);background:var(--logicbg);color:#1e40af}
+.b-route{border-color:var(--route);background:var(--routebg);color:#334155}
+.b-mem{border-color:var(--mem);background:var(--membg);color:#065f46}
+.b-dsp{border-color:var(--dsp);background:var(--dspbg);color:#92400e}
+.b-hard{border-color:var(--hard);background:var(--hardbg);color:#5b21b6}
+.b-clk{border-color:var(--clk);background:var(--clkbg);color:#991b1b}
+.b-io{border-color:var(--io);background:var(--iobg);color:#115e59}
+.b-cfg{border-color:var(--cfg);background:var(--cfgbg);color:#713f12}
+.b-plain{border-color:var(--line);background:var(--panel);color:#334155}
+
+/* ---------- 芯片平面布局 ---------- */
+.floor{
+  display:grid;gap:6px;margin:22px 0 6px;
+  grid-template-columns:74px 1fr 74px;
+  grid-template-rows:auto 1fr auto auto;
+  grid-template-areas:
+    ".    top   ."
+    "left fab   right"
+    ".    bot   ."
+    "cfg  cfg   cfg";
+  background:#fff;padding:14px;border:2px solid var(--ink);border-radius:14px;
+}
+.io-top{grid-area:top} .io-bot{grid-area:bot}
+.io-l{grid-area:left} .io-r{grid-area:right}
+.fabric{grid-area:fab} .cfgband{grid-area:cfg}
+.io-l,.io-r{display:flex;align-items:center;justify-content:center;text-align:center;font-size:11.5px;line-height:1.35}
+.io-top,.io-bot{text-align:center;font-size:12px;padding:9px}
+.io-l,.io-r{writing-mode:vertical-rl;text-orientation:mixed;letter-spacing:.06em;padding:10px 6px}
+.fabric{grid-column:2;display:flex;gap:6px;min-height:300px}
+.logicgrid{flex:3.1;display:flex;gap:5px}
+.hardcol{flex:1.15;display:flex;flex-direction:column;gap:6px}
+.colclm{flex:1;border:2px solid var(--logic);background:var(--logicbg);border-radius:9px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  font-size:11.5px;font-weight:600;color:#1e40af;line-height:1.35;padding:6px;word-break:keep-all}
+.colres{flex:0 0 30px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  text-align:center;font-size:10.5px;font-weight:700;letter-spacing:.14em;
+  writing-mode:vertical-rl;text-orientation:mixed}
+.colres.mem{border:2px solid var(--mem);background:var(--membg);color:#065f46}
+.colres.dsp{border:2px solid var(--dsp);background:var(--dspbg);color:#92400e}
+.hardcol .box{flex:1;display:flex;flex-direction:column;justify-content:center}
+.cfgband{grid-column:1/-1;margin-top:6px;border:2px solid var(--cfg);background:var(--cfgbg);
+  border-radius:10px;padding:10px 14px}
+.cfgband .t{font-size:12px;font-weight:700;color:#713f12;margin-bottom:8px}
+.cfgrow{display:flex;gap:8px}
+.cfgrow .box{flex:1;background:#fff;font-size:12px;padding:8px 10px}
+
+/* ---------- 图注 ---------- */
+.figcap{font-size:13px;color:var(--muted);margin:10px 0 0;line-height:1.65}
+.figcap b{color:var(--ink)}
+
+/* ---------- 图例 ---------- */
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;margin:16px 0 0;font-size:12.5px;color:var(--muted)}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;
+  vertical-align:-1px;border:2px solid}
+
+/* ---------- SVG 通用 ---------- */
+figure{margin:22px 0 0}
+svg{width:100%;height:auto;display:block}
+svg text{font-family:-apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;fill:var(--ink)}
+.w{stroke:#334155;stroke-width:1.6;fill:none}
+.wt{stroke:#94a3b8;stroke-width:1.2;fill:none}
+.blk{fill:#fff;stroke:var(--ink);stroke-width:1.8}
+.cell{fill:#fff;stroke:var(--route);stroke-width:1.3}
+.cell.on{fill:var(--dspbg);stroke:var(--dsp);stroke-width:1.8}
+.mux{fill:var(--logicbg);stroke:var(--logic);stroke-width:2}
+.svgl{font-size:16px;font-weight:700}
+.svgm{font-size:13px;font-weight:600}
+.svgs{font-size:12px;fill:#475569}
+.svgb{font-size:13px;font-weight:700;fill:#92400e}
+.path{stroke:var(--clk);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.sb{fill:var(--clkbg);stroke:var(--clk);stroke-width:2}
+.cb{fill:var(--cfgbg);stroke:var(--cfg);stroke-width:2}
+.chan{fill:#f1f5f9;stroke:#cbd5e1;stroke-width:1}
+
+/* ---------- 流程 / 链路 ---------- */
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:0;margin:20px 0 0}
+.flow .step{flex:1 1 118px;min-width:118px;position:relative;padding-right:20px}
+.flow .step .box{height:100%}
+.flow .step:not(:last-child)::after{
+  content:"▶";position:absolute;right:4px;top:50%;transform:translateY(-50%);
+  color:#94a3b8;font-size:13px
+}
+.flow.vert{flex-direction:column;gap:10px}
+.flow.vert .step{padding-right:0;padding-bottom:0}
+.flow.vert .step:not(:last-child)::after{
+  content:"▼";right:auto;left:50%;top:auto;bottom:-11px;transform:translateX(-50%)
+}
+
+/* ---------- 表格 ---------- */
+table{border-collapse:collapse;width:100%;margin:20px 0 0;font-size:13.5px}
+th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+th{background:var(--panel);font-weight:700;font-size:12.5px;letter-spacing:.02em}
+td code{background:var(--panel);border:1px solid var(--line);border-radius:4px;
+  padding:1px 5px;font-size:12.5px;font-family:ui-monospace,Consolas,monospace}
+tbody tr:nth-child(even){background:#fcfdfe}
+
+/* ---------- 提示条 ---------- */
+.note{
+  border-left:4px solid var(--logic);background:var(--panel);border-radius:0 10px 10px 0;
+  padding:14px 18px;margin:22px 0 0;font-size:14px;color:#334155
+}
+.note.warn{border-left-color:var(--dsp)}
+.note.key{border-left-color:var(--mem)}
+.note b{color:var(--ink)}
+.note .lab{display:block;font-size:11.5px;font-weight:700;letter-spacing:.08em;
+  color:var(--muted);margin-bottom:5px;text-transform:uppercase}
+
+/* ---------- 流水线对比 ---------- */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin:20px 0 0}
+.two h4{margin:0 0 8px;font-size:14px}
+.two .card{border:2px solid var(--line);border-radius:12px;padding:14px}
+.pipe{display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600}
+.pipe .u{flex:1;border:2px solid var(--logic);background:var(--logicbg);border-radius:7px;
+  padding:7px 4px;text-align:center;color:#1e40af;line-height:1.25}
+.pipe .u.ff{border-color:var(--clk);background:var(--clkbg);color:#991b1b;flex:0 0 46px}
+.pipe .u.long{border-color:var(--dsp);background:var(--dspbg);color:#92400e}
+.eq{font-family:ui-monospace,Consolas,monospace;font-size:13.5px;background:var(--panel);
+  border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin:16px 0 0;
+  display:block;overflow-x:auto;white-space:nowrap}
+
+@media (max-width:760px){
+  body{padding:28px 14px 80px}
+  h1{font-size:23px} h2{font-size:18px}
+  .two{grid-template-columns:1fr}
+  .io-l,.io-r{writing-mode:horizontal-tb}
+  .floor{
+    grid-template-columns:1fr;
+    grid-template-areas:"top" "left" "fab" "right" "bot" "cfg";
+  }
+  .colres{writing-mode:horizontal-tb;flex:0 0 auto;padding:8px}
+  .logicgrid{flex-direction:column}
+  .colclm{min-height:52px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>FPGA 工作原理 · 架构图解</h1>
+<p class="sub">从硅片上的一个 SRAM 位，到一个跑在 148.5 MHz 上的 1080p60 视频通路</p>
+<p class="meta">示例器件：紫光同创 Logos2 系列 <b>PG2L100H-6IFBG676</b>（盘古100Pro+ 开发板）· 工具链 Pango Design Suite</p>
+
+<p>FPGA 这个词本身是个缩写，全称 <b>Field Programmable Gate Array</b>，字段可编程门阵列。这三个词就是全部答案的骨架：</p>
+
+<div class="flow" style="margin-top:14px">
+  <div class="step"><div class="box b-plain">Field<small>现场可编程<br>出厂后由用户改</small></div></div>
+  <div class="step"><div class="box b-plain">Programmable<small>可编程<br>功能由配置位决定</small></div></div>
+  <div class="step"><div class="box b-plain">Gate Array<small>门阵列<br>规则排布的单元阵列</small></div></div>
+</div>
+
+<p>要真正理解它，需要把这句话拆成三个可编程层，再逐层放大到硅片。下面按<b>从整块芯片 → 到单个配置位</b>的顺序展开，最后再回到"写一段 Verilog 之后芯片里到底发生了什么"。</p>
+
+<div class="note key">
+  <span class="lab">全文主线</span>
+  FPGA 里没有"指令"。它没有取指、译码、执行这些环节，也没有 CPU 那种"一条一条按顺序跑"的流程。芯片里存在的是<b>空间上的结构</b>：几万个查找表、几万个触发器、一张可编程的开关网络，以及遍布全芯片的配置存储位。你写的 Verilog 经过工具链，最终变成的是一份"哪些开关闭合、每个查找表存什么真值表"的位流文件。上电时把这份位流灌进去，芯片就"变成"你要的电路。断电，配置位丢失，电路消失。
+</div>
+
+<!-- ==================== 1 ==================== -->
+<h2><span class="n b">1</span>芯片级平面布局：一块 FPGA 长什么样</h2>
+<p class="lead">第一层放大：从外部看这颗芯片，它是怎么被划分的。</p>
+
+<div class="floor">
+  <div class="io-top box b-io">IO Bank（顶部）<small>通用 IO · 支持 LVCMOS / LVDS / SSTL 等多种电平标准</small></div>
+  <div class="io-l box b-io">IO Bank 左侧 · L3 ~ L7</div>
+  <div class="fabric">
+    <div class="logicgrid">
+      <div class="colclm">CLM 阵列<small>可编程逻辑主体</small></div>
+      <div class="colres mem">BRAM</div>
+      <div class="colclm">CLM 阵列</div>
+      <div class="colres dsp">APM</div>
+      <div class="colclm">CLM 阵列</div>
+      <div class="colres mem">BRAM</div>
+      <div class="colclm">CLM 阵列</div>
+    </div>
+    <div class="hardcol">
+      <div class="box b-hard">PCIe Gen2 ×4<small>硬核</small></div>
+      <div class="box b-hard">HSST ×8<small>6.6 Gbps SerDes</small></div>
+      <div class="box b-hard">6× GPLL + 6× PPLL<small>时钟管理</small></div>
+      <div class="box b-hard">ADC · AES<small>模拟 / 加密硬核</small></div>
+      <div class="box b-hard">HMIC 硬核 IO<small>DDR3 PHY</small></div>
+    </div>
+  </div>
+  <div class="io-r box b-io">IO Bank 右侧 · R4 / R5</div>
+  <div class="io-bot box b-io">IO Bank（底部）<small>时钟输入引脚等专用引脚分布在各 Bank</small></div>
+  <div class="cfgband">
+    <div class="t">配置子系统（贯穿全芯片，不是集中在一块）</div>
+    <div class="cfgrow">
+      <div class="box b-cfg">配置控制器<small>上电加载位流</small></div>
+      <div class="box b-cfg">JTAG TAP<small>调试 / 直下</small></div>
+      <div class="box b-cfg">QSPI 控制器<small>读板载 Flash</small></div>
+      <div class="box b-cfg">分布式配置 SRAM<small>分布在每个 CLM、每条开关通路里</small></div>
+    </div>
+  </div>
+</div>
+<p class="figcap"><b>图 1 · FPGA 芯片平面布局（列式架构）</b>。所有现代 FPGA 都采用这种"列式"布局：中间是规则排布的逻辑阵列，存储块（BRAM）和运算块（APM/DSP）以<b>竖直列</b>的形式嵌在阵列中间，外围一圈是 IO Bank，硬核集中在芯片一侧。<br>
+<b>这块板子的 Bank 与电平</b>：左侧 L3 / L4 / L5 为 3.3 V；L6 / L7 的电平由板上跳线选择（ADJ_3V3 / 2V5 / 1V8，接 OV5640 这类 1.8 V 器件前必须改跳线）；右侧 R4 / R5 为 1.5 V，专供 DDR3（VDDQ = 1.5 V）。IO 的电平标准是<b>按 Bank 配置</b>的，一个 Bank 内的所有引脚通常共享同一套 IO 供电，所以"哪个外设接在哪个 Bank"是硬件设计阶段就要定死的事。</p>
+
+<div class="note">
+  <span class="lab">为什么是列，不是随便撒</span>
+  BRAM 和 APM 是较大的矩形硬块，如果随机撒在逻辑阵列里，布线资源会被切得支离破碎。做成<b>整列贯穿</b>之后，它们共享同一条纵向布线通道，逻辑阵列也保持完整。这个布局选择带来一个你必须知道的后果：<b>资源分布是不均匀的</b>。如果你的设计要用 100 个乘法器，而它们全都要连到某一小片区域，工具就必须把那片区域的逻辑挪走，甚至报"资源拥塞"。这就是为什么 FPGA 的"布局布线"是个 NP-hard 的启发式问题，而不是简单分配。
+</div>
+
+<h3>1.1 这块板子的芯片具体有多少资源</h3>
+<table>
+<thead><tr><th>资源</th><th>数量</th><th>它是干什么的</th></tr></thead>
+<tbody>
+<tr><td>LUT6（6 输入查找表）</td><td><b>66,600</b></td><td>实现任意组合逻辑的最小单元</td></tr>
+<tr><td>触发器 FF</td><td><b>133,200</b></td><td>存状态，时序逻辑的基本单元</td></tr>
+<tr><td>CLM（可配置逻辑模块）</td><td>16,650</td><td>每 CLM = 4 个 LUT6 + 8 个 FF，<code>16650 × 4 = 66600</code>，<code>16650 × 8 = 133200</code></td></tr>
+<tr><td>BRAM（36 Kb 块存储）</td><td>155 块 / 5,580 Kbit</td><td>片上 RAM，存图像行缓存、FIFO</td></tr>
+<tr><td>APM（25×18 乘法器）</td><td>740 个</td><td>乘法、乘累加，DSP 运算</td></tr>
+<tr><td>分布式 RAM</td><td>1,243.75 Kbit</td><td>用 LUT 自身当小容量 RAM 用</td></tr>
+<tr><td>HSST 高速收发器</td><td>8 路，6.6 Gbps</td><td>SerDes，接高速串行链路</td></tr>
+<tr><td>PCIe 硬核</td><td>Gen2 ×4</td><td>硬化的 PCIe 控制器</td></tr>
+<tr><td>PLL</td><td>6× GPLL + 6× PPLL</td><td>倍频 / 分频 / 相移，生成时钟</td></tr>
+<tr><td>用户 IO</td><td>300</td><td>连到外部引脚</td></tr>
+</tbody>
+</table>
+<p class="figcap">这张表后面会反复用到。<b>66,600 个 LUT</b> 意味着这颗芯片能同时实现约六万六千个"6 输入以内的任意逻辑函数"——注意是<b>同时</b>，这是 FPGA 与 MCU 最根本的差别。</p>
+
+<!-- ==================== 2 ==================== -->
+<h2><span class="n b">2</span>CLM：逻辑阵列的最小积木</h2>
+<p class="lead">第二层放大：阵列里的一个"格子"里面有什么。</p>
+
+<div class="flow vert" style="margin-top:18px;max-width:640px">
+  <div class="step"><div class="box b-plain" style="text-align:left">
+    <b>CLM（Configurable Logic Module）</b><small>16,650 个，铺满整个逻辑阵列</small></div></div>
+  <div class="step"><div class="box b-logic" style="text-align:left">
+    4 × <b>LUT6</b> — 每个可实现任意 6 输入 1 输出组合逻辑<small>也可拆成两个 5 输入 LUT 使用，提高利用率</small></div></div>
+  <div class="step"><div class="box b-clk" style="text-align:left">
+    8 × <b>触发器 FF</b> — 每个 LUT 配 2 个<small>可配置为 D 触发器 / 锁存器，可带置位复位与时钟使能</small></div></div>
+  <div class="step"><div class="box b-dsp" style="text-align:left">
+    <b>进位链（Carry Chain）</b> — 纵向贯穿，专门做快速加法<small>加法器、计数器不用一级级等 LUT 延迟</small></div></div>
+  <div class="step"><div class="box b-mem" style="text-align:left">
+    <b>宽 MUX（F7 / F8）</b> — 把 4 个 LUT 组合成 7 或 8 输入函数<small>以及把 LUT 当分布式 RAM / ROM 用的通路</small></div></div>
+</div>
+
+<p>把这些拼起来，一个 CLM 的结构是：</p>
+
+<figure>
+<svg viewBox="0 0 900 340" role="img" aria-label="CLM 内部结构">
+  <defs>
+    <marker id="a1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 z" fill="#334155"/></marker>
+    <marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 z" fill="#ef4444"/></marker>
+  </defs>
+
+  <!-- CLM 外框 -->
+  <rect x="18" y="26" width="864" height="292" rx="14" fill="#fbfdff" stroke="#3b82f6" stroke-width="2.4"/>
+  <text x="34" y="52" class="svgm" fill="#1e40af">CLM</text>
+
+  <!-- 输入总线 -->
+  <text x="34" y="96" class="svgs">来自可编程互联</text>
+  <line x1="34" y1="118" x2="150" y2="118" class="w" stroke-width="4"/>
+  <text x="34" y="140" class="svgs">输入（最多 6 路/LUT）</text>
+
+  <!-- 4 个 LUT -->
+  <g>
+    <rect x="164" y="70" width="132" height="52" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.8"/>
+    <text x="230" y="101" class="svgm" text-anchor="middle" fill="#1e40af">LUT6</text>
+    <rect x="164" y="132" width="132" height="52" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.8"/>
+    <text x="230" y="163" class="svgm" text-anchor="middle" fill="#1e40af">LUT6</text>
+    <rect x="164" y="194" width="132" height="52" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.8"/>
+    <text x="230" y="225" class="svgm" text-anchor="middle" fill="#1e40af">LUT6</text>
+    <rect x="164" y="256" width="132" height="52" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.8"/>
+    <text x="230" y="287" class="svgm" text-anchor="middle" fill="#1e40af">LUT6</text>
+  </g>
+
+  <!-- 进位链 -->
+  <rect x="322" y="60" width="42" height="258" rx="8" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.8"/>
+  <text x="343" y="189" class="svgm" text-anchor="middle" fill="#92400e" transform="rotate(90 343 189)">进位链</text>
+  <line x1="296" y1="96" x2="322" y2="96" class="wt"/>
+  <line x1="296" y1="158" x2="322" y2="158" class="wt"/>
+  <line x1="296" y1="220" x2="322" y2="220" class="wt"/>
+  <line x1="296" y1="282" x2="322" y2="282" class="wt"/>
+
+  <!-- 宽 MUX -->
+  <rect x="388" y="120" width="76" height="130" rx="8" fill="#ecfdf5" stroke="#10b981" stroke-width="1.8"/>
+  <text x="426" y="178" class="svgm" text-anchor="middle" fill="#065f46">宽 MUX</text>
+  <text x="426" y="196" class="svgs" text-anchor="middle" fill="#065f46">F7 / F8</text>
+  <line x1="364" y1="185" x2="388" y2="185" class="wt"/>
+
+  <!-- 8 个 FF -->
+  <g>
+    <rect x="500" y="62" width="118" height="44" rx="7" fill="#fef2f2" stroke="#ef4444" stroke-width="1.8"/>
+    <text x="559" y="89" class="svgm" text-anchor="middle" fill="#991b1b">FF 0</text>
+    <rect x="500" y="114" width="118" height="44" rx="7" fill="#fef2f2" stroke="#ef4444" stroke-width="1.8"/>
+    <text x="559" y="141" class="svgm" text-anchor="middle" fill="#991b1b">FF 1</text>
+    <rect x="500" y="166" width="118" height="44" rx="7" fill="#fef2f2" stroke="#ef4444" stroke-width="1.8"/>
+    <text x="559" y="193" class="svgm" text-anchor="middle" fill="#991b1b">FF 2</text>
+    <rect x="500" y="218" width="118" height="44" rx="7" fill="#fef2f2" stroke="#ef4444" stroke-width="1.8"/>
+    <text x="559" y="245" class="svgm" text-anchor="middle" fill="#991b1b">FF 3</text>
+    <rect x="500" y="270" width="118" height="44" rx="7" fill="#fef2f2" stroke="#ef4444" stroke-width="1.8"/>
+    <text x="559" y="297" class="svgm" text-anchor="middle" fill="#991b1b">FF 4 ~ 7</text>
+  </g>
+  <line x1="296" y1="84" x2="500" y2="84" class="wt"/>
+  <line x1="296" y1="136" x2="500" y2="136" class="wt"/>
+  <line x1="296" y1="188" x2="500" y2="188" class="wt"/>
+  <line x1="296" y1="240" x2="500" y2="240" class="wt"/>
+  <line x1="296" y1="292" x2="500" y2="292" class="wt"/>
+  <text x="410" y="76" class="svgs" text-anchor="middle">旁路 LUT 直连</text>
+
+  <!-- 输出 -->
+  <line x1="618" y1="185" x2="700" y2="185" class="w" stroke-width="4" marker-end="url(#a1)"/>
+  <text x="700" y="178" class="svgs">到可编程互联</text>
+  <text x="700" y="200" class="svgs">（回阵列 / 去 IO）</text>
+  <line x1="618" y1="84" x2="672" y2="84" class="wt"/>
+  <line x1="672" y1="84" x2="672" y2="168" class="wt"/>
+  <line x1="618" y1="136" x2="656" y2="136" class="wt"/>
+  <line x1="656" y1="136" x2="656" y2="172" class="wt"/>
+  <line x1="618" y1="240" x2="656" y2="240" class="wt"/>
+  <line x1="656" y1="240" x2="656" y2="204" class="wt"/>
+  <line x1="618" y1="292" x2="672" y2="292" class="wt"/>
+  <line x1="672" y1="292" x2="672" y2="206" class="wt"/>
+
+  <!-- 时钟 -->
+  <line x1="559" y1="330" x2="559" y2="314" class="w" stroke="#ef4444" marker-end="url(#a2)"/>
+  <text x="559" y="330" class="svgs" text-anchor="middle" fill="#991b1b">时钟 / 使能 / 复位</text>
+</svg>
+</figure>
+<p class="figcap"><b>图 2 · CLM 内部结构</b>。4 个 6 输入 LUT 负责组合逻辑，8 个 FF 负责存状态，进位链负责快速加法，宽 MUX 负责把多个 LUT 拼成更宽的函数。信号从左边进、右边出，全部经过可编程互联。注意 FF 的输入既可以接 LUT 的输出，也可以旁路 LUT 直接接互联线。</p>
+
+<div class="note">
+  <span class="lab">关键比例：LUT : FF = 1 : 2</span>
+  这块芯片是 66,600 个 LUT6 配 133,200 个 FF。<b>触发器比查找表还多一倍</b>——这个比例不是巧合，它是综合工具期望的平均值：一个查找表的输出，通常有一半的概率需要被打一拍（寄存）。当你写的设计里寄存器用量远超这个比例时，工具会开始用 LUT 硬搭寄存器，效率急剧下降；反之如果全是组合逻辑、几乎没有寄存器，那你的设计很可能上不了高频。这个比例本身就是一条设计经验。
+</div>
+
+<!-- ==================== 3 ==================== -->
+<h2><span class="n y">3</span>LUT：可编程的物理根源</h2>
+<p class="lead">第三层放大：一个"6 输入任意逻辑"的盒子，里面到底是什么。这是整篇文档最核心的一节。</p>
+
+<p>先说结论：<b>一个 N 输入查找表，物理上就是一块 2<sup>N</sup> × 1 bit 的 SRAM，加一个 2<sup>N</sup> 选 1 的多路选择器。</b> 输入信号接多路选择器的选择端（相当于 SRAM 的地址线），SRAM 里存的内容就是真值表，多路选择器的输出就是函数结果。</p>
+
+<p>下图是一个 4 输入查找表（为看清结构画成 16 行；这块芯片里是 6 输入、64 行）：</p>
+
+<figure>
+<svg viewBox="0 0 820 420" role="img" aria-label="4 输入查找表 = 16×1 SRAM + 16 选 1 多路选择器">
+  <defs>
+    <marker id="a3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 z" fill="#334155"/></marker>
+  </defs>
+
+  <text x="380" y="30" class="svgm" text-anchor="middle">配置 SRAM 阵列　16 × 1 bit　=　真值表</text>
+  <text x="612" y="30" class="svgm" text-anchor="middle" fill="#1e40af">16 选 1</text>
+
+  <!-- 输入 -->
+  <text x="8" y="146" class="svgl">A</text>
+  <text x="8" y="181" class="svgl">B</text>
+  <text x="8" y="216" class="svgl">C</text>
+  <text x="8" y="251" class="svgl">D</text>
+  <line x1="30" y1="141" x2="150" y2="141" class="w"/>
+  <line x1="30" y1="176" x2="150" y2="176" class="w"/>
+  <line x1="30" y1="211" x2="150" y2="211" class="w"/>
+  <line x1="30" y1="246" x2="150" y2="246" class="w"/>
+
+  <!-- 地址译码 -->
+  <rect x="150" y="110" width="98" height="170" rx="9" class="blk"/>
+  <text x="199" y="182" class="svgm" text-anchor="middle">地址</text>
+  <text x="199" y="200" class="svgm" text-anchor="middle">译码</text>
+  <text x="199" y="218" class="svgm" text-anchor="middle">4→16</text>
+
+  <!-- 16 个 SRAM 位 -->
+  <rect x="290" y="56" width="180" height="18" rx="3" class="cell"/>
+  <text x="282" y="69" class="svgs" text-anchor="end">0</text><text x="380" y="69" class="svgs" text-anchor="middle">0</text>
+  <rect x="290" y="74" width="180" height="18" rx="3" class="cell"/>
+  <text x="282" y="87" class="svgs" text-anchor="end">1</text><text x="380" y="87" class="svgs" text-anchor="middle">0</text>
+  <rect x="290" y="92" width="180" height="18" rx="3" class="cell"/>
+  <text x="282" y="105" class="svgs" text-anchor="end">2</text><text x="380" y="105" class="svgs" text-anchor="middle">0</text>
+  <rect x="290" y="110" width="180" height="18" rx="3" class="cell on"/>
+  <text x="282" y="123" class="svgs" text-anchor="end">3</text><text x="380" y="123" class="svgb" text-anchor="middle">1</text>
+  <rect x="290" y="128" width="180" height="18" rx="3" class="cell"/>
+  <text x="282" y="141" class="svgs" text-anchor="end">4</text><text x="380" y="141" class="svgs" text-anchor="middle">0</text>
+  <rect x="290" y="146" width="180" height="18" rx="3" class="cell"/>
+  <text x="282" y="159" class="svgs" text-anchor="end">5</text><text x="380" y="159" class="svgs" text-anchor="middle">0</text>
+  <rect x="290" y="164" width="180" height="18" rx="3" class="cell"/>
+  <text x="282" y="177" class="svgs" text-anchor="end">6</text><text x="380" y="177" class="svgs" text-anchor="middle">0</text>
+  <rect x="290" y="182" width="180" height="18" rx="3" class="cell on"/>
+  <text x="282" y="195" class="svgs" text-anchor="end">7</text><text x="380" y="195" class="svgb" text-anchor="middle">1</text>
+  <rect x="290" y="200" width="180" height="18" rx="3" class="cell"/>
+  <text x="282" y="213" class="svgs" text-anchor="end">8</text><text x="380" y="213" class="svgs" text-anchor="middle">0</text>
+  <rect x="290" y="218" width="180" height="18" rx="3" class="cell"/>
+  <text x="282" y="231" class="svgs" text-anchor="end">9</text><text x="380" y="231" class="svgs" text-anchor="middle">0</text>
+  <rect x="290" y="236" width="180" height="18" rx="3" class="cell"/>
+  <text x="282" y="249" class="svgs" text-anchor="end">10</text><text x="380" y="249" class="svgs" text-anchor="middle">0</text>
+  <rect x="290" y="254" width="180" height="18" rx="3" class="cell on"/>
+  <text x="282" y="267" class="svgs" text-anchor="end">11</text><text x="380" y="267" class="svgb" text-anchor="middle">1</text>
+  <rect x="290" y="272" width="180" height="18" rx="3" class="cell"/>
+  <text x="282" y="285" class="svgs" text-anchor="end">12</text><text x="380" y="285" class="svgs" text-anchor="middle">0</text>
+  <rect x="290" y="290" width="180" height="18" rx="3" class="cell"/>
+  <text x="282" y="303" class="svgs" text-anchor="end">13</text><text x="380" y="303" class="svgs" text-anchor="middle">0</text>
+  <rect x="290" y="308" width="180" height="18" rx="3" class="cell"/>
+  <text x="282" y="321" class="svgs" text-anchor="end">14</text><text x="380" y="321" class="svgs" text-anchor="middle">0</text>
+  <rect x="290" y="326" width="180" height="18" rx="3" class="cell on"/>
+  <text x="282" y="339" class="svgs" text-anchor="end">15</text><text x="380" y="339" class="svgb" text-anchor="middle">1</text>
+
+  <!-- SRAM → MUX -->
+  <line x1="470" y1="65" x2="520" y2="65" class="wt"/>
+  <line x1="470" y1="83" x2="520" y2="83" class="wt"/>
+  <line x1="470" y1="101" x2="520" y2="101" class="wt"/>
+  <line x1="470" y1="119" x2="520" y2="119" class="wt"/>
+  <line x1="470" y1="137" x2="520" y2="137" class="wt"/>
+  <line x1="470" y1="155" x2="520" y2="155" class="wt"/>
+  <line x1="470" y1="173" x2="520" y2="173" class="wt"/>
+  <line x1="470" y1="191" x2="520" y2="191" class="wt"/>
+  <line x1="470" y1="209" x2="520" y2="209" class="wt"/>
+  <line x1="470" y1="227" x2="520" y2="227" class="wt"/>
+  <line x1="470" y1="245" x2="520" y2="245" class="wt"/>
+  <line x1="470" y1="263" x2="520" y2="263" class="wt"/>
+  <line x1="470" y1="281" x2="520" y2="281" class="wt"/>
+  <line x1="470" y1="299" x2="520" y2="299" class="wt"/>
+  <line x1="470" y1="317" x2="520" y2="317" class="wt"/>
+  <line x1="470" y1="335" x2="520" y2="335" class="wt"/>
+
+  <!-- MUX -->
+  <polygon points="520,48 650,116 650,288 520,356" class="mux"/>
+  <text x="600" y="196" class="svgm" text-anchor="middle" fill="#1e40af">MUX</text>
+  <text x="600" y="214" class="svgs" text-anchor="middle" fill="#1e40af">16:1</text>
+
+  <!-- 输出 -->
+  <line x1="650" y1="202" x2="768" y2="202" class="w" stroke-width="2.4" marker-end="url(#a3)"/>
+  <text x="778" y="207" class="svgl">O</text>
+
+  <!-- 选择线 -->
+  <line x1="199" y1="280" x2="199" y2="392" class="w" stroke-width="3"/>
+  <line x1="199" y1="392" x2="585" y2="392" class="w" stroke-width="3"/>
+  <line x1="585" y1="392" x2="585" y2="356" class="w" stroke-width="3" marker-end="url(#a3)"/>
+  <text x="392" y="412" class="svgs" text-anchor="middle">4 位地址 → 选通 16 条数据线中的一条</text>
+</svg>
+</figure>
+<p class="figcap"><b>图 3 · 查找表的物理实现</b>。图中 SRAM 的内容是"<b>A 与 B 相与</b>"这个函数的真值表（A 为最低位、B 为次低位，所以只有地址 3、7、11、15 处为 1）。C 和 D 在这个函数里是无关项，工具会任意填值。<b>函数不同，变的只是这 16 个 SRAM 位的内容——硅片结构完全不变。</b></p>
+
+<div class="note key">
+  <span class="lab">这就是"可编程"的物理根源</span>
+  一个 4 输入函数共有 2<sup>16</sup> = <b>65,536 种</b>可能。因为查找表把全部 16 种输入组合的结果都存下来了，所以它<b>不关心你要实现的是什么函数</b>——任意 4 输入 1 输出的组合逻辑，都能用它实现。这块芯片用的是 6 输入查找表，2<sup>64</sup> 种可能，实践中天文数字级别的逻辑函数都能覆盖。<br><br>
+  对比一下 ASIC（专用芯片）：ASIC 用晶体管直接搭出那个逻辑门，功能<b>焊死</b>在版图里，改不了。FPGA 用一个"万能盒子"加一份可写的答案表，牺牲面积和速度（一个 4 输入与门在 ASIC 里只要几个晶体管，在 FPGA 里要占一整个查找表加布线），换来的是<b>出厂后还能改</b>。整个 FPGA 产业就是建立在这笔交易上的。
+</div>
+
+<h3>3.1 那 6 输入 LUT 怎么实现更复杂的逻辑？</h3>
+<p>如果一个函数有 10 个输入怎么办？工具会把它拆成多个查找表，用宽 MUX 拼接，或者用多级。代价是<b>级数增加 → 延迟增加</b>。这直接引出了后面第 7 节的时序问题。而像加法这种高频操作，厂商专门做了进位链来加速，避免逐级串接。</p>
+
+<!-- ==================== 4 ==================== -->
+<h2><span class="n s">4</span>可编程互联：芯片的神经系统</h2>
+<p class="lead">第四层：查找表之间怎么连起来。这一层往往被忽略，但它才是 FPGA 性能的真正瓶颈。</p>
+
+<p>光有查找表没用，它们得能互相连接。FPGA 的做法是在逻辑阵列中预留<b>纵向和横向的布线通道</b>，通道之间用<b>开关盒（Switch Box, SB）</b>交汇，逻辑单元接入通道的地方用<b>连接盒（Connection Box, CB）</b>，通道里的每一条可能的连接都由一个<b>可编程互连点（PIP, Programmable Interconnect Point）</b>控制通断。</p>
+
+<figure>
+<svg viewBox="0 0 820 520" role="img" aria-label="可编程互联网络：连接盒、开关盒、互连点">
+  <defs>
+    <marker id="a4" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 z" fill="#ef4444"/></marker>
+  </defs>
+
+  <!-- PIP 放大示意 -->
+  <rect x="592" y="26" width="212" height="150" rx="10" fill="#fff" stroke="#cbd5e1" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <text x="698" y="48" class="svgm" text-anchor="middle">一个 PIP 的内部</text>
+  <line x1="608" y1="86" x2="652" y2="86" class="w"/>
+  <text x="604" y="90" class="svgl" text-anchor="end">A</text>
+  <rect x="652" y="72" width="42" height="28" rx="6" fill="#fefce8" stroke="#ca8a04" stroke-width="1.8"/>
+  <text x="673" y="91" class="svgs" text-anchor="middle" fill="#713f12">开关</text>
+  <line x1="694" y1="86" x2="792" y2="86" class="w"/>
+  <text x="796" y="90" class="svgl">B</text>
+  <line x1="673" y1="126" x2="673" y2="100" class="w" stroke="#ca8a04" stroke-width="1.6"/>
+  <rect x="653" y="126" width="40" height="24" rx="5" fill="#fefce8" stroke="#ca8a04" stroke-width="1.8"/>
+  <text x="673" y="143" class="svgb" text-anchor="middle">1 bit</text>
+  <text x="698" y="168" class="svgs" text-anchor="middle">配置位 = 1 → 通　= 0 → 断</text>
+
+  <!-- 布线通道 -->
+  <rect x="228" y="85" width="24" height="400" class="chan"/>
+  <rect x="408" y="85" width="24" height="400" class="chan"/>
+  <rect x="75" y="203" width="510" height="24" class="chan"/>
+  <rect x="75" y="343" width="510" height="24" class="chan"/>
+
+  <!-- CLM 阵列 -->
+  <rect x="90" y="100" width="120" height="90" rx="9" class="blk"/><text x="150" y="152" class="svgm" text-anchor="middle">CLM</text>
+  <rect x="270" y="100" width="120" height="90" rx="9" class="blk"/><text x="330" y="152" class="svgm" text-anchor="middle">CLM</text>
+  <rect x="450" y="100" width="120" height="90" rx="9" class="blk"/><text x="510" y="152" class="svgm" text-anchor="middle">CLM</text>
+  <rect x="90" y="240" width="120" height="90" rx="9" class="blk"/><text x="150" y="292" class="svgm" text-anchor="middle">CLM</text>
+  <rect x="270" y="240" width="120" height="90" rx="9" class="blk"/><text x="330" y="292" class="svgm" text-anchor="middle">CLM</text>
+  <rect x="450" y="240" width="120" height="90" rx="9" class="blk"/><text x="510" y="292" class="svgm" text-anchor="middle">CLM</text>
+  <rect x="90" y="380" width="120" height="90" rx="9" class="blk"/><text x="150" y="432" class="svgm" text-anchor="middle">CLM</text>
+  <rect x="270" y="380" width="120" height="90" rx="9" class="blk"/><text x="330" y="432" class="svgm" text-anchor="middle">CLM</text>
+  <rect x="450" y="380" width="120" height="90" rx="9" class="blk"/><text x="510" y="432" class="svgm" text-anchor="middle">CLM</text>
+
+  <!-- 开关盒 -->
+  <rect x="228" y="203" width="24" height="24" class="sb"/>
+  <rect x="408" y="203" width="24" height="24" class="sb"/>
+  <rect x="228" y="343" width="24" height="24" class="sb"/>
+  <rect x="408" y="343" width="24" height="24" class="sb"/>
+
+  <!-- 高亮路径 -->
+  <polyline points="150,240 150,215 240,215 240,355 450,355 450,380" class="path" marker-end="url(#a4)"/>
+  <circle cx="150" cy="215" r="6" class="cb"/>
+  <text x="176" y="207" class="svgs" fill="#713f12">CB 连接盒</text>
+  <text x="262" y="196" class="svgs" fill="#991b1b">SB 开关盒</text>
+  <text x="240" y="480" class="svgs" text-anchor="middle" fill="#991b1b">一条真实的信号通路</text>
+
+  <!-- 标注 -->
+  <text x="150" y="212" class="svgs" text-anchor="middle"></text>
+  <text x="62" y="196" class="svgs">横</text>
+  <text x="62" y="222" class="svgs">向</text>
+  <text x="62" y="248" class="svgs">通</text>
+  <text x="62" y="274" class="svgs">道</text>
+  <text x="240" y="76" class="svgs" text-anchor="middle">纵向通道</text>
+</svg>
+</figure>
+<p class="figcap"><b>图 4 · 可编程互联网络</b>。红色高亮是一条信号从某个 CLM 出发、经过连接盒进入横向通道、穿过开关盒转向纵向通道、再穿过另一个开关盒转向横向通道、最后经连接盒进入目标 CLM 的完整路径。右上是其中一个 PIP 的放大：<b>它的全部"智能"就是一个配置位控制的开关</b>。</p>
+
+<div class="note warn">
+  <span class="lab">这条通路解释了三件事</span>
+  <b>1. 为什么布线延迟常常比逻辑延迟大。</b> 一次 LUT 运算的延迟是固定的、很短的；但一次跨区域的信号传输要穿过好几级开关盒，每过一级就是一个晶体管开关的导通电阻加上一段导线电容。布线延迟在很多设计里能占到整条路径的 50%~70%。<br><br>
+  <b>2. 为什么"同样的代码换个器件要重跑时序"。</b> 换器件意味着换阵列规模、换通道数量、换开关盒结构。工具重新布局布线后，每条路径经过的开关盒数量全变了，延迟自然全变。这在 STM32 世界里不存在——你写 C 代码换一颗 F1 到 F4，指令周期变了，但不会有"布线延迟"这种概念。<br><br>
+  <b>3. 为什么布局布线要跑那么久。</b> 工具要在"把哪些 LUT 放在一起"和"怎么把它们连起来"之间反复权衡，因为放得越近、连线越短、能跑的时钟越快，但资源又必须均匀分布才放得下。这是一个 NP-hard 问题，只能靠启发式算法反复迭代，所以跑几十分钟到几小时都正常，而且<b>同一份代码跑两次，结果可能不同</b>。
+</div>
+
+<!-- ==================== 5 ==================== -->
+<h2><span class="n y">5</span>配置存储：为什么断电就没了</h2>
+<p class="lead">第五层：这些"配置位"到底存在哪，怎么进去的。</p>
+
+<p>上面已经出现了三类配置位，它们实际上是同一批 SRAM 单元：</p>
+
+<div class="flow" style="margin-top:16px">
+  <div class="step"><div class="box b-logic">查找表内容<small>每个 LUT6 存 64 bit<br>决定它实现什么函数</small></div></div>
+  <div class="step"><div class="box b-cfg">多路选择器选择端<small>决定信号走哪条路<br>包括宽 MUX 和输出选择</small></div></div>
+  <div class="step"><div class="box b-route">互连点通断<small>每个 PIP 1 bit<br>数量最多的一类</small></div></div>
+  <div class="step"><div class="box b-mem">BRAM 初值<small>上电时存储块的初始内容</small></div></div>
+  <div class="step"><div class="box b-io">IO 电平标准<small>LVCMOS / LVDS / SSTL<br>驱动强度、上下拉</small></div></div>
+</div>
+
+<p>把这些位全部按顺序打包，就是<b>位流（bitstream）</b>文件。它包含的信息量有多大？粗略估一下：光查找表内容就是 66,600 × 64 bit ≈ 4.3 Mbit，互连点的数量通常是查找表数量的几十倍，每个 1 bit。整颗芯片的位流规模在<b>几十兆比特</b>量级。这就是为什么 FPGA 的配置文件动辄几 MB 到几十 MB。</p>
+
+<h3>5.1 两条配置路径</h3>
+
+<div class="two">
+  <div class="card">
+    <h4 style="color:#1e40af">路径 A · JTAG 直下（易失）</h4>
+    <div class="flow vert" style="margin-top:10px">
+      <div class="step"><div class="box b-plain">电脑上的 PDS<small>生成 .sbit 位流</small></div></div>
+      <div class="step"><div class="box b-plain">下载器（USB）<small>转成 JTAG 时序</small></div></div>
+      <div class="step"><div class="box b-plain">JTAG TAP 控制器<small>芯片内的状态机</small></div></div>
+      <div class="step"><div class="box b-cfg">写进全部配置 SRAM<small>电路立即生效</small></div></div>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-top:12px">
+      用途：<b>调试</b>。改一行代码，重新综合布线，几十秒到几分钟后再下进去看现象。缺点是<b>一断电全丢</b>，下次上电芯片是一片空白，什么都不做。
+    </p>
+  </div>
+  <div class="card">
+    <h4 style="color:#065f46">路径 B · 固化到 Flash（非易失）</h4>
+    <div class="flow vert" style="margin-top:10px">
+      <div class="step"><div class="box b-plain">PDS 生成 .sbit / .bin<small>面向 Flash 的格式</small></div></div>
+      <div class="step"><div class="box b-plain">JTAG 间接写入<small>板载 QSPI Flash</small></div></div>
+      <div class="step"><div class="box b-plain">断电 → 重新上电<small>Flash 内容还在</small></div></div>
+      <div class="step"><div class="box b-mem">配置控制器自动读取<small>SPI 时序，把位流搬进 SRAM</small></div></div>
+      <div class="step"><div class="box b-cfg">电路自动恢复<small>不需要电脑参与</small></div></div>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-top:12px">
+      用途：<b>交付</b>。板子单独上电就能跑，这是比赛现场演示必须做的事。这一步叫"固化"或"烧录到 Flash"。
+    </p>
+  </div>
+</div>
+
+<div class="note">
+  <span class="lab">这个机制决定了你的开发节奏</span>
+  每次改代码都要重新走一遍"综合 → 布局 → 布线 → 生成位流 → 下载"，其中布局布线是大头。所以 FPGA 开发和写 Python 完全不是一个节奏：<b>你的迭代周期是分钟级的，不是秒级的</b>。这也是为什么 FPGA 工程师会花大量时间在仿真上——在电脑里把逻辑验证对了再上板，比反复烧板子快得多。
+</div>
+
+<!-- ==================== 6 ==================== -->
+<h2><span class="n v">6</span>设计流程：从 Verilog 到位流</h2>
+<p class="lead">把前面几层串起来，看你按下"综合"之后工具链到底做了什么。</p>
+
+<div class="flow" style="margin-top:18px">
+  <div class="step"><div class="box b-plain">① 设计输入<small>Verilog / VHDL<br>.v 文件</small></div></div>
+  <div class="step"><div class="box b-plain">② 仿真验证<small>testbench<br>功能对不对</small></div></div>
+  <div class="step"><div class="box b-plain">③ 综合<small>Synthesis<br>代码 → 网表</small></div></div>
+  <div class="step"><div class="box b-plain">④ 映射<small>Map<br>网表 → LUT/FF</small></div></div>
+  <div class="step"><div class="box b-plain">⑤ 布局<small>Place<br>决定放哪个 CLM</small></div></div>
+  <div class="step"><div class="box b-plain">⑥ 布线<small>Route<br>决定开关怎么通</small></div></div>
+  <div class="step"><div class="box b-plain">⑦ 位流<small>Bitstream<br>打包所有配置位</small></div></div>
+  <div class="step"><div class="box b-plain">⑧ 配置<small>下载 / 固化</small></div></div>
+</div>
+
+<h3>6.1 每一步的输入输出</h3>
+<table>
+<thead><tr><th>阶段</th><th>输入</th><th>输出</th><th>它在决定什么</th></tr></thead>
+<tbody>
+<tr><td><b>综合</b><br>Synthesis</td><td>Verilog 源码<br>+ 时序约束（.fdc）</td><td>门级网表<br>（.edf / 网表文件）</td><td>把你的行为级描述翻译成"与、或、非、加法器、寄存器、存储器"这些基本元件的连接关系。这一步<b>与器件无关</b>，用的是通用逻辑元件。</td></tr>
+<tr><td><b>映射</b><br>Map</td><td>门级网表</td><td>LUT/FF 级网表</td><td>把通用逻辑元件<b>塞进查找表</b>。比如一个 5 输入的组合函数，正好一个 LUT6 装下；一个 10 输入的函数要拆成两个 LUT 加一级 MUX。</td></tr>
+<tr><td><b>布局</b><br>Place</td><td>LUT/FF 网表</td><td>带坐标的网表</td><td>决定每个 LUT、每个 FF、每个 BRAM <b>物理上放在阵列的哪个格子</b>。同时受时序约束和资源分布约束。</td></tr>
+<tr><td><b>布线</b><br>Route</td><td>带坐标的网表</td><td>位流前的最终连接</td><td>决定每一对需要连接的单元之间<b>走哪条通道、经过哪些开关盒</b>，也就是决定哪些 PIP 闭合。</td></tr>
+<tr><td><b>位流生成</b></td><td>布局布线结果</td><td>.sbit 文件</td><td>把所有信息（LUT 内容、MUX 选择、PIP 状态、IO 配置、BRAM 初值）<b>序列化成一份位流</b>。</td></tr>
+</tbody>
+</table>
+
+<div class="note warn">
+  <span class="lab">时序约束为什么必须自己写</span>
+  综合工具不知道你要跑多快。它只会"尽力而为"。你必须用约束文件告诉它："这个时钟是 148.5 MHz"、"这个信号到那个引脚必须在 5 ns 内稳定"。工具拿到这些要求之后，才能在布局布线时<b>优先把关键路径上的单元放近一点</b>。<br><br>
+  PDS 里这类约束写在 <code>.fdc</code> 文件里（引脚位置约束写在 <code>.pdc</code> 里）。这是 Vivado 的 XDC、Quartus 的 SDC 的对应物——<b>语法不通用，必须重学</b>。这也是从 Xilinx 教程迁移到 PDS 时最容易踩空的一块。
+</div>
+
+<!-- ==================== 7 ==================== -->
+<h2><span class="n r">7</span>时序：FPGA 开发真正的门槛</h2>
+<p class="lead">这一节是 FPGA 和单片机最本质的分界线，也是绝大多数新手卡住的地方。</p>
+
+<p>在单片机里，你写 <code>a = b + c;</code>，编译器生成几条指令，CPU 一条一条执行。你几乎不用考虑"信号从 b 传到加法器要多久"。<b>在 FPGA 里，这条语句会变成一片真实的硬件：一段导线、一个加法器、一段导线。</b> 信号在导线上传播需要时间，加法器算出结果需要时间。如果时钟太快，信号还没稳定下来，下一个时钟沿就来了，寄存器就会采到错误的值。</p>
+
+<figure>
+<svg viewBox="0 0 820 330" role="img" aria-label="寄存器到寄存器的时序路径">
+  <defs>
+    <marker id="a5" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 z" fill="#334155"/></marker>
+    <marker id="a6" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+      <path d="M4,0 L8,7 L0,7 z" fill="#64748b"/></marker>
+  </defs>
+
+  <!-- 时间标注 -->
+  <line x1="140" y1="52" x2="200" y2="52" class="wt" marker-start="url(#a6)" marker-end="url(#a6)"/>
+  <text x="170" y="44" class="svgs" text-anchor="middle">Tco</text>
+  <line x1="240" y1="52" x2="520" y2="52" class="wt" marker-start="url(#a6)" marker-end="url(#a6)"/>
+  <text x="380" y="44" class="svgs" text-anchor="middle">T逻辑 + T布线　（组合逻辑延迟）</text>
+  <line x1="560" y1="52" x2="620" y2="52" class="wt" marker-start="url(#a6)" marker-end="url(#a6)"/>
+  <text x="590" y="44" class="svgs" text-anchor="middle">Tsetup</text>
+
+  <!-- FF1 -->
+  <rect x="80" y="110" width="60" height="80" rx="8" fill="#fef2f2" stroke="#ef4444" stroke-width="2"/>
+  <text x="110" y="145" class="svgm" text-anchor="middle" fill="#991b1b">FF1</text>
+  <text x="110" y="165" class="svgs" text-anchor="middle" fill="#991b1b">D  Q</text>
+  <line x1="60" y1="145" x2="80" y2="145" class="w" marker-end="url(#a5)"/>
+
+  <!-- 组合逻辑 -->
+  <rect x="240" y="100" width="280" height="100" rx="10" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
+  <text x="380" y="140" class="svgm" text-anchor="middle" fill="#1e40af">组合逻辑</text>
+  <text x="380" y="162" class="svgs" text-anchor="middle" fill="#1e40af">LUT 级联 + 布线通道</text>
+  <text x="380" y="182" class="svgs" text-anchor="middle" fill="#1e40af">（级数越多，延迟越大）</text>
+  <line x1="140" y1="150" x2="240" y2="150" class="w" stroke-width="2.4" marker-end="url(#a5)"/>
+
+  <!-- FF2 -->
+  <rect x="560" y="110" width="60" height="80" rx="8" fill="#fef2f2" stroke="#ef4444" stroke-width="2"/>
+  <text x="590" y="145" class="svgm" text-anchor="middle" fill="#991b1b">FF2</text>
+  <text x="590" y="165" class="svgs" text-anchor="middle" fill="#991b1b">D  Q</text>
+  <line x1="520" y1="150" x2="560" y2="150" class="w" stroke-width="2.4" marker-end="url(#a5)"/>
+  <line x1="620" y1="150" x2="760" y2="150" class="w" stroke-width="2.4" marker-end="url(#a5)"/>
+  <text x="700" y="142" class="svgs">下一级</text>
+
+  <!-- 时钟 -->
+  <line x1="40" y1="240" x2="780" y2="240" class="w" stroke="#ef4444" stroke-width="2"/>
+  <text x="40" y="262" class="svgs" fill="#991b1b">CLK</text>
+  <line x1="110" y1="240" x2="110" y2="190" class="w" stroke="#ef4444" stroke-width="1.8" marker-end="url(#a5)"/>
+  <line x1="590" y1="240" x2="590" y2="190" class="w" stroke="#ef4444" stroke-width="1.8" marker-end="url(#a5)"/>
+  <text x="410" y="262" class="svgs" text-anchor="middle" fill="#991b1b">两个触发器由同一个时钟沿驱动 → 这个时钟周期就是留给上面这条路径的时间预算</text>
+
+  <!-- 违例示意 -->
+  <rect x="40" y="282" width="740" height="36" rx="9" fill="#fef2f2" stroke="#ef4444" stroke-width="1.6"/>
+  <text x="410" y="306" class="svgs" text-anchor="middle" fill="#991b1b">时钟周期 &lt; Tco + T逻辑 + T布线 + Tsetup　→　建立时间违例（Setup Violation），数据被采错</text>
+</svg>
+</figure>
+<p class="figcap"><b>图 5 · 寄存器到寄存器的时序路径</b>。一个时钟周期内，数据必须从 FF1 的 Q 出发，穿过组合逻辑，在下一个时钟沿到来之前稳定在 FF2 的 D 端并保持 Tsetup 那么久。</p>
+
+<span class="eq">时钟周期 T<sub>clk</sub>  ≥  T<sub>co</sub> + T<sub>逻辑</sub> + T<sub>布线</sub> + T<sub>setup</sub> + T<sub>时钟偏斜</sub></span>
+
+<p>这条不等式就是 FPGA 里"能跑多快"的全部答案。<b>你能达到的最高时钟频率，由你设计里最长的那条组合逻辑链决定。</b> 这解释了几个很实际的现象：</p>
+
+<p>为什么你写的同一段 Verilog，在别人的板子上能跑 200 MHz，在你的板子上只能跑 120 MHz？因为器件不同、布线不同，<code>T<sub>布线</sub></code> 不同。为什么你在仿真里完美运行的逻辑，上板之后结果偶尔出错？因为仿真默认是"零延迟"的，它根本不检查这条不等式。<b>仿真通过只说明功能对，不代表时序对。</b></p>
+
+<h3>7.1 解决手段：流水线</h3>
+<p>既然问题出在组合逻辑链太长，那就在中间插一级寄存器把它切断。这是 FPGA 设计中最重要的优化手法。</p>
+
+<div class="two">
+  <div class="card">
+    <h4>优化前：一条长链</h4>
+    <div class="pipe" style="margin-top:12px">
+      <div class="u ff">FF</div>
+      <div class="u long">组合逻辑 A + B + C + D（全部串在一起）</div>
+      <div class="u ff">FF</div>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-top:12px">
+      路径延迟 = 四级逻辑之和 + 布线。<br>
+      <b>最高频率低</b>（假设只能跑 80 MHz）。<br>
+      吞吐：每周期出 1 个结果。
+    </p>
+  </div>
+  <div class="card">
+    <h4>优化后：切两段</h4>
+    <div class="pipe" style="margin-top:12px">
+      <div class="u ff">FF</div>
+      <div class="u">逻辑 A + B</div>
+      <div class="u ff">FF</div>
+      <div class="u">逻辑 C + D</div>
+      <div class="u ff">FF</div>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-top:12px">
+      最长路径减半，<b>频率可以翻倍</b>（≈160 MHz）。<br>
+      代价：多了 1 个周期延迟（Latency）。<br>
+      吞吐：仍然是每周期 1 个结果（只是晚一拍出来）。
+    </p>
+  </div>
+</div>
+
+<div class="note key">
+  <span class="lab">为什么流水线在视频处理里几乎总是划算的</span>
+  视频流是<b>连续不断</b>的：每帧 1920×1080 个像素，源源不断地来。流水线增加的是"延迟"（第一个像素出来得晚几拍），但"吞吐率"（每秒能处理多少像素）不变甚至更高。对视频来说延迟几拍完全可以忽略，而吞吐率直接决定你能不能实时处理 1080p60。<b>这个"用延迟换频率"的思路，是你后面做图像管线时的核心设计手法。</b>
+</div>
+
+<!-- ==================== 8 ==================== -->
+<h2><span class="n r">8</span>时钟网络：为什么时钟要特殊对待</h2>
+<p class="lead">时序里有一项叫"时钟偏斜"，这一节说它是怎么来的、怎么控制的。</p>
+
+<p>时钟要同时驱动几万个触发器。如果时钟信号走普通布线资源，到达不同触发器的时间会差很多，这个差就叫<b>时钟偏斜（Clock Skew）</b>。偏斜会直接吃掉你的时序余量。所以 FPGA 里有一套<b>专用的全局时钟网络</b>：它是专门的低偏斜树形结构，从芯片中心向外呈树枝状展开，保证各个分支到叶节点的延迟几乎相同。</p>
+
+<figure>
+<svg viewBox="0 0 820 300" role="img" aria-label="时钟网络结构">
+  <defs>
+    <marker id="a7" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 z" fill="#ef4444"/></marker>
+  </defs>
+
+  <!-- 时钟源 -->
+  <rect x="20" y="112" width="118" height="60" rx="9" fill="#f0fdfa" stroke="#14b8a6" stroke-width="2"/>
+  <text x="79" y="138" class="svgm" text-anchor="middle" fill="#115e59">27 MHz 晶振</text>
+  <text x="79" y="158" class="svgs" text-anchor="middle" fill="#115e59">引脚 D18</text>
+
+  <line x1="138" y1="142" x2="186" y2="142" class="w" stroke="#ef4444" stroke-width="2.4" marker-end="url(#a7)"/>
+
+  <!-- PLL -->
+  <rect x="186" y="106" width="112" height="72" rx="9" fill="#fef2f2" stroke="#ef4444" stroke-width="2"/>
+  <text x="242" y="132" class="svgm" text-anchor="middle" fill="#991b1b">PLL</text>
+  <text x="242" y="152" class="svgs" text-anchor="middle" fill="#991b1b">倍频 / 相移</text>
+  <text x="242" y="169" class="svgs" text-anchor="middle" fill="#991b1b">148.5 MHz</text>
+
+  <line x1="298" y1="142" x2="344" y2="142" class="w" stroke="#ef4444" stroke-width="2.4" marker-end="url(#a7)"/>
+
+  <!-- 时钟缓冲 -->
+  <rect x="344" y="112" width="96" height="60" rx="9" fill="#fef2f2" stroke="#ef4444" stroke-width="2"/>
+  <text x="392" y="138" class="svgm" text-anchor="middle" fill="#991b1b">全局缓冲</text>
+  <text x="392" y="158" class="svgs" text-anchor="middle" fill="#991b1b">BUFG</text>
+
+  <line x1="440" y1="142" x2="486" y2="142" class="w" stroke="#ef4444" stroke-width="2.4" marker-end="url(#a7)"/>
+
+  <!-- 时钟树 -->
+  <line x1="486" y1="142" x2="560" y2="142" class="w" stroke="#ef4444" stroke-width="3"/>
+  <line x1="560" y1="62" x2="560" y2="222" class="w" stroke="#ef4444" stroke-width="3"/>
+  <line x1="560" y1="62" x2="792" y2="62" class="w" stroke="#ef4444" stroke-width="2"/>
+  <line x1="560" y1="102" x2="792" y2="102" class="w" stroke="#ef4444" stroke-width="2"/>
+  <line x1="560" y1="142" x2="792" y2="142" class="w" stroke="#ef4444" stroke-width="2"/>
+  <line x1="560" y1="182" x2="792" y2="182" class="w" stroke="#ef4444" stroke-width="2"/>
+  <line x1="560" y1="222" x2="792" y2="222" class="w" stroke="#ef4444" stroke-width="2"/>
+
+  <circle cx="792" cy="62" r="5" fill="#ef4444"/><text x="784" y="50" class="svgs" text-anchor="end">CLM</text>
+  <circle cx="792" cy="102" r="5" fill="#ef4444"/><text x="784" y="90" class="svgs" text-anchor="end">CLM</text>
+  <circle cx="792" cy="142" r="5" fill="#ef4444"/><text x="784" y="130" class="svgs" text-anchor="end">CLM</text>
+  <circle cx="792" cy="182" r="5" fill="#ef4444"/><text x="784" y="170" class="svgs" text-anchor="end">CLM</text>
+  <circle cx="792" cy="222" r="5" fill="#ef4444"/><text x="784" y="210" class="svgs" text-anchor="end">CLM</text>
+
+  <text x="640" y="266" class="svgs" text-anchor="middle">专用低偏斜树形网络：各分支到叶节点延迟几乎相同</text>
+  <text x="242" y="208" class="svgs" text-anchor="middle">这块芯片有 6× GPLL + 6× PPLL</text>
+  <text x="242" y="226" class="svgs" text-anchor="middle">每个 PLL 可独立输出多路不同频率</text>
+</svg>
+</figure>
+<p class="figcap"><b>图 6 · 时钟网络</b>。外部晶振 → PLL 倍频 → 全局时钟缓冲 → 专用时钟树 → 各触发器。整条路径都走专用资源，不占用普通布线通道。</p>
+
+<div class="note warn">
+  <span class="lab">对你这块板子的具体含义</span>
+  盘古100Pro+ 板上的晶振是 <b>27 MHz 单端有源晶振，接到 FPGA 全局时钟引脚 D18</b>；另有一路 <b>125 MHz 差分有源晶振接到 N3/N2</b>，用作 DDR3 的参考时钟。<br><br>
+  而 1080p60 视频所需的像素时钟是 <b>148.5 MHz</b>——27 和 148.5 不是整数倍关系（148.5 / 27 = 5.5），所以你必须用 PLL 做 11 倍频再 2 分频，或者用 PLL 的小数分频能力。这个"148.5 MHz 从 27 MHz 来"的推导，是你后面写 HDMI 输出模块时的第一个具体任务。<b>PLL 的输出不能直接接普通 IO，必须经过全局时钟缓冲（BUFG）才能驱动整个阵列</b>，这是新手常犯的一个错误。
+</div>
+
+<!-- ==================== 9 ==================== -->
+<h2><span class="n v">9</span>硬核与软核：同一颗芯片上的两种"电路"</h2>
+<p class="lead">这颗芯片上不是所有东西都是"可编程"的。有一部分是出厂就焊死的专用电路。</p>
+
+<div class="two">
+  <div class="card" style="border-color:var(--hard)">
+    <h4 style="color:#5b21b6">硬核（Hard IP）</h4>
+    <p style="font-size:13.5px;margin-top:10px">用<b>专门的硅片电路</b>实现的固定功能模块。出厂就存在，不能被改造成别的用途，但性能高、功耗低、<b>不占用 LUT/FF 资源</b>。</p>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-top:12px">
+      <div class="box b-hard" style="text-align:left">PCIe Gen2 ×4<small>硬化的 PCIe 协议控制器</small></div>
+      <div class="box b-hard" style="text-align:left">HSST ×8 · 6.6 Gbps<small>高速串行收发器（SerDes）</small></div>
+      <div class="box b-hard" style="text-align:left">BRAM · APM<small>存储块与乘法器阵列</small></div>
+      <div class="box b-hard" style="text-align:left">PLL · ADC · AES<small>时钟、模拟、加密</small></div>
+      <div class="box b-hard" style="text-align:left">HMIC 硬核 IO<small>DDR3 的物理层接口</small></div>
+    </div>
+  </div>
+  <div class="card" style="border-color:var(--logic)">
+    <h4 style="color:#1e40af">软核（Soft IP）</h4>
+    <p style="font-size:13.5px;margin-top:10px">用 <b>LUT 和 FF 搭出来</b>的功能模块。本质上就是你写的（或厂商提供的）Verilog 代码，经过综合布局布线后占用可编程资源。</p>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-top:12px">
+      <div class="box b-logic" style="text-align:left">UART · SPI · I²C 控制器<small>几行到几十行代码的事</small></div>
+      <div class="box b-logic" style="text-align:left">DDR3 控制器<small>这块芯片上用的是 soft HRIO DDR IP，占逻辑资源</small></div>
+      <div class="box b-logic" style="text-align:left">图像处理管线<small>缩放、色彩空间转换、边缘检测</small></div>
+      <div class="box b-logic" style="text-align:left">RISC-V 软核 CPU<small>用逻辑资源搭出一个处理器</small></div>
+      <div class="box b-logic" style="text-align:left">你比赛要写的全部逻辑<small>这是你的主战场</small></div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <span class="lab">一个容易混淆的点</span>
+  硬核和软核的界线不是"厂商提供"还是"自己写"。厂商也会提供软核 IP（比如 IP Compiler 里生成的 FIFO、PLL 控制器、DDR3 控制器），它们是<b>参数化的 Verilog 代码</b>，照样占你的 LUT 和 BRAM。<br><br>
+  判断方法很简单：看它占不占逻辑资源。占，就是软核；不占（或者只占很少的接口逻辑），就是硬核。<br><br>
+  这个区分有很实际的后果：<b>硬核是不可移植的</b>。你在这块芯片上用 PCIe 硬核，换到别的厂商的芯片上，那个 IP 就完全不能用了，必须换成对方对应的硬核或软核实现。而你自己写的图像处理算法，只要不用厂商原语，换芯片基本能直接搬。<b>这也是为什么"哪些代码要写得尽量通用"是 FPGA 工程里一个真实的架构决策。</b>
+</div>
+
+<!-- ==================== 10 ==================== -->
+<h2><span class="n g">10</span>全链路：你写的一行 Verilog，最后变成了什么</h2>
+<p class="lead">把前面九节串成一条完整的因果链。</p>
+
+<div class="flow vert" style="margin-top:18px">
+  <div class="step"><div class="box b-plain" style="text-align:left">
+    <b>① 你写：</b><code>always @(posedge clk) if (en) q &lt;= a &amp; b;</code><small>这是一段"行为描述"，它描述的是一块硬件，不是一个执行步骤</small></div></div>
+  <div class="step"><div class="box b-plain" style="text-align:left">
+    <b>② 综合器理解：</b>"需要一个二输入与门，输出接一个带使能的 D 触发器，都挂在 clk 上"<small>输出：门级网表</small></div></div>
+  <div class="step"><div class="box b-logic" style="text-align:left">
+    <b>③ 映射：</b>与门 → 一个 LUT6，其 64 个 SRAM 位被写成"只有 a=1 且 b=1 时输出 1"的真值表<small>触发器 → 该 CLM 里的一个 FF</small></div></div>
+  <div class="step"><div class="box b-route" style="text-align:left">
+    <b>④ 布局布线：</b>在 16,650 个 CLM 里挑一个位置，并决定 a、b、clk、q 这四根信号各走哪条通道、哪些 PIP 闭合<small>输出：一条具体的物理路径</small></div></div>
+  <div class="step"><div class="box b-cfg" style="text-align:left">
+    <b>⑤ 位流生成：</b>那个 LUT 的 64 个配置位、那个 FF 的配置位、路径上所有 PIP 的状态位，一起被写进 .sbit 文件<small>输出：一个几十兆比特量级的二进制文件</small></div></div>
+  <div class="step"><div class="box b-mem" style="text-align:left">
+    <b>⑥ 配置：</b>位流被逐位写进全芯片的配置 SRAM<small>写入的瞬间，那块"万能硬件"就变成了你要的电路</small></div></div>
+  <div class="step"><div class="box b-clk" style="text-align:left">
+    <b>⑦ 电路开始工作：</b>每个时钟沿，那个 FF 采样一次 LUT 的输出<small>同时，还有几万个其他 FF 也在同一个时钟沿上各自工作</small></div></div>
+</div>
+
+<div class="note key">
+  <span class="lab">回到最初的那个问题：FPGA 和单片机到底差在哪</span>
+  <b>单片机</b>是一个聪明的人，按顺序一件一件做事。你写的 C 代码是<b>时间上的步骤</b>，处理器依次执行。频率再高，同一时刻也只有一个（或几个）运算在做。<br><br>
+  <b>FPGA</b> 是几万个简单的人，每人负责一小块，<b>同时</b>工作。你写的 Verilog 描述的是<b>空间上的结构</b>，工具把它铺到硅片上。所以"66,600 个 LUT"意味着理论上可以同时做六万多个逻辑运算。<br><br>
+  这带来两个直接后果，也是你后面做 ADAS 项目时会反复体会到的：<br>
+  <b>· 视频处理天然适合 FPGA。</b> 每个像素的处理互相独立，可以几百路并行同时算，这是"同时"的用武之地。<br>
+  <b>· 复杂控制逻辑不适合 FPGA。</b> 状态多、分支多、要跑协议栈、要调度任务——这种"一件事接一件事"的活儿，CPU 比 FPGA 高效得多。所以真正成熟的架构是<b>软硬协同</b>：CPU 做调度和决策，FPGA 做确定性的高速数据通路。<b>你这块板子上"泰山派 RK3566 + 盘古100Pro+"的组合，本质上就是这个分工。</b>
+</div>
+
+<!-- ==================== 11 ==================== -->
+<h2><span class="n t">11</span>附：这块芯片的可编程资源分布直觉</h2>
+<p class="lead">把抽象数字换成能感知的规模。</p>
+
+<table>
+<thead><tr><th>你能想到的东西</th><th>大概消耗多少资源</th><th>依据</th></tr></thead>
+<tbody>
+<tr><td>一个 UART 收发器</td><td>约 100~200 个 LUT + 100 个 FF</td><td>波特率计数、位计数、状态机</td></tr>
+<tr><td>一个 1080p 的行缓存（1920 像素 × 24 bit）</td><td>约 1.3 块 BRAM</td><td>1920 × 24 = 46,080 bit，一块 BRAM 是 36 Kb</td></tr>
+<tr><td>一个完整的 1080p 帧缓存（24 bit 色深）</td><td>约 1,490 块 BRAM<br><b>远超片上 155 块</b></td><td>1920 × 1080 × 24 = 49.8 Mbit。所以帧缓存必须放 DDR3，片上只能放行缓存</td></tr>
+<tr><td>一个 3×3 卷积窗口的 Sobel 边缘检测</td><td>约 2 条行缓存 + 几百个 LUT</td><td>需要缓存两行才能形成 3×3 窗口</td></tr>
+<tr><td>一个 25×18 乘法</td><td>1 个 APM，不占 LUT</td><td>硬核乘法器</td></tr>
+<tr><td>一个 RISC-V 软核（如 PicoRV32）</td><td>约 2,000~3,000 个 LUT</td><td>占整颗芯片的 3%~5%</td></tr>
+</tbody>
+</table>
+
+<div class="note warn">
+  <span class="lab">这条估算的用途</span>
+  表格里"1080p 帧缓存要 1,490 块 BRAM、而芯片只有 155 块"这一行，是你在做方案设计时最该先算的一笔账。<b>它直接决定了你的图像处理架构必须是流式的（line buffer 加流水线），而不是帧式的（整帧缓存再处理）。</b> 这个约束会一路影响你的算法选型、模块划分和时序设计。比赛方案里如果出现"缓存整帧再做处理"的表述，评委一眼就能看出设计者没算过这笔账。
+</div>
+
+<p style="margin-top:56px;padding-top:24px;border-top:2px solid var(--line);font-size:13px;color:var(--muted)">
+  示例器件参数取自盘古100Pro+（MES2L676-100HP）硬件手册：PG2L100H-6IFBG676，66,600 LUT6 / 133,200 FF / 155×36Kb BRAM / 740 APM / 8× HSST 6.6 Gbps / PCIe Gen2×4 / 6 GPLL + 6 PPLL / 300 IO。CLM 构成（4×LUT6 + 8×FF）与 LUT:FF = 1:2 的比例来自紫光同创 Logos2 系列产品资料。
+</p>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,45 @@
+video,t_start,t_end,field,value,conf,note
+113539,0.0,11.0,ego_motion,moving,high,
+113539,11.0,12.5,ego_motion,braking,mid,
+113539,12.5,27.0,ego_motion,stopped,high,停在出租车后
+113539,27.0,29.0,ego_motion,starting,high,
+113539,29.0,62.0,ego_motion,moving,high,
+113539,62.0,63.5,ego_motion,braking,mid,
+113539,63.5,69.5,ego_motion,stopped,high,停在出租车后、斑马线前
+113539,69.5,71.0,ego_motion,starting,mid,
+113539,71.0,77.2,ego_motion,moving,mid,
+113539,1.0,1.0,speed_limit,40,mid,右上角限速 40
+113539,0.0,5.0,ego_left_line,yellow_solid,mid,中心黄线
+113539,0.0,5.0,ego_right_line,white_dashed,low,
+113539,5.0,11.0,comment,construction,high,施工区：左侧锥桶/隔离桩，右侧中国建筑围挡（层B 素材）
+113539,10.0,26.0,junction,approach,high,路口1
+113539,10.0,26.0,sig_left,red,high,两组红色圆灯，红灯内带倒计时数字
+113539,10.0,26.0,sig_straight,red,high,
+113539,10.0,26.0,sig_right,none,mid,
+113539,26.0,30.0,sig_left,green,mid,圆灯推定
+113539,26.0,30.0,sig_straight,green,high,约 26 s 转绿（±0.5 s）
+113539,26.0,30.0,sig_right,none,mid,
+113539,11.0,12.5,hazard,lead_close,mid,接近前方出租车并刹停（静止排队段不算）
+113539,17.5,19.5,hazard,ped_crossing_near,mid,行人/电动车从出租车前横穿
+113539,23.5,25.0,hazard,ped_crossing_near,mid,摩托/电动车横穿
+113539,27.0,31.0,junction,crossing,high,
+113539,31.0,36.0,comment,construction,high,施工区：水马、锥桶、围挡
+113539,37.0,47.0,ego_left_line,double_yellow,mid,
+113539,37.0,47.0,ego_right_line,white_dashed,low,
+113539,40.5,41.5,hazard,ped_crossing_near,mid,打伞行人在车流间穿行
+113539,45.0,46.0,comment,tricycle,high,右前方绿色三轮车（层B 素材）
+113539,47.0,48.5,junction,crossing,mid,小路口/人行横道
+113539,48.0,53.0,comment,construction,high,施工区：锥桶分隔车道、水马、围挡
+113539,54.0,54.5,hazard,cut_in,low,蓝色三轮车在左前方近距离
+113539,54.0,60.0,ego_left_line,double_yellow,mid,
+113539,54.0,60.0,ego_right_line,white_dashed,low,
+113539,58.0,63.5,junction,approach,high,路口2
+113539,63.5,69.5,junction,at_stop_line,high,
+113539,61.0,67.5,sig_straight,green,high,两组绿色圆灯；绿灯期间自车仍停车（让行人或等前车）
+113539,61.0,67.5,sig_left,green,mid,圆灯推定
+113539,61.0,67.5,sig_right,none,mid,
+113539,67.5,69.0,sig_straight,yellow,mid,68 s 一组灯为黄灯
+113539,67.5,69.0,sig_left,yellow,low,
+113539,62.0,63.5,hazard,lead_close,mid,接近前方出租车并刹停
+113539,69.5,74.0,junction,crossing,mid,在路口2转弯（方向待核对，推测左转）
+113539,69.5,71.5,hazard,ped_in_path,mid,转弯时人行横道上行人与电动车在车前横穿
