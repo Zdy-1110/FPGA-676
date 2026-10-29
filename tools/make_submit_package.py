@@ -195,6 +195,8 @@ def collect_whitelist_files(repo_root, with_assets):
         "tools/rk_ssh.py",
         "tools/rk_get.py",
         "tools/rk_put.py",
+        "tools/rk_diag.py",
+        "tools/selftest.py",
     ]:
         add_single_file(rk_tool, rk_tool)
 
@@ -225,6 +227,7 @@ def collect_whitelist_files(repo_root, with_assets):
     add_single_file("docs/附录A_寄存器映射.md", "docs/附录A_寄存器映射.md", optional=True)
     add_single_file("docs/附录B_验证复现.md", "docs/附录B_验证复现.md", optional=True)
     add_single_file("docs/答辩要点_评委问答.md", "docs/答辩要点_评委问答.md", optional=True)
+    add_single_file("docs/演示现场运行手册.md", "docs/演示现场运行手册.md", optional=True)
     add_directory("docs/figs", optional=True)
     add_directory("docs/submit", optional=True)
 

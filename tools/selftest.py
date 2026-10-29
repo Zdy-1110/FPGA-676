@@ -20,9 +20,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TMP = os.environ.get("TEMP", "/tmp")
 
 BUILD_TARGETS = [
-    ("menu_daemon", ["tools/menu/menu_daemon.c", "-lpthread"]),
-    ("mode_select", ["tools/menu/mode_select.c"]),
-    ("usb_menu", ["tools/menu/usb_menu.c"]),
+    ("menu_daemon", ["tools/menu/menu_daemon.c", "-lpthread", "-Wextra"]),
+    ("mode_select", ["tools/menu/mode_select.c", "-Wextra"]),
+    ("usb_menu", ["tools/menu/usb_menu.c", "-Wextra"]),
 ]
 
 FEED_SOURCES = [
@@ -37,7 +37,7 @@ FEED_SOURCES = [
     "-I", "third_party/librga-1.9.1/include",
     "-lrockchip_mpp",
     "third_party/rk_sysroot/usr/lib/librga.so.2.1.0",
-    "-lrknnrt", "-lpthread", "-lm", "-std=gnu99",
+    "-lrknnrt", "-lpthread", "-lm", "-std=gnu99", "-Wextra",
 ]
 
 BANNED_IN_DOC = ["YOLOv8n", "KEY_UP", "KEY_DOWN", "KEY_CENTER", "1.2 µs", "<1.2 ms"]
@@ -87,7 +87,7 @@ def check_docs() -> None:
     missing = [f for f in FIGURES if not os.path.isfile(os.path.join(ROOT, "docs", "figs", f))]
     record("doc:figures", not missing, ", ".join(missing))
 
-    for name in ("附录A_寄存器映射.md", "附录B_验证复现.md", "演示视频_分镜.md", "答辩要点_评委问答.md"):
+    for name in ("附录A_寄存器映射.md", "附录B_验证复现.md", "演示视频_分镜.md", "答辩要点_评委问答.md", "演示现场运行手册.md"):
         p = os.path.join(ROOT, "docs", name)
         record(f"doc:{name}", os.path.isfile(p))
 
