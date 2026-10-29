@@ -15,7 +15,7 @@ link_up() { timeout 30 py -3 tools/rk_ssh.py $H "dmesg | grep -E '$CTL.pcie: PCI
 echo "===== link down safely"
 timeout 30 py -3 tools/rk_ssh.py $H "E=/sys/bus/pci/devices/$EPD; [ -e \$E ] && echo 1 > \$E/remove; R=/sys/bus/pci/devices/$RPD; if [ -e \$R ]; then printf '\\120' | dd of=\$R/config bs=1 seek=128 count=1 conv=notrunc 2>/dev/null; sleep 1; od -An -tx2 -j128 -N4 \$R/config; fi; echo removed"
 echo "===== program $1"
-timeout 100 powershell -NoProfile -ExecutionPolicy Bypass -File tools/jtag_run_tcl.ps1 -Tcl "$1" 2>&1 | grep -iE 'done bit is|Program\]|error|fail' | tail -3
+timeout 100 pwsh -NoProfile -ExecutionPolicy Bypass -File tools/jtag_run_tcl.ps1 -Tcl "$1" 2>&1 | grep -iE 'done bit is|Program\]|error|fail' | tail -3
 reboot_rk
 if ! link_up; then echo "link failed, reboot once more"; reboot_rk; link_up || { echo "LINK FAIL twice"; exit 2; }; fi
 echo "===== enable EP"
