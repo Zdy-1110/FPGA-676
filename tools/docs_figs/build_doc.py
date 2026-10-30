@@ -44,7 +44,7 @@ def col_min_cm(texts: list[str]) -> float:
     return min(max(longest, 1.8), 3.2)
 
 
-def fix_tables(docx_path: str, text_width_cm: float = 16.0) -> int:
+def fix_tables(docx_path: str, text_width_cm: float = 16.0, compact: bool = False) -> int:
     """按内容长度重设列宽，并让首行跨页重复。返回处理的表格数。"""
     from docx import Document
     from docx.shared import Cm
@@ -96,7 +96,7 @@ def fix_tables(docx_path: str, text_width_cm: float = 16.0) -> int:
                 tc.width = Cm(widths[k])
 
         # 列数多的表（寄存器/对照表）字号降到 9 pt，缓解窄列折行
-        if ncol >= 5:
+        if ncol >= (4 if compact else 5):
             from docx.shared import Pt
             for row in table.rows:
                 for cell in row.cells:
@@ -104,10 +104,15 @@ def fix_tables(docx_path: str, text_width_cm: float = 16.0) -> int:
                         for run in para.runs:
                             run.font.size = Pt(9)
 
-        # 首行跨页重复
+        # 首行跨页重复；所有行禁止跨页拆断（避免单元格文字被切到下一页）
         tr_pr = table.rows[0]._tr.get_or_add_trPr()
         if tr_pr.find(qn("w:tblHeader")) is None:
             tr_pr.append(tr_pr.makeelement(qn("w:tblHeader"), {}))
+        if compact:
+            for tr in trs:
+                pr = tr.get_or_add_trPr()
+                if pr.find(qn("w:cantSplit")) is None:
+                    pr.append(pr.makeelement(qn("w:cantSplit"), {}))
         n_tables += 1
     # 章与附录另起一页，避免表格在页底被跨页拆行
     for para in doc.paragraphs:
@@ -133,6 +138,7 @@ def main() -> int:
     ap.add_argument("--resource-path", default="docs")
     ap.add_argument("--soffice", default=r"C:\Program Files\LibreOffice\program\soffice.com")
     ap.add_argument("--no-pdf", action="store_true")
+    ap.add_argument("--compact", action="store_true", help="表格紧凑模式：4 列以上 9pt、行不跨页")
     args = ap.parse_args()
 
     if not os.path.isfile(args.md):
@@ -148,7 +154,7 @@ def main() -> int:
     if rc != 0:
         return rc
 
-    n = fix_tables(args.docx)
+    n = fix_tables(args.docx, compact=args.compact)
     print(f"tables fixed: {n}")
 
     if not args.no_pdf:
