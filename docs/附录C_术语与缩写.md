@@ -12,7 +12,7 @@
 | FF | Flip-Flop | 触发器；本设计占用 25,730/133,200 |
 | FUSE | Filesystem in Userspace | 用户态文件系统；exFAT U 盘在板端走 FUSE |
 | GBK | 汉字内码扩展规范 | 中文位图字库的索引编码 |
-| HOLD3 | Hold ≥ 3 s | 按键事件类型 3；KEY4 按住 3 s 进入 cal_mode |
+| HOLD3 | Hold ≥ 10 s | 按键事件类型 3；KEY4 按住 10 s 进入 cal_mode |
 | LUT | Look-Up Table | FPGA 查找表；本设计占用 26,645/66,600 |
 | MPP | Media Process Platform | 瑞芯微硬件编解码库；用于 H.264/H.265 硬解 |
 | NPU | Neural Processing Unit | RK3568 神经网络加速器；运行 YOLOv6n INT8 |

@@ -27,7 +27,7 @@ module rt_keys #(
 );
 
     localparam integer DEB_MS = 20;         // debounce
-    localparam integer H3_MS  = 3000;
+    localparam integer H3_MS  = 10000;   // 20261030: 10 s hold enters cal/debug; 1-10 s is LONG(return)
     localparam integer S_MS   = 1000;
     localparam integer L_MS   = 3000;
     localparam integer REP0   = 300;
@@ -82,14 +82,14 @@ module rt_keys #(
     // event generation
     //------------------------------------------------------------------
     function [5:0] step_of;
-        input [12:0] ms;
+        input [13:0] ms;
         begin
             step_of = (ms < 13'd500) ? 6'd2 : ((ms < 13'd1500) ? 6'd8 : 6'd32);
         end
     endfunction
 
-    reg  [12:0] t     [0:4];    // ms since press
-    reg  [12:0] rep_at[0:4];    // next repeat deadline
+    reg  [13:0] t     [0:4];    // ms since press (14 bit: 10 s hold needs >8191)
+    reg  [13:0] rep_at[0:4];    // next repeat deadline
     reg         pp    [0:4];    // previous pressed
     reg         h3    [0:4];    // hold3 already sent
     reg         mr    [0:4];    // mode latched at press (repeat)
@@ -117,7 +117,7 @@ module rt_keys #(
             evt_type <= 2'd0;
             evt_step <= 6'd0;
             for (ek=0; ek<5; ek=ek+1) begin
-                t[ek]<=13'd0; rep_at[ek]<=13'd300; pp[ek]<=1'b0;
+                t[ek]<=14'd0; rep_at[ek]<=14'd300; pp[ek]<=1'b0;
                 h3[ek]<=1'b0; mr[ek]<=1'b0;
             end
         end
@@ -129,7 +129,7 @@ module rt_keys #(
                 pp[ek] <= p;
 
                 if (pe) begin
-                    t[ek]      <= 13'd0;
+                    t[ek]      <= 14'd0;
                     h3[ek]     <= 1'b0;
                     rep_at[ek] <= REP0;
                     mr[ek]     <= (ek!=4) ? rp2 : 1'b0;   // KEY4 never repeats

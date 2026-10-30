@@ -204,6 +204,7 @@ def collect_whitelist_files(repo_root, with_assets):
 
     # 关键证据日志（放 evidence/，便于评委核对文档数字）
     for ev in [
+        "log/rk_env/build_cam17.log",
         "log/rk_env/build_cam11_s1.log",
         "log/rk_env/pcie_mrd1_L3_20261018.log",
         "log/rk_env/pcie_fast2_soak_ext_20261018.log",
@@ -247,6 +248,7 @@ def collect_whitelist_files(repo_root, with_assets):
 
     # 6. 预编译 (--with-assets)
     if with_assets:
+        add_single_file("D:/pango_work/quad/out/quad_cam17.sbit", "prebuilt/fpga/quad_cam17.sbit")
         add_single_file("D:/pango_work/quad/out/quad_cam11.sbit", "prebuilt/fpga/quad_cam11.sbit")
         add_single_file("fpga/out/quad_cam10f.sbit", "prebuilt/fpga/quad_cam10f.sbit")
         add_single_file("menu/ui_cjk.bin", "prebuilt/menu/ui_cjk.bin")

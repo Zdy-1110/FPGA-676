@@ -370,7 +370,7 @@ int main(int argc, char **argv)
 
     // 0x880=0x10, 清框/文本
     wr(bar1, 0x880u, 0x10u);
-    wr(bar1, 0x8C0u, rd(bar1, 0x8C0u) & ~4u);
+    wr(bar1, 0x8C0u, 0u);            // 关车道线检测/绘制，避免选择界面残留线
     wr(bar1, 0x850u, 0);
     clear_text_ram(bar1);
     clear_all_boxes(bar1);
@@ -417,6 +417,9 @@ int main(int argc, char **argv)
             return 3;
         }
     }
+
+    // 推图前先关摄像头通路：否则 FPGA 摄像头仍在写 slot0，会和门铃 DMA 抢同一个槽
+    wr(bar1, 0x800u, 0x65u);
 
     // 等待 DMA 静止（启动流程：写 0x1A0=1 等初始化之后、第一次推图之前）
     if (wait_dma_idle(bar1, 2000) < 0) {
@@ -496,8 +499,8 @@ int main(int argc, char **argv)
             fflush(stdout);
             exit_code = 0;
             break;
-        } else if ((type == 2 || type == 3) && key == 4) {
-            // KEY4 长按/HOLD3: 清框退出 2 (不选)
+        } else if (type == 2 && key == 4) {
+            // KEY4 长按(1-10s): 清框退出 2 (不选)；HOLD3(10s) 留给调试
             clear_all_boxes(bar1);
             exit_code = 2;
             break;

@@ -21,7 +21,7 @@ case "$1" in
         echo "[S99] run_boot exited rc=$rc at $(date)" >> /tmp/run_boot.log
         sleep 1
       done
-    ) &
+    ) </dev/null >>/tmp/run_boot.log 2>&1 &
     echo $! > /tmp/adas_supervisor.pid
     echo "[S99] adas supervisor started (pid $(cat /tmp/adas_supervisor.pid))"
     ;;
