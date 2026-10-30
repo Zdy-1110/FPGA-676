@@ -134,3 +134,6 @@ docs/技术文档_最终稿.pdf
 
 # 临时预览
 tmp_test/
+
+# 提交文档（由 tools/docs_figs/build_doc.py --compact 生成）
+docs/提交文档_初稿.docx
