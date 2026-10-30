@@ -1114,18 +1114,6 @@ static void kill_pid_gracefully(pid_t pid)
     }
 }
 
-static void wait_cal_mode_cleared(volatile uint32_t *bar1)
-{
-    uint64_t t0 = now_ns();
-    usleep(50000); // 50 ms 确保 bit7 反映
-    while ((now_ns() - t0) < 31ULL * 1000000000ULL) {
-        if ((rd(bar1, 0x848u) & 0x80u) == 0) {
-            break;
-        }
-        usleep(100000); // 100 ms
-    }
-}
-
 static void write_osd_text_row(volatile uint32_t *bar1, int row_idx, const char *text)
 {
     if (row_idx < 0 || row_idx > 3) return;
@@ -1307,14 +1295,9 @@ static int run_playback(volatile uint32_t *bar1,
             uint32_t type = (v >> 12) & 3u;
 
             if (key == 4 && type == 3) {
-                // KEY4 HOLD3：退出整个程序
-                kill_pid_gracefully(pid);
-                pid = -1;
-                wait_cal_mode_cleared(bar1);
-                exit_app = 1;
-                break;
+                // KEY4 HOLD3（10 s）：进入 FPGA 调试/标定，不退出播放
             } else if (key == 4 && type == 2) {
-                // KEY4 长按：弹窗开着 → 只关弹窗；弹窗关着 → 停止播放回列表
+                // KEY4 长按：无论弹窗是否打开，都停止播放回列表
                 if (popup) {
                     hide_playback_popup(bar1);
                     popup = 0;
@@ -1322,11 +1305,10 @@ static int run_playback(volatile uint32_t *bar1,
                         kill(pid, SIGUSR1);
                     }
                     popup_dirty = 0;
-                } else {
-                    kill_pid_gracefully(pid);
-                    pid = -1;
-                    break;
                 }
+                kill_pid_gracefully(pid);
+                pid = -1;
+                break;
             } else if (key == 4 && type == 1) {
                 // KEY4 短按：弹窗开关
                 popup = !popup;
@@ -1576,10 +1558,7 @@ int main(int argc, char **argv)
         uint32_t type = (v >> 12) & 3u;
 
         if (key == 4 && type == 3) {
-            // HOLD3 KEY4：退出程序
-            wait_cal_mode_cleared(bar1);
-            exit_code = 0;
-            break;
+            // HOLD3（10 s）：进入 FPGA 调试/标定，不退出浏览器
         } else if (key == 4 && type == 2) {
             // 长按 KEY4：退出程序
             exit_code = 0;

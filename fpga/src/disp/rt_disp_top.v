@@ -901,9 +901,10 @@ module rt_disp_top #(
     end
 
     //------------------------------------------------------------------
-    // 20261029: Window 0 view mode effect (DISP_CTRL[9:8])
+    // 20261030: view mode effect (DISP_CTRL[9:8]) applied to the WHOLE screen
     // 0 = Original, 1 = Grayscale, 2 = Binary (White mask), 3 = Reserved (Binary)
-    // Synchronized to pix_clk; gated by q0_de to protect other windows & OSD.
+    // The transform runs after the 2x2 composite, so all four windows and the
+    // single-view path share the same colour processing; OSD is added later.
     //------------------------------------------------------------------
     reg [1:0] view_mode_pix;
     always @(posedge pix_clk or negedge rstn_out) begin
@@ -911,45 +912,9 @@ module rt_disp_top #(
         else           view_mode_pix <= cfg_ctrl[9:8];
     end
 
-    // Grayscale: gray = (r + 2*g + b) >> 2
-    wire [7:0] q0_gray = ({2'b00, q0_r} + {1'b0, q0_g, 1'b0} + {2'b00, q0_b}) >> 2;
-
-    // Binary: same white criteria as zebra (v_min=140, c_max=30)
-    wire [7:0] q0_rq = q0_r & 8'hF8;
-    wire [7:0] q0_gq = q0_g & 8'hFC;
-    wire [7:0] q0_bq = q0_b & 8'hF8;
-    wire [7:0] q0_max_rg = (q0_rq > q0_gq) ? q0_rq : q0_gq;
-    wire [7:0] q0_max_c  = (q0_max_rg > q0_bq) ? q0_max_rg : q0_bq;
-    wire [7:0] q0_min_rg = (q0_rq < q0_gq) ? q0_rq : q0_gq;
-    wire [7:0] q0_min_c  = (q0_min_rg < q0_bq) ? q0_min_rg : q0_bq;
-    wire       q0_is_white = (q0_rq >= 8'd140) && (q0_gq >= 8'd140) && (q0_bq >= 8'd140) &&
-                             ((q0_max_c - q0_min_c) <= 8'd30);
-    wire [7:0] q0_bin = q0_is_white ? 8'hFF : 8'h00;
-
-    reg [7:0] q0_mux_r, q0_mux_g, q0_mux_b;
-    always @(*) begin
-        case (view_mode_pix)
-            2'b01: begin // Grayscale
-                q0_mux_r = q0_gray;
-                q0_mux_g = q0_gray;
-                q0_mux_b = q0_gray;
-            end
-            2'b10, 2'b11: begin // Binary
-                q0_mux_r = q0_bin;
-                q0_mux_g = q0_bin;
-                q0_mux_b = q0_bin;
-            end
-            default: begin // 2'b00: Original
-                q0_mux_r = q0_r;
-                q0_mux_g = q0_g;
-                q0_mux_b = q0_b;
-            end
-        endcase
-    end
-
-    wire [7:0] q0_eff_r = q0_de ? q0_mux_r : 8'd0;
-    wire [7:0] q0_eff_g = q0_de ? q0_mux_g : 8'd0;
-    wire [7:0] q0_eff_b = q0_de ? q0_mux_b : 8'd0;
+    wire [7:0] q0_eff_r = q0_de ? q0_r : 8'd0;
+    wire [7:0] q0_eff_g = q0_de ? q0_g : 8'd0;
+    wire [7:0] q0_eff_b = q0_de ? q0_b : 8'd0;
 
     //------------------------------------------------------------------
     // 2x2 composite : the four windows never overlap, so the pixel buses of
@@ -962,10 +927,39 @@ module rt_disp_top #(
     wire       qz_hs = q0_hs | q1_hs | q2_hs | q3_hs;
     wire       qz_vs = q0_vs | q1_vs | q2_vs | q3_vs;
 
-    wire [7:0] src_r = qmode ? qz_r : rd_r;
-    wire [7:0] src_g = qmode ? qz_g : rd_g;
-    wire [7:0] src_b = qmode ? qz_b : rd_b;
-    wire       src_de = qmode ? qz_de : rd_de;
+    wire [7:0] pre_r = qmode ? qz_r : rd_r;
+    wire [7:0] pre_g = qmode ? qz_g : rd_g;
+    wire [7:0] pre_b = qmode ? qz_b : rd_b;
+    wire       pre_de = qmode ? qz_de : rd_de;
+
+    // Grayscale: gray = (r + 2*g + b) >> 2
+    wire [7:0] v_gray = ({2'b00, pre_r} + {1'b0, pre_g, 1'b0} + {2'b00, pre_b}) >> 2;
+
+    // Binary: same white criteria as zebra (v_min=140, c_max=30)
+    wire [7:0] v_rq = pre_r & 8'hF8;
+    wire [7:0] v_gq = pre_g & 8'hFC;
+    wire [7:0] v_bq = pre_b & 8'hF8;
+    wire [7:0] v_max_rg = (v_rq > v_gq) ? v_rq : v_gq;
+    wire [7:0] v_max_c  = (v_max_rg > v_bq) ? v_max_rg : v_bq;
+    wire [7:0] v_min_rg = (v_rq < v_gq) ? v_rq : v_gq;
+    wire [7:0] v_min_c  = (v_min_rg < v_bq) ? v_min_rg : v_bq;
+    wire       v_is_white = (v_rq >= 8'd140) && (v_gq >= 8'd140) && (v_bq >= 8'd140) &&
+                            ((v_max_c - v_min_c) <= 8'd30);
+    wire [7:0] v_bin = v_is_white ? 8'hFF : 8'h00;
+
+    reg [7:0] v_mux_r, v_mux_g, v_mux_b;
+    always @(*) begin
+        case (view_mode_pix)
+            2'b01: begin v_mux_r = v_gray; v_mux_g = v_gray; v_mux_b = v_gray; end
+            2'b10, 2'b11: begin v_mux_r = v_bin; v_mux_g = v_bin; v_mux_b = v_bin; end
+            default: begin v_mux_r = pre_r; v_mux_g = pre_g; v_mux_b = pre_b; end
+        endcase
+    end
+
+    wire [7:0] src_r = pre_de ? v_mux_r : 8'd0;
+    wire [7:0] src_g = pre_de ? v_mux_g : 8'd0;
+    wire [7:0] src_b = pre_de ? v_mux_b : 8'd0;
+    wire       src_de = pre_de;
     wire       src_hs = qmode ? qz_hs : rd_hs;
     wire       src_vs = qmode ? qz_vs : rd_vs;
 

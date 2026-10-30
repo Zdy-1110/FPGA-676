@@ -41,12 +41,12 @@ sh tools/rk_build.sh tools/menu/usb_menu   tools/menu/usb_menu.c
 
 ## 按键（FPGA 侧，0x844 / 0x848）
 
-| 键 | 短按 | 长按 1–3 s | 按住 3 s |
+| 键 | 短按 | 长按 1–10 s | 按住 10 s |
 |---|---|---|---|
 | KEY0 | 光标/车道循环 | — | — |
 | KEY1 | 确认/启停 | — | — |
 | KEY2/3 | 转向请求 | 强制变道 | — |
-| KEY4 | 弹窗开关 | 退出/切源 | 进 cal_mode（避免） |
+| KEY4 | 弹窗开关 | 3 s 退出/切源 | 10 s 进 cal_mode（避免） |
 
 菜单占用 KEY0/KEY1，因此 ADAS 侧用基线抵消（`adas.c` 的 `g_lane_base`/`g_moving_base`）。
 寄存器细节见技术报告附录 A。

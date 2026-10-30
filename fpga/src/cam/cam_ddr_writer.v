@@ -132,6 +132,9 @@ module cam_ddr_writer #(
     wire [9:0]   row_in   = row[9:0] - ROW_FIRST[9:0];   // 0..539, 10 bit
     wire         vs_rise  = vsync_f & ~vs_d;             // filtered frame start
 
+    // cam14: OV5640 already delivers RGB565 in this bitstream; keep the word as-is.
+    wire [15:0]  pix_rgb  = data;
+
     always @(posedge pclk or negedge pclk_rst_n)
         if (!pclk_rst_n) begin
             vs_d <= 1'b0; de_d <= 1'b0;
@@ -157,7 +160,7 @@ module cam_ddr_writer #(
                 widx <= 7'd0;
             end else begin
                 col <= col + 1'b1;
-                grp <= {data, grp[127:16]};
+                grp <= {pix_rgb, grp[127:16]};
                 if (ph == 3'd7) begin
                     ph <= 3'd0;
                     if (push_now) widx <= widx + 1'b1;
