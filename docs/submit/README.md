@@ -26,7 +26,7 @@
 1. 交叉编译 RK 端程序：
    `sh tools/rk_build.sh tools/usb_feed/usb_feed`
 2. 加载 FPGA 比特流：
-   在上位机通过 Fabric Configuration 将 `prebuilt/fpga/quad_cam17.sbit` 下载至 FPGA
+   在上位机通过 Fabric Configuration 将 `prebuilt/fpga/quad_cam18.sbit` 下载至 FPGA（固件版本寄存器 `0x838 = 0x20261101`）
 3. 板端启动 ADAS 主控：
    `/userdata/quad/usb_feed --bar1 0xf0204000 --dst 960x540 --slot0-rgb565`
 
