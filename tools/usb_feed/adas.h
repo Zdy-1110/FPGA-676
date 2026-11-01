@@ -28,6 +28,12 @@ void adas_stop(void);
 /* Format ADAS status line for logging */
 void adas_stats_line(char *buf, size_t max_len);
 
+/* Configure navigation route file (.nav). NULL or empty path disables nav. */
+void adas_set_nav(const char *path);
+
+/* Update slot0 playback time in seconds (t = frame_seq / fps) */
+void adas_set_ch0_time(double t);
+
 #ifdef __cplusplus
 }
 #endif

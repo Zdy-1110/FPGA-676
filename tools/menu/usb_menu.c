@@ -1134,7 +1134,7 @@ static void write_osd_text_row(volatile uint32_t *bar1, int row_idx, const char 
     }
 }
 
-static void show_playback_popup(volatile uint32_t *bar1, int sel, int npu, int lane, int view, int zebra)
+static void show_playback_popup(volatile uint32_t *bar1, int sel, int npu, int lane, int view, int zebra, int night)
 {
     write_osd_text_row(bar1, 0, "USB PLAY  KEY0 NEXT  KEY1 OK  KEY4 HOLD CLOSE");
 
@@ -1158,6 +1158,18 @@ static void show_playback_popup(volatile uint32_t *bar1, int sel, int npu, int l
     row2[18] = (sel == 3) ? '>' : ' ';
     const char *t3 = zebra ? "4 ZEBRA:ON" : "4 ZEBRA:OFF";
     memcpy(row2 + 19, t3, strlen(t3));
+
+    row2[38] = (sel == 4) ? '>' : ' ';
+    const char *t4;
+    if (night == 1) {
+        t4 = "5 NIGHT:ON";
+    } else if (night == 2) {
+        t4 = "5 NIGHT:OFF";
+    } else {
+        int active = (rd(bar1, 0x820u) >> 3) & 1u;
+        t4 = active ? "5 NIGHT:AUTO*" : "5 NIGHT:AUTO";
+    }
+    memcpy(row2 + 39, t4, strlen(t4));
     write_osd_text_row(bar1, 2, row2);
 }
 
@@ -1172,8 +1184,26 @@ static pid_t start_feed(const char *feed_bin, const char *bar1_str, const char *
                         char selected_paths[4][1024], int num_selected, int npu)
 {
     char video_args[4][1080];
-    const char *argv[32];
+    char nav_path[1024];
+    int have_nav = 0;
+    const char *argv[48];
     int argc = 0;
+
+    if (num_selected > 0 && !is_still_path(selected_paths[0])) {
+        const char *p0 = selected_paths[0];
+        const char *dot = strrchr(p0, '.');
+        const char *slash = strrchr(p0, '/');
+        if (dot && (!slash || dot > slash)) {
+            size_t stem_len = (size_t)(dot - p0);
+            if (stem_len + 5 < sizeof(nav_path)) {
+                memcpy(nav_path, p0, stem_len);
+                strcpy(nav_path + stem_len, ".nav");
+                if (access(nav_path, R_OK) == 0) {
+                    have_nav = 1;
+                }
+            }
+        }
+    }
 
     argv[argc++] = feed_bin;
     argv[argc++] = "--bar1";
@@ -1194,6 +1224,10 @@ static pid_t start_feed(const char *feed_bin, const char *bar1_str, const char *
     }
     argv[argc++] = "--adas";
     argv[argc++] = "/dev/null";
+    if (have_nav) {
+        argv[argc++] = "--nav";
+        argv[argc++] = nav_path;
+    }
     /* 4 路 1080p 解码时 CMA 余量紧张：3 路及以上降到 8 个外部缓冲，避免分配失败 */
     argv[argc++] = "--dec-bufs";
     argv[argc++] = (num_selected >= 3) ? "8" : "10";
@@ -1243,17 +1277,18 @@ static int run_playback(volatile uint32_t *bar1,
     system("pkill -x usb_feed 2>/dev/null");
 
     // 3. 初始状态与寄存器配置
-    // 进入播放时默认：NPU 开、LANE 开、VIEW 彩色、ZEBRA 关
+    // 进入播放时默认：NPU 开、LANE 开、VIEW 彩色、ZEBRA 关、NIGHT AUTO
     int npu = 1;
     int lane = 1;
     int view = 0;
     int zebra = 0;
+    int night = 0;
     int popup = 0;
     int sel = 0;
     int popup_dirty = 0;
 
     wr(bar1, 0x880u, 0x30u);
-    wr(bar1, 0x800u, (rd(bar1, 0x800u) & ~0x300u) | 0x65u); // VIEW: COLOR
+    wr(bar1, 0x800u, (rd(bar1, 0x800u) & ~0xF00u) | (((uint32_t)night & 3u) << 10) | 0x65u); // VIEW: COLOR, NIGHT: AUTO
     wr(bar1, 0x8C0u, rd(bar1, 0x8C0u) | 3u);                // LANE 位写 1 (bit0/bit1)
     wr(bar1, 0xA20u, rd(bar1, 0xA20u) & ~1u);               // ZEBRA: 关 (bit0)
 
@@ -1264,7 +1299,7 @@ static int run_playback(volatile uint32_t *bar1,
     pid_t pid = start_feed(feed_bin, bar1_str, npu_model_path, selected_paths, num_selected, npu);
     if (pid < 0) {
         wr(bar1, 0x880u, 0x10u);
-        wr(bar1, 0x800u, 0x65u);
+        wr(bar1, 0x800u, 0x865u);  // 列表界面：NIGHT OFF
         clear_text_ram(bar1);
         clear_all_boxes(bar1);
         return 0;
@@ -1314,7 +1349,7 @@ static int run_playback(volatile uint32_t *bar1,
                 popup = !popup;
                 if (popup) {
                     popup_dirty = 0;
-                    show_playback_popup(bar1, sel, npu, lane, view, zebra);
+                    show_playback_popup(bar1, sel, npu, lane, view, zebra, night);
                 } else {
                     hide_playback_popup(bar1);
                     if (popup_dirty && pid > 0) {
@@ -1325,8 +1360,8 @@ static int run_playback(volatile uint32_t *bar1,
             } else if (popup && key == 0 && type == 1) {
                 // KEY0：弹窗开着时循环移动标记
                 popup_dirty = 1;
-                sel = (sel + 1) % 4;
-                show_playback_popup(bar1, sel, npu, lane, view, zebra);
+                sel = (sel + 1) % 5;
+                show_playback_popup(bar1, sel, npu, lane, view, zebra, night);
             } else if (popup && key == 1 && type == 1) {
                 // KEY1：执行对应项动作
                 popup_dirty = 1;
@@ -1335,7 +1370,7 @@ static int run_playback(volatile uint32_t *bar1,
                     npu = !npu;
                     kill_pid_gracefully(pid);
                     pid = start_feed(feed_bin, bar1_str, npu_model_path, selected_paths, num_selected, npu);
-                    show_playback_popup(bar1, sel, npu, lane, view, zebra);
+                    show_playback_popup(bar1, sel, npu, lane, view, zebra, night);
                 } else if (sel == 1) {
                     // LANE：取反 → 0x8C0 bit0/bit1 同时置/清
                     lane = !lane;
@@ -1343,14 +1378,14 @@ static int run_playback(volatile uint32_t *bar1,
                     if (lane) val |= 3u;
                     else val &= ~3u;
                     wr(bar1, 0x8C0u, val);
-                    show_playback_popup(bar1, sel, npu, lane, view, zebra);
+                    show_playback_popup(bar1, sel, npu, lane, view, zebra, night);
                 } else if (sel == 2) {
                     // VIEW：(view+1)%3 → 0x800 = (0x800 & ~0x300) | (view<<8)
                     view = (view + 1) % 3;
                     uint32_t val = rd(bar1, 0x800u);
                     val = (val & ~0x300u) | (((uint32_t)view & 3u) << 8);
                     wr(bar1, 0x800u, val);
-                    show_playback_popup(bar1, sel, npu, lane, view, zebra);
+                    show_playback_popup(bar1, sel, npu, lane, view, zebra, night);
                 } else if (sel == 3) {
                     // ZEBRA：取反 → 0xA20 bit0
                     zebra = !zebra;
@@ -1358,7 +1393,14 @@ static int run_playback(volatile uint32_t *bar1,
                     if (zebra) val |= 1u;
                     else val &= ~1u;
                     wr(bar1, 0xA20u, val);
-                    show_playback_popup(bar1, sel, npu, lane, view, zebra);
+                    show_playback_popup(bar1, sel, npu, lane, view, zebra, night);
+                } else if (sel == 4) {
+                    // NIGHT：循环 AUTO(0) -> ON(1) -> OFF(2) -> AUTO(0)；0x800[11:10]
+                    night = (night + 1) % 3;
+                    uint32_t val = rd(bar1, 0x800u);
+                    val = (val & ~0xC00u) | (((uint32_t)night & 3u) << 10);
+                    wr(bar1, 0x800u, val);
+                    show_playback_popup(bar1, sel, npu, lane, view, zebra, night);
                 }
             }
         }
@@ -1371,7 +1413,7 @@ static int run_playback(volatile uint32_t *bar1,
 
     // 6. 恢复硬件
     wr(bar1, 0x880u, 0x10u);
-    wr(bar1, 0x800u, 0x65u);
+    wr(bar1, 0x800u, 0x865u);  // 列表界面：NIGHT OFF
     clear_text_ram(bar1);
     clear_all_boxes(bar1);
 
@@ -1465,7 +1507,7 @@ int main(int argc, char **argv)
     wr(bar1, 0x808u, 0x00400000u);
     wr(bar1, 0x80Cu, 960u);
     wr(bar1, 0x810u, 960u * 540u);
-    wr(bar1, 0x800u, 0x65u);
+    wr(bar1, 0x800u, 0x865u);  // 列表界面：NIGHT OFF
 
     // 3. 分配 4 个槽的 CMA DMA 缓冲
     int dma_fds[4] = { -1, -1, -1, -1 };

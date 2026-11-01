@@ -10,6 +10,9 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import glob
+import io
 import os
 import re
 import shutil
@@ -31,6 +34,7 @@ FEED_SOURCES = [
     "tools/usb_feed/quad_npu.c",
     "tools/usb_feed/quad_sched.c",
     "tools/usb_feed/adas.c",
+    "tools/usb_feed/nav.c",
     "tools/adas/tl_det.c",
     "tools/npu_det/npu_post.c",
     "-I", "tools/npu_det", "-I", "tools/adas",
@@ -45,6 +49,10 @@ FIGURES = [
     "fig1_system.png", "fig2_dataflow.png", "fig3_boot.png",
     "fig4_fbmap.png", "fig5_keys.png", "fig6_fpga.png",
 ]
+
+BANNED_OLD_VERSION = ["cam11", "quad_cam11", "build_cam11", "+0.340 ns"]
+# 白名单豁免“历史说明”类句子：每项为 (文件相对路径或文件名子串, 行内容子串)
+OLD_VERSION_WHITELIST: list[tuple[str, str]] = []
 
 results: list[tuple[str, bool, str]] = []
 
@@ -101,6 +109,95 @@ def check_assets() -> None:
         record(f"asset:{rel}", ok, f"{os.path.getsize(p)} B" if os.path.isfile(p) else "missing")
 
 
+def is_old_version_whitelisted(rel_path: str, line_str: str) -> bool:
+    for wl_file, wl_substr in OLD_VERSION_WHITELIST:
+        if (wl_file in rel_path or wl_file in os.path.basename(rel_path)) and wl_substr in line_str:
+            return True
+    return False
+
+
+def get_package_entries() -> dict[str, str]:
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    from make_submit_package import collect_whitelist_files
+
+    with contextlib.redirect_stdout(io.StringIO()):
+        try:
+            return collect_whitelist_files(ROOT, with_assets=True)
+        except SystemExit:
+            return collect_whitelist_files(ROOT, with_assets=False)
+
+
+def check_banned_old_version(entries: dict[str, str]) -> None:
+    packaged_mds = [
+        path for arc, path in entries.items()
+        if arc.startswith("docs/") and arc.endswith(".md")
+    ]
+    submit_mds = glob.glob(os.path.join(ROOT, "docs", "submit", "*.md"))
+    target_docs = sorted(set(os.path.abspath(p) for p in (packaged_mds + submit_mds)))
+
+    violations: list[tuple[str, int, list[str], str]] = []
+    for doc_path in target_docs:
+        rel_path = os.path.relpath(doc_path, ROOT).replace("\\", "/")
+        try:
+            with open(doc_path, "r", encoding="utf-8", errors="ignore") as f:
+                for line_no, line in enumerate(f, 1):
+                    matched = [w for w in BANNED_OLD_VERSION if w in line]
+                    if not matched:
+                        continue
+                    if not is_old_version_whitelisted(rel_path, line):
+                        violations.append((rel_path, line_no, matched, line.strip()))
+        except Exception as e:
+            violations.append((rel_path, 0, [f"read_error: {e}"], ""))
+
+    if violations:
+        record("doc:no-banned-old-version", False, f"{len(violations)} violations")
+        for rel_path, line_no, matched, line_content in violations:
+            print(f"  {rel_path}:{line_no}: banned {matched} -> {line_content[:80]}")
+    else:
+        record("doc:no-banned-old-version", True)
+
+
+def check_package_contents(entries: dict[str, str]) -> None:
+    errors: list[str] = []
+
+    # 1. 断言必含条目
+    required_files = [
+        "tools/menu/S99adas_menu",
+        "tools/menu/run_boot.sh",
+        "docs/submit/README.md",
+    ]
+    for req in required_files:
+        if req not in entries:
+            errors.append(f"missing required file: {req}")
+
+    # 2. 断言不含文件名包含“草稿”或“大纲”的文件
+    for arc_name in entries:
+        base = os.path.basename(arc_name)
+        if "草稿" in base or "大纲" in base:
+            errors.append(f"forbidden draft/outline file in package: {arc_name}")
+
+    # 3. 断言包内 .sh 与 S99adas_menu 不含 \r
+    for arc_name, abs_path in sorted(entries.items()):
+        base = os.path.basename(arc_name)
+        if arc_name.endswith(".sh") or base == "S99adas_menu":
+            if not os.path.isfile(abs_path):
+                errors.append(f"{arc_name}: file not found on disk: {abs_path}")
+                continue
+            with open(abs_path, "rb") as f:
+                content = f.read()
+            if b"\r" in content:
+                for line_no, line in enumerate(content.split(b"\n"), 1):
+                    if b"\r" in line:
+                        errors.append(f"{arc_name}:{line_no}: contains CR (\\r)")
+
+    if errors:
+        record("pkg:contents", False, f"{len(errors)} issues")
+        for err in errors:
+            print(f"  {err}")
+    else:
+        record("pkg:contents", True)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--quick", action="store_true", help="skip usb_feed build")
@@ -119,6 +216,9 @@ def main() -> int:
     check_sh_syntax("tools/menu/S99adas_menu")
     check_docs()
     check_assets()
+    entries = get_package_entries()
+    check_banned_old_version(entries)
+    check_package_contents(entries)
 
     failed = [r for r in results if not r[1]]
     print(f"\n{len(results) - len(failed)}/{len(results)} passed")

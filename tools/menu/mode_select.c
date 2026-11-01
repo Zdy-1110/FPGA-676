@@ -419,7 +419,7 @@ int main(int argc, char **argv)
     }
 
     // 推图前先关摄像头通路：否则 FPGA 摄像头仍在写 slot0，会和门铃 DMA 抢同一个槽
-    wr(bar1, 0x800u, 0x65u);
+    wr(bar1, 0x800u, 0x865u);  // 0x65 + NIGHT OFF（[11:10]=10）：UI 画面不做夜间增强
 
     // 等待 DMA 静止（启动流程：写 0x1A0=1 等初始化之后、第一次推图之前）
     if (wait_dma_idle(bar1, 2000) < 0) {
@@ -460,8 +460,8 @@ int main(int argc, char **argv)
         return 4;
     }
 
-    // 5. 写 0x800=0x65
-    wr(bar1, 0x800u, 0x65u);
+    // 5. 写 0x800=0x865（0x65 + NIGHT OFF：选择界面是暗底 UI，不能让 AUTO 判成夜间）
+    wr(bar1, 0x800u, 0x865u);
 
     // 6. 画初始高亮框
     draw_highlight(bar1, current_mode);

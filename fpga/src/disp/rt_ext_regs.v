@@ -176,6 +176,8 @@ module rt_ext_regs
     reg [15:0] stat_frame_id;
     reg        stat_video_active;
     reg [1:0]  stat_slot;
+    reg        stat_night_active;
+    reg [7:0]  stat_night_mean;
 
     //------------------------------------------------------------------
     // write decode
@@ -362,6 +364,8 @@ module rt_ext_regs
         cfg_ctrl[6] = reg_disp_ctrl[6];   // 20261027 cam: CAM_OFF
         cfg_ctrl[8] = reg_disp_ctrl[8];   // 20261029 view_mode[0]
         cfg_ctrl[9] = reg_disp_ctrl[9];   // 20261029 view_mode[1]
+        cfg_ctrl[10]= reg_disp_ctrl[10];  // 20261101 night_mode[0]
+        cfg_ctrl[11]= reg_disp_ctrl[11];  // 20261101 night_mode[1]
         cfg_ctrl[12]= reg_disp_ctrl[12];
         cfg_ctrl[13]= reg_disp_ctrl[13];
         cfg_ctrl[14]= reg_disp_ctrl[14];
@@ -467,6 +471,8 @@ module rt_ext_regs
             stat_newfr        <= 32'b0;
             stat_underflow    <= 32'b0;
             stat_dbg          <= 32'b0;
+            stat_night_active <= 1'b0;
+            stat_night_mean   <= 8'd0;
         end
         else if (stat_edge)
         begin
@@ -477,6 +483,8 @@ module rt_ext_regs
             stat_newfr        <= i_stat_bus[82:51];
             stat_underflow    <= i_stat_bus[114:83];
             stat_dbg          <= i_stat_bus[146:115];
+            stat_night_active <= i_stat_bus[147];
+            stat_night_mean   <= i_stat_bus[155:148];
         end
     end
 
@@ -632,7 +640,7 @@ module rt_ext_regs
     //------------------------------------------------------------------
     // read decode : 128-bit group selected by i_rd_addr[11:4]
     //------------------------------------------------------------------
-    wire [31:0] fb_stat_w = { stat_frame_id, 13'd0, stat_video_active, stat_slot };
+    wire [31:0] fb_stat_w = { stat_frame_id, 4'd0, stat_night_mean, stat_night_active, stat_video_active, stat_slot };
     wire [31:0] key_stat_w = { 27'd0, i_key_stat };   // 20261018 review: pressed=1
     wire [31:0] led_rd_w   = reg_led_ctrl;
     wire [31:0] cal_ctrl_w = { cal_seq, 4'd0, cal_src, /*pause*/ drv_r[7], drv_r[7], cal_valid };
@@ -651,7 +659,7 @@ module rt_ext_regs
                 8'h80: o_rd128 <= { reg_stride    , reg_slot_size, reg_fb_base  , reg_disp_ctrl };
                 8'h81: o_rd128 <= { 32'd0, 32'd0       , 32'd0        , reg_uv_off    };
                 8'h82: o_rd128 <= { stat_underflow, stat_newfr, stat_frames, fb_stat_w };
-                8'h83: o_rd128 <= { 32'h4F53_4431, 32'h2026_1029, hdmi_stat_r, stat_dbg };   // "OSD1", 0x838=0x20261029
+                8'h83: o_rd128 <= { 32'h4F53_4431, 32'h2026_1101, hdmi_stat_r, stat_dbg };   // "OSD1", 0x838=0x20261101
                 8'h84: o_rd128 <= { led_rd_w, drv_state_w, key_evt_w, key_stat_w };
                 8'h85: o_rd128 <= { 32'd0, 32'd0, 32'd0, reg_decision };
                 8'h88: o_rd128 <= { 32'd0, 32'd0, 32'd0, reg_osd_ctrl };

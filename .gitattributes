@@ -5,3 +5,5 @@
 *.onnx binary
 *.jpg binary
 *.png binary
+*.sh text eol=lf
+tools/menu/S99adas_menu text eol=lf
