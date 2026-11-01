@@ -75,7 +75,7 @@
 ## B.6 车道线门级后仿
 
 - 工作区：`D:/pango_build/4_15_PCIE_DMA/sim/lane_gl`（`work_r6`），Questa `vsim`。
-- **网表归属**：`impl.tcl`（2026-10-28）对 `rt_lane_det.v` 做**独立综合**，输入源与仓库 cam11 的 `rt_lane_det.v` MD5 一致（`0bced8fb6fffdd4f450c2d4a15a06b67`）；但它是 cam10f 迭代 r6 的**单核综合网表**，**不是 cam11 全芯片布局布线后的 SDF 反标网表**。
+- **网表归属**：`impl.tcl`（2026-10-28）对 `rt_lane_det.v` 做**独立综合**，输入源 rt_lane_det.v 与提交位流 cam18 所用文件 MD5 一致（`0bced8fb6fffdd4f450c2d4a15a06b67`），网表取自 cam10f r6 独立综合。
 - `seg_board`（2 帧）：`SEG seg_board: row_mismatch=0 frame_field_mismatch=0`，`Errors: 0`；日志 `log/lane_gl_repro_20261030/repro_board.log`。
 - `seg_recover`（40 帧）：`SEG seg_recover: row_mismatch=0 frame_field_mismatch=0`，`Errors: 0`；日志 `log/lane_gl_repro_20261030/repro_recover40.log`（重跑耗时约 2 小时 15 分）。
 - 结论：42 帧（2 + 40）逐帧一致，与第九章结论一致；全芯片 PnR 后的 SDF 反标未执行，时序收敛以 PDS STA 报告为准。
@@ -91,6 +91,18 @@ bash tools/adas/host_test/run_host_test.sh
 
 # 斑马线模型
 .venv_yolo/Scripts/python.exe tools/zebra_fpga/eval.py
+
+# 夜间增强 RTL 仿真（Questa FSE，期望 NIGHT_TB PASS）
+cd fpga/sim_night
+vlog +incdir+../src/disp ../src/disp/rt_night.v tb_rt_night.v
+vsim -c -do run.do
+
+# 夜间白天天光不误触发门槛统计（8024 帧，期望 GATE PASS）
+.venv_yolo/Scripts/python.exe tools/night_eval/luma_stats.py
+
+# 导航生成与单测（15 条 GT 指令生成 + 宿主单测 PASS）
+python tools/nav_proto/make_navfile.py
+zig cc -O2 -Itools/usb_feed tools/nav_proto/test_nav.c tools/usb_feed/nav.c -o test_nav && ./test_nav
 
 # 一键构建与文档不变量自检
 python tools/selftest.py

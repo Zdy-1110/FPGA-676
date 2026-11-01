@@ -166,14 +166,20 @@ def collect_whitelist_files(repo_root, with_assets):
     # 1. FPGA
     add_directory("fpga/src", filter_fn=lambda f, p: f.lower().endswith((".v", ".sv", ".vh")))
     for pnr_f in [
-        "fpga/pnr/build_cam11.pds",
-        "fpga/pnr/build_cam11.tcl",
-        "fpga/pnr/build_cam11_s1.pds",
+        "fpga/pnr/build_cam18.tcl",
         "fpga/pnr/pango_pcie_top.fdc",
     ]:
         add_single_file(pnr_f, pnr_f)
     add_directory("fpga/ip")
     add_directory("fpga/sim")
+    add_directory(
+        "fpga/sim_night",
+        filter_fn=lambda f, p: f.lower().endswith((".v", ".do", ".py", ".md")),
+    )
+    add_directory(
+        "fpga/tools_night",
+        filter_fn=lambda f, p: f.lower().endswith((".v", ".do", ".py", ".md")),
+    )
     add_directory("fpga/ref_hdmi", filter_fn=lambda f, p: f.lower().endswith(".v"))
     add_directory(
         "fpga/linux/driver",
@@ -203,15 +209,47 @@ def collect_whitelist_files(repo_root, with_assets):
     ]:
         add_single_file(rk_tool, rk_tool)
 
+    # 导航示例 (tools/nav_proto)
+    for nav_f in [
+        "tools/nav_proto/make_navfile.py",
+        "tools/nav_proto/test_nav.c",
+        "tools/nav_proto/README.md",
+        "tools/nav_proto/nav_detect.py",
+    ]:
+        add_single_file(nav_f, nav_f)
+    for nav_out in sorted(glob.glob(os.path.join(repo_root, "tools/nav_proto/out/*.nav"))):
+        rel = os.path.relpath(nav_out, repo_root).replace("\\", "/")
+        add_single_file(rel, rel)
+
+    # 夜间评估 (tools/night_eval)
+    for ne_py in sorted(glob.glob(os.path.join(repo_root, "tools/night_eval/*.py"))):
+        rel = os.path.relpath(ne_py, repo_root).replace("\\", "/")
+        add_single_file(rel, rel)
+    add_single_file("tools/night_eval/README.md", "tools/night_eval/README.md")
+    add_single_file("tools/night_eval/out/luma_stats.csv", "tools/night_eval/out/luma_stats.csv")
+    add_single_file("tools/night_eval/out/dark/dark_set.csv", "tools/night_eval/out/dark/dark_set.csv")
+    for dark_img in [
+        "tools/night_eval/out/dark/day_113539_50.jpg",
+        "tools/night_eval/out/dark/day_112739_50.jpg",
+        "tools/night_eval/out/dark/night40_113539_50.jpg",
+        "tools/night_eval/out/dark/night40_112739_50.jpg",
+        "tools/night_eval/out/dark/sim_gamma_night40_113539_50.jpg",
+        "tools/night_eval/out/dark/sim_gamma_night40_112739_50.jpg",
+    ]:
+        add_single_file(dark_img, dark_img)
+
     # 关键证据日志（放 evidence/，便于评委核对文档数字）
     for ev in [
         "log/rk_env/build_cam17.log",
-        "log/rk_env/build_cam11_s1.log",
         "log/rk_env/pcie_mrd1_L3_20261018.log",
         "log/rk_env/pcie_fast2_soak_ext_20261018.log",
         "log/npu_freq_20261029.md",
         "log/lane_gl_repro_20261030/repro_board.log",
         "log/lane_gl_repro_20261030/repro_recover40.log",
+        "log/board_20261101/cam18_timing.rtr",
+        "log/board_20261101/nav112739_cam18_samples.txt",
+        "log/board_20261101/night_still_cam18_lane_points.txt",
+        "log/board_20261101/quad4_cam18_result.txt",
     ]:
         add_single_file(ev, "evidence/" + os.path.basename(ev), optional=True)
 
@@ -247,9 +285,9 @@ def collect_whitelist_files(repo_root, with_assets):
 
     # 6. 预编译 (--with-assets)
     if with_assets:
+        add_single_file("D:/pango_work/quad/out/quad_cam18.sbit", "prebuilt/fpga/quad_cam18.sbit")
+        add_single_file("D:/pango_work/quad/out/quad_cam18.sfc", "prebuilt/fpga/quad_cam18.sfc")
         add_single_file("D:/pango_work/quad/out/quad_cam17.sbit", "prebuilt/fpga/quad_cam17.sbit")
-        add_single_file("D:/pango_work/quad/out/quad_cam11.sbit", "prebuilt/fpga/quad_cam11.sbit")
-        add_single_file("fpga/out/quad_cam10f.sbit", "prebuilt/fpga/quad_cam10f.sbit")
         add_single_file("menu/ui_cjk.bin", "prebuilt/menu/ui_cjk.bin")
 
         tile_matches = glob.glob(os.path.join(repo_root, "menu", "tile[0-3].*"))

@@ -10,19 +10,24 @@
 - 约束文件：`fpga/pnr/pango_pcie_top.fdc`
 
 ### 1.2 工程文件与生成命令
-- 工程文件：`fpga/pnr/build_cam11.pds` (或子卡工程 `fpga/pnr/build_cam11_s1.pds`)
-- 自动化构建脚本：`fpga/pnr/build_cam11.tcl`
-- 构建流程（Tcl 交互模式）：
+- 自动化构建脚本：`fpga/pnr/build_cam18.tcl`（脚本内部使用 `D:/pango_build` 绝对路径，与既有构建环境口径一致；由 build_cam17 扩展增加 `rt_night.v` 自适应夜间增强核，运行 4 seed 布局布线）
+- 构建流程（Tcl 交互模式或 `pds_shell` 执行）：
   ```tcl
-  open_project fpga/pnr/build_cam11.pds
+  # 直接运行构建脚本：
+  source fpga/pnr/build_cam18.tcl
+  ```
+  其核心流程等价展开为：
+  ```tcl
+  open_project D:/pango_build/4_15_PCIE_DMA/pnr/pg2l_pcie_dma.pds
+  # 加载 rt_disp_win_reader.v, rt_lane_det.v, rt_zebra_det.v, rt_night.v 等源码
   compile -top_module pango_pcie_dma_top -force_to_run
   synthesize -ads -selected_syn_tool_opt 2 -force_to_run
   dev_map -force_to_run
-  pnr -planning_before_place Enable -force_to_run -gplace_times 6 -seed_step 1 -pick_first_timing_convergence_seed TRUE
+  pnr -planning_before_place Enable -force_to_run -gplace_times 4 -seed_step 1 -pick_first_timing_convergence_seed FALSE
   report_timing
   gen_bit_stream -master_configuration_clock_frequency {25M} -force_to_run
   ```
-- 产物输出：`generate_bitstream/pango_pcie_dma_top.sbit`（对应预编译 `quad_cam11.sbit`）
+- 产物输出：`prj_tasks/pnr_1/generate_bitstream/pango_pcie_dma_top.sbit`（构建脚本自动复制为预编译位流 `quad_cam18.sbit`）
 
 ## 二、RK3568 软件栈交叉编译
 

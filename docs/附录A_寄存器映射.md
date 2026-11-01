@@ -1,6 +1,6 @@
 # 附录 A  BAR1 寄存器映射手册
 
-> 适用固件：cam11（版本寄存器 `0x838 = 0x20261029`）
+> 适用固件：cam18（版本寄存器 `0x838 = 0x20261101`；兼容 cam17 = `0x20261029`）
 > 依据：`fpga/src/disp/rt_ext_regs.v`（地址译码与位域）、`fpga/src/disp/rt_osd.v`、`fpga/src/disp/rt_osd_ctl.v`、`fpga/src/disp/rt_disp_top.v`
 > 说明：偏移均相对 BAR1 起始地址（板端实测 `0xf0204000`，即 `0x800` 对应物理地址 `0xf0204800`）。未标“只读”的寄存器均可写。
 
@@ -53,13 +53,13 @@
 
 | 偏移 | 名称 | 位域 | 说明 | 证据 |
 |---|---|---|---|---|
-| `0x820` | `FB_STAT` | `[15:0]` frame_id，`[2]` video_active，`[1:0]` slot | 最近一次提交状态 | `rt_ext_regs.v:635, 653` |
+| `0x820` | `FB_STAT` | `[31:16]` frame_id，`[11:4]` slot0 帧平均亮度，`[3]` night_active，`[2]` video_active，`[1:0]` slot | 最近一次提交状态与夜间状态 | `rt_ext_regs.v:643, 661` |
 | `0x824` | `STAT_FRAMES` | 32 位 | 显示帧计数 | `rt_ext_regs.v:476` |
 | `0x828` | `STAT_NEWFR` | 32 位 | 新帧计数 | `rt_ext_regs.v:477` |
 | `0x82C` | `STAT_UNDERFLOW` | 32 位 | FIFO 欠载计数（应为 0） | `rt_ext_regs.v:478` |
 | `0x830` | `STAT_DBG` | 32 位 | 调试位，见 `i_stat_bus[146:115]` | `rt_ext_regs.v:479` |
 | `0x834` | `HDMI_STAT` | `[31:24]` sta_0502，`[23:16]` nack_cnt，`[15]` init_over_rx，`[14]` sta_valid，`[13:8]` ms7210_state，`[7:4]` reinit_cnt，`[3]` ri_hold，`[2]` rx_go，`[1]` nack_sticky，`[0]` init_over | MS7210 状态 | `rt_ext_regs.v:15, 654` |
-| `0x838` | `VERSION` | 32 位 | 固件版本，cam11 = `0x20261029` | `rt_ext_regs.v:654` |
+| `0x838` | `VERSION` | 32 位 | 固件版本，cam18 = `0x20261101`（cam17 = `0x20261029`） | `rt_ext_regs.v:662` |
 | `0x83C` | `OSD_ID` | 32 位 | 固定 `0x4F534431`（"OSD1"） | `rt_ext_regs.v:654` |
 | `0x840` | `KEY_STAT` | 5 位 | 按键实时电平 | `rt_ext_regs.v:655` |
 | `0x844` | `KEY_EVT` | 见 A.4.2 | 按键事件（序号/键号/类型/步进） | `rt_ext_regs.v:416, 655` |
@@ -90,8 +90,9 @@
 | 5 | `quad_en` | 四宫格排版使能；实时四路与视频分屏均为 1 |
 | 6 | `cam_off` | 关闭摄像头通路；播放 U 盘视频时置 1 |
 | 9:8 | `view_mode` | 0=彩色，1=灰度，2=二值 |
+| 11:10 | `night_mode` | 夜间增强模式：00=AUTO（默认），01=强制 ON，10/11=强制 OFF |
 
-常用值：实时四路 `0x25`（video_en + osd_en + quad_en）；U 盘播放 `0x65`（再加 cam_off）。
+常用值：实时四路 `0x25`（video_en + osd_en + quad_en，夜间 AUTO）；U 盘播放 `0x65`（再加 cam_off，夜间 AUTO）；UI 保护模式 `0x865`（0x65 + 强制 OFF，避免暗底菜单被误判为夜间）。
 
 ### A.4.2 `0x844 KEY_EVT`
 
@@ -186,9 +187,9 @@
 | 程序 | 使用到的寄存器 |
 |---|---|
 | `usb_feed` | `0x190–0x19C`、`0x814`、`0x850`、`0x8C0`、`0x8D0/0x8DC`、`0x848` |
-| `menu_daemon` | `0x800`、`0x844`、`0x848`、`0x880`、`0x8C0`、`0xA20` |
-| `usb_menu` | `0x800`、`0x844`、`0x880`、`0x8C0`、`0xA20`、`0x1A0` |
-| `mode_select` | `0x1A0`、`0x804/0x808/0x80C/0x810/0x814`、`0x844`、`0x880` |
+| `menu_daemon` | `0x800`、`0x820`、`0x844`、`0x848`、`0x880`、`0x8C0`、`0xA20` |
+| `usb_menu` | `0x800`、`0x820`、`0x844`、`0x880`、`0x8C0`、`0xA20`、`0x1A0` |
+| `mode_select` | `0x1A0`、`0x800`、`0x804/0x808/0x80C/0x810/0x814`、`0x844`、`0x880` |
 
 > 约定：
 > 1. `0x800[9:8]` 的视图切换只作用于 slot0 显示通路的像素选择（`rt_disp_top.v:905-944`，`q0_de` 门控），不改变送入 NPU 的源图；二值模式判据为 R/G/B ≥ 140 且色度差 ≤ 30。

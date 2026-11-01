@@ -352,8 +352,8 @@ def build_fig3():
             fontproperties=font_bold, size=10.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
     draw_box(ax, 52.0, 71.0, 26.0, 17.0)
-    ax.text(65.0, 79.5, "run_boot.sh 硬件联调\n(等 0x838=0x20261029)\n────────────\n[屏幕: 蓝色清屏 / 等待固件]",
-            fontproperties=font_bold, size=10.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
+    ax.text(65.0, 79.5, "run_boot.sh 硬件联调\n(0x838: 0x20261101 cam18；兼容 cam17)\n────────────\n[屏幕: 蓝色清屏 / 等待固件]",
+            fontproperties=font_bold, size=9.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
     # 启动箭头
     draw_arrow(ax, (19.5, 79.5), (26.5, 79.5), color=COLOR_BORDER, lw=1.6)
@@ -493,10 +493,10 @@ def build_fig5():
     ax.text(36.0, 86.5, "短按事件 (Short < 1s)", fontproperties=font_bold, size=10.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
     draw_box(ax, 49.5, 83.5, 23.0, 6.0, bg_color=COLOR_CARD_BG, border_color=COLOR_BORDER)
-    ax.text(61.0, 86.5, "长按事件 (Long 1~3s)", fontproperties=font_bold, size=10.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
+    ax.text(61.0, 86.5, "长按 3s 事件 (Long ≥ 3s)", fontproperties=font_bold, size=10.0, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
     draw_box(ax, 74.5, 83.5, 22.0, 6.0, bg_color=COLOR_CARD_BG, border_color=COLOR_BORDER)
-    ax.text(85.5, 86.5, "按住 3s 事件 (Hold ≥ 3s)", fontproperties=font_bold, size=10.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
+    ax.text(85.5, 86.5, "按住 10s 事件 (Hold ≥ 10s)", fontproperties=font_bold, size=10.0, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
     # Row 1: KEY0
     draw_box(ax, 3.5, 72.5, 19.0, 9.5)
@@ -544,9 +544,9 @@ def build_fig5():
     draw_box(ax, 24.5, 28.5, 23.0, 9.5)
     ax.text(36.0, 33.25, "FPGA：disp_mode 取反（仅状态回读）\n菜单软件：开关 OSD 配置弹窗", fontproperties=font_reg, size=9.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
     draw_box(ax, 49.5, 28.5, 23.0, 9.5)
-    ax.text(61.0, 33.25, "FPGA：src_sel 取反（仅状态回读）\n菜单软件：长按 1–2 s 退出到选择界面", fontproperties=font_reg, size=9.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
+    ax.text(61.0, 33.25, "FPGA：src_sel 取反（仅状态回读）\n菜单软件：长按 3 s 返回开机界面", fontproperties=font_reg, size=9.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
     draw_box(ax, 74.5, 28.5, 22.0, 9.5, bg_color=COLOR_ORANGE_BG, border_color=COLOR_ORANGE)
-    ax.text(85.5, 33.25, "★ 触发 BEV 透视标定模式\n(cal_mode = 1，投射标定十字准星)", fontproperties=font_bold, size=10.0, color=COLOR_ORANGE, ha="center", va="center")
+    ax.text(85.5, 33.25, "★ 按住 10 s 进调试/标定层\n(cal_mode = 1，投射透视标定准星)", fontproperties=font_bold, size=9.5, color=COLOR_ORANGE, ha="center", va="center")
 
     # 底部说明与约束卡片 (两栏并排)
     draw_box(ax, 3.5, 6.5, 45.0, 19.5, bg_color=COLOR_ORANGE_BG, border_color=COLOR_ORANGE, lw=1.3)
@@ -554,8 +554,8 @@ def build_fig5():
             fontproperties=font_reg, size=10.0, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
     draw_box(ax, 51.5, 6.5, 45.0, 19.5, bg_color=COLOR_ORANGE_BG, border_color=COLOR_ORANGE, lw=1.3)
-    ax.text(74.0, 16.25, "【规范】标定模式防误触要求 (现场演示时序规范):\n\"KEY4 按住 3 s 会进 cal_mode，演示须在 3 s 内松开\"\nKEY4 持续按住超过 3 秒将置位硬件 cal_mode 进入标定模式并锁定画面；\n答辩或现场演示“长按返回”时，按键须在 1~2 秒内松开，严禁按住超过 3 秒，\n以确保系统平滑返回 mode_select 而不误触发透视标定准星。",
-            fontproperties=font_reg, size=10.0, color=COLOR_TEXT_MAIN, ha="center", va="center")
+    ax.text(74.0, 16.25, "【规范】标定模式防误触要求 (现场演示时序规范):\n\"KEY4 长按 3 s 返回开机界面，按住 10 s 才进调试/标定层\"\n长按 KEY4 3 秒平滑返回开机二选一界面 (mode_select)；\n硬件标定模式设置了 10 秒防误触长延时门限，必须按住满 10 秒才会置位 cal_mode\n进入透视标定层并锁定画面，彻底避免现场演示与切换时误触标定准星。",
+            fontproperties=font_reg, size=9.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
     return fig
 
@@ -607,46 +607,309 @@ def build_fig6():
     ax.text(42.0, 36.75, "rt_keys\n5向实体按键消抖与编码\n(时序计数与多级事件生成)",
             fontproperties=font_reg, size=10.0, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
-    # 右侧子模块 (从上到下 4 个)
-    draw_box(ax, 57.5, 69.5, 37.0, 14.5)
-    ax.text(76.0, 76.75, "PCIe 端点控制器 (PCIe Endpoint)\nPCIe Gen2 x2 IP 协议栈 & 门铃 Scatter-Gather DMA Master",
-            fontproperties=font_reg, size=10.0, color=COLOR_TEXT_MAIN, ha="center", va="center")
+    # 右侧子模块 (从上到下 5 个)
+    draw_box(ax, 57.5, 73.5, 37.0, 10.5)
+    ax.text(76.0, 78.75, "PCIe 端点控制器 (PCIe Endpoint)\nPCIe Gen2 x2 IP 协议栈 & 门铃 Scatter-Gather DMA Master",
+            fontproperties=font_reg, size=9.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
-    draw_box(ax, 57.5, 56.0, 37.0, 12.0)
-    ax.text(76.0, 62.0, "DDR3 控制器硬核 (DDR3 Memory Controller)\n32-bit 总线 @ 400 MHz (800 Mbps)，提供 >25.6 Gbps 吞吐带宽",
-            fontproperties=font_reg, size=10.0, color=COLOR_TEXT_MAIN, ha="center", va="center")
+    draw_box(ax, 57.5, 62.0, 37.0, 9.5)
+    ax.text(76.0, 66.75, "DDR3 控制器硬核 (DDR3 Memory Controller)\n32-bit 总线 @ 400 MHz (800 Mbps)，提供 >25.6 Gbps 吞吐带宽",
+            fontproperties=font_reg, size=9.0, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
-    draw_box(ax, 57.5, 42.5, 37.0, 12.0)
-    ax.text(76.0, 48.5, "rt_lane_det (流式车道线检测核)\n单遍光栅单扫描流水线，累加器最小二乘定点拟合斜率与截距",
-            fontproperties=font_reg, size=10.0, color=COLOR_TEXT_MAIN, ha="center", va="center")
+    draw_box(ax, 57.5, 46.5, 37.0, 13.5, bg_color=COLOR_CYAN_BG, border_color=COLOR_CYAN, lw=1.3)
+    ax.text(76.0, 56.8, "rt_night (流式自适应夜间增强核)",
+            fontproperties=font_bold, size=9.5, color=COLOR_CYAN, ha="center", va="center")
+    ax.text(76.0, 51.2, "slot0 q0 → [rt_night 亮度统计 + gamma LUT(a)] → rt_lane_det / rt_zebra_det\n四路合成 → [gamma LUT(b)] → VIEW 选择\n寄存器: 0x800[11:10] 模式配置 (AUTO/ON/OFF) | 0x820 night_active/均值",
+            fontproperties=font_reg, size=7.8, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
-    draw_box(ax, 57.5, 29.0, 37.0, 12.0)
-    ax.text(76.0, 35.0, "rt_zebra_det (流式斑马线检测核)\n垂直与水平梯度边缘投影统计，周期性斑马线条纹硬件判决",
-            fontproperties=font_reg, size=10.0, color=COLOR_TEXT_MAIN, ha="center", va="center")
+    draw_box(ax, 57.5, 37.0, 37.0, 7.5)
+    ax.text(76.0, 40.75, "rt_lane_det (流式车道线检测核)\n单遍光栅单扫描流水线，累加器最小二乘定点拟合斜率与截距",
+            fontproperties=font_reg, size=8.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
+
+    draw_box(ax, 57.5, 27.5, 37.0, 7.5)
+    ax.text(76.0, 31.25, "rt_zebra_det (流式斑马线检测核)\n垂直与水平梯度边缘投影统计，周期性斑马线条纹硬件判决",
+            fontproperties=font_reg, size=8.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
     # 底部片上资源仪表盘
     draw_box(ax, 3.5, 5.5, 93.0, 17.5, bg_color=COLOR_CARD_BG, border_color=COLOR_CYAN, lw=1.3)
-    ax.text(50.0, 20.0, "紫光同创盘古 100Pro+ (PG2L100H) 片上硬件资源占用指标 (cam11 固件基线)",
-            fontproperties=font_bold, size=10.5, color=COLOR_CYAN, ha="center", va="center")
+    ax.text(50.0, 20.0, "紫光同创盘古 100Pro+ (PG2L100H) 片上硬件资源占用指标 (cam18 固件基线，时序 WNS +0.086 ns / pix_clk +0.321 ns)",
+            fontproperties=font_bold, size=10.0, color=COLOR_CYAN, ha="center", va="center")
 
     # 4 个资源卡片
     draw_box(ax, 5.5, 7.5, 21.0, 10.0, bg_color=COLOR_CONTAINER_BG, border_color=COLOR_BORDER)
-    ax.text(16.0, 12.5, "LUT 查找表: 40.0%\n26,645 / 66,600 (余量充裕)",
+    ax.text(16.0, 12.5, "LUT 查找表: 36.1%\n24,064 / 66,600 (余量充裕)",
             fontproperties=font_reg, size=10.0, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
     draw_box(ax, 28.5, 7.5, 21.0, 10.0, bg_color=COLOR_CONTAINER_BG, border_color=COLOR_BORDER)
-    ax.text(39.0, 12.5, "FF 触发器: 19.3%\n25,730 / 133,200 (时序极稳)",
+    ax.text(39.0, 12.5, "FF 触发器: 19.2%\n25,536 / 133,200 (时序极稳)",
             fontproperties=font_reg, size=10.0, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
     draw_box(ax, 51.5, 7.5, 21.0, 10.0, bg_color=COLOR_CONTAINER_BG, border_color=COLOR_BORDER)
-    ax.text(62.0, 12.5, "DRM 块存储: 63.8%\n99 / 155 (行缓冲与字模)",
+    ax.text(62.0, 12.5, "DRM 块存储: 64.5%\n100 / 155 (行缓冲与字模)",
             fontproperties=font_reg, size=10.0, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
     draw_box(ax, 74.5, 7.5, 20.0, 10.0, bg_color=COLOR_CONTAINER_BG, border_color=COLOR_BORDER)
-    ax.text(84.5, 12.5, "APM 乘加器: 25.4%\n61 / 240 (拟合与除法算子)",
+    ax.text(84.5, 12.5, "APM 乘加器: 25.8%\n62 / 240 (拟合与除法算子)",
             fontproperties=font_reg, size=10.0, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
     return fig
+
+
+# ---------------------------------------------------------
+# 图 7: FPGA 自适应夜间增强 (fig_night)
+# ---------------------------------------------------------
+def build_fig_night():
+    fig, ax = create_base_canvas()
+    draw_header(ax, "FPGA 自适应夜间增强效果与板载车道线候选点数评估",
+                "全局 gamma=0.5 查找表流式增强 + 板载 slot0 帧亮度统计（0x820）8 帧迟滞自动切换",
+                "Fig. 7  自适应夜间增强")
+
+    # 上排三张图: 日间原图 / 合成暗化 Y≈40 / FPGA gamma 位真仿真
+    im_day_path = "tools/night_eval/out/dark/day_113539_50.jpg"
+    im_night_path = "tools/night_eval/out/dark/night40_113539_50.jpg"
+    im_gamma_path = "tools/night_eval/out/dark/sim_gamma_night40_113539_50.jpg"
+
+    im_day = Image.open(im_day_path)
+    im_night = Image.open(im_night_path)
+    im_gamma = Image.open(im_gamma_path)
+
+    imgs = [
+        (im_day, 4.5, "日间原图"),
+        (im_night, 36.0, "合成暗化 Y≈40"),
+        (im_gamma, 67.5, "FPGA gamma 位真仿真"),
+    ]
+    for im, x0, title in imgs:
+        ax.text(x0 + 14.0, 89.2, title, fontproperties=font_bold, size=10.0, color=COLOR_TEXT_MAIN, ha="center", va="bottom")
+        ax.imshow(im, extent=[x0, x0 + 28.0, 60.5, 88.4], aspect="auto", zorder=2)
+        rect = patches.Rectangle((x0, 60.5), 28.0, 27.9, fill=False, edgecolor=COLOR_BORDER, linewidth=1.0, zorder=3)
+        ax.add_patch(rect)
+
+    # 下排容器: 分组柱状图
+    rect = patches.FancyBboxPatch((3.5, 4.5), 93.0, 52.5, boxstyle="round,pad=0.8,rounding_size=0.8", facecolor=COLOR_CONTAINER_BG, edgecolor=COLOR_BORDER, linewidth=1.2, zorder=1)
+    ax.add_patch(rect)
+
+    ax.text(5.5, 53.5, "板上车道候选点数统计对比 (l_n + r_n / 0x8E8 寄存器均值)", fontproperties=font_bold, size=10.5, color=COLOR_CYAN, ha="left", va="center")
+
+    # 图例
+    leg_items = [("#64748B", "OFF (关闭增强)"), ("#0E7490", "AUTO (自适应)"), ("#C2410C", "ON (强制增强)")]
+    for idx, (col, txt) in enumerate(leg_items):
+        lx = 64.0 + idx * 10.5
+        r = patches.Rectangle((lx, 52.6), 2.0, 1.8, facecolor=col, edgecolor=COLOR_BORDER, lw=0.8, zorder=3)
+        ax.add_patch(r)
+        ax.text(lx + 2.5, 53.5, txt, fontproperties=font_reg, size=8.5, color=COLOR_TEXT_MAIN, ha="left", va="center")
+
+    # 坐标轴与网格
+    y_base = 13.0
+    y_height = 34.0
+    max_val = 240.0
+    for yv in [0, 60, 120, 180, 240]:
+        y_pos = y_base + (yv / max_val) * y_height
+        ax.text(9.5, y_pos, str(yv), fontproperties=font_reg, size=8.0, color=COLOR_TEXT_MUTED, ha="right", va="center")
+        ax.plot([10.5, 94.0], [y_pos, y_pos], color="#E2E8F0", lw=0.8, ls="--", zorder=2)
+
+    ax.text(5.5, y_base + y_height / 2.0, "候选点数\n(l_n+r_n)", fontproperties=font_bold, size=8.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
+
+    cats = [
+        ("night40_113539", (0, 212, 212)),
+        ("night40_112739", (0, 5, 5)),
+        ("night25 (两张合并)", (0, 0, 0)),
+        ("day_112739", (119, 119, 79)),
+    ]
+
+    colors = ["#64748B", "#0E7490", "#C2410C"]
+    bar_w = 4.2
+    bar_gap = 0.8
+    group_w = 3 * bar_w + 2 * bar_gap
+
+    for c_idx, (cat_name, vals) in enumerate(cats):
+        cx = 22.0 + c_idx * 21.5
+        ax.text(cx, 10.2, cat_name, fontproperties=font_bold, size=9.0, color=COLOR_TEXT_MAIN, ha="center", va="top")
+        for b_idx, (v, col) in enumerate(zip(vals, colors)):
+            bx = cx - group_w / 2.0 + b_idx * (bar_w + bar_gap)
+            bh = (v / max_val) * y_height
+            if bh > 0:
+                brect = patches.Rectangle((bx, y_base), bar_w, bh, facecolor=col, edgecolor=COLOR_BORDER, lw=0.8, zorder=3)
+                ax.add_patch(brect)
+            ax.text(bx + bar_w / 2.0, y_base + bh + 0.8, str(v), fontproperties=font_bold, size=8.5, color=COLOR_TEXT_MAIN, ha="center", va="bottom")
+
+    # 图注小字
+    ax.text(50.0, 6.2, "数据：log/board_20261101/night_still_cam18_lane_points.txt；暗化为合成静态图，非真实夜间视频", fontproperties=font_reg, size=8.5, color=COLOR_TEXT_MUTED, ha="center", va="center")
+
+    return fig
+
+
+# ---------------------------------------------------------
+# 图 8: 导航指令与决策时序 (fig_nav)
+# ---------------------------------------------------------
+def build_fig_nav():
+    fig, ax = create_base_canvas()
+    draw_header(ax, "模拟导航指令注入与 FPGA 板载车道决策时序对齐",
+                "路线文件 .nav 指令区间与硬件虚实线判决 (0x850/0x8D0) 真实时间线对比 (0–100 s)",
+                "Fig. 8  导航与决策时序")
+
+    # 读取 nav 文件
+    nav_file = "tools/nav_proto/out/video_20260929_112739.nav"
+    nav_cmds = []
+    if os.path.exists(nav_file):
+        with open(nav_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = line.split()
+                t0, t1, d = float(parts[0]), float(parts[1]), parts[2]
+                nav_cmds.append((t0, t1, d))
+
+    # 读取板载采样数据
+    samples_file = "log/board_20261101/nav112739_cam18_samples.txt"
+    samples = []
+    if os.path.exists(samples_file):
+        with open(samples_file, "r", encoding="utf-8") as f:
+            for line in f:
+                parts = line.strip().split()
+                if not parts:
+                    continue
+                t = float(parts[0]) - 114.98
+                if 0.0 <= t <= 100.0:
+                    dec = int(parts[1], 16)
+                    d8d0 = int(parts[2], 16)
+                    r_pass = 1 if ((dec >> 4) & 3) == 2 else 0
+                    l_pass = 1 if (dec & 3) == 2 else 0
+                    l_solid = 1 if ((d8d0 >> 1) & 1) == 1 else 0
+                    samples.append((t, r_pass, l_pass, l_solid))
+
+    def t_to_x(t):
+        return 13.0 + (t / 100.0) * 81.0
+
+    # 上轨道：路线指令区间 (.nav)
+    rect_u = patches.FancyBboxPatch((3.5, 59.0), 93.0, 31.0, boxstyle="round,pad=0.8,rounding_size=0.8", facecolor=COLOR_CONTAINER_BG, edgecolor=COLOR_BORDER, linewidth=1.2, zorder=1)
+    ax.add_patch(rect_u)
+
+    ax.text(5.5, 87.0, "上轨道：路线指令区间 (.nav 文件)", fontproperties=font_bold, size=10.5, color=COLOR_CYAN, ha="left", va="center")
+
+    u_leg = [("#2563EB", "R (右转向指令)"), ("#16A34A", "L (左转向指令)"), ("#D97706", "U (掉头指令)")]
+    for idx, (col, txt) in enumerate(u_leg):
+        lx = 62.0 + idx * 11.5
+        r = patches.Rectangle((lx, 86.1), 2.0, 1.8, facecolor=col, edgecolor=COLOR_BORDER, lw=0.8, zorder=3)
+        ax.add_patch(r)
+        ax.text(lx + 2.5, 87.0, txt, fontproperties=font_reg, size=8.5, color=COLOR_TEXT_MAIN, ha="left", va="center")
+
+    ax.plot([t_to_x(0), t_to_x(100)], [64.0, 64.0], color="#CBD5E1", lw=1.0, zorder=2)
+    for tv in range(0, 101, 10):
+        tx = t_to_x(tv)
+        ax.plot([tx, tx], [63.0, 65.0], color="#94A3B8", lw=1.0, zorder=2)
+        ax.text(tx, 61.5, f"{tv}s", fontproperties=font_reg, size=7.5, color=COLOR_TEXT_MUTED, ha="center", va="top")
+
+    ax.text(7.5, 73.0, "指令区间\n(.nav)", fontproperties=font_bold, size=8.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
+
+    nav_colors = {"R": "#2563EB", "L": "#16A34A", "U": "#D97706"}
+    for t0, t1, d in nav_cmds:
+        if t0 > 100.0:
+            continue
+        t1_c = min(t1, 100.0)
+        x0 = t_to_x(t0)
+        x1 = t_to_x(t1_c)
+        w = max(0.5, x1 - x0)
+        col = nav_colors.get(d, "#64748B")
+        br = patches.Rectangle((x0, 67.5), w, 11.0, facecolor=col, edgecolor=COLOR_BORDER, lw=0.8, zorder=3)
+        ax.add_patch(br)
+
+    # 三段总区间标签（置于色块上方，深色字）
+    y_nav_lbl = 81.5
+    ax.text(t_to_x(25.0), y_nav_lbl, "R: 右转向区间 (2–48 s, 8条)", fontproperties=font_bold, size=8.5, color=COLOR_TEXT_MAIN, ha="center", va="center", zorder=4)
+    ax.text(t_to_x(60.0), y_nav_lbl, "L: 左转向区间 (48–72 s, 5条)", fontproperties=font_bold, size=8.5, color=COLOR_TEXT_MAIN, ha="center", va="center", zorder=4)
+    ax.text(t_to_x(90.0), y_nav_lbl, "U: 掉头区间 (84–96 s, 2条)", fontproperties=font_bold, size=8.5, color=COLOR_TEXT_MAIN, ha="center", va="center", zorder=4)
+
+    # 下轨道：FPGA 板载决策与实线拦截
+    rect_l = patches.FancyBboxPatch((3.5, 11.0), 93.0, 44.0, boxstyle="round,pad=0.8,rounding_size=0.8", facecolor=COLOR_CONTAINER_BG, edgecolor=COLOR_BORDER, linewidth=1.2, zorder=1)
+    ax.add_patch(rect_l)
+
+    ax.text(5.5, 51.5, "下轨道：FPGA 板载决策时序 (BAR1 0x850 放行字 & 0x8D0 虚实线)", fontproperties=font_bold, size=10.0, color=COLOR_CYAN, ha="left", va="center")
+
+    l_leg = [
+        ("#94A3B8", "实线拦截阴影 (0x8D0 bit1=1)"),
+        ("#2563EB", "右车道放行 (0x850[5:4]==2)"),
+        ("#16A34A", "左车道放行 (0x850[1:0]==2)"),
+    ]
+    for idx, (col, txt) in enumerate(l_leg):
+        lx = 50.0 + idx * 15.5
+        if idx == 0:
+            r = patches.Rectangle((lx, 50.6), 2.0, 1.8, facecolor="#E2E8F0", edgecolor=col, hatch="///", lw=0.8, zorder=3)
+        else:
+            r = patches.Rectangle((lx, 50.6), 2.0, 1.8, facecolor=col, edgecolor=COLOR_BORDER, lw=0.8, zorder=3)
+        ax.add_patch(r)
+        ax.text(lx + 2.5, 51.5, txt, fontproperties=font_reg, size=8.0, color=COLOR_TEXT_MAIN, ha="left", va="center")
+
+    y_bot = 19.0
+    y_top = 47.0
+
+    # 实线拦截阴影
+    solid_spans = []
+    in_span = False
+    s_start = 0.0
+    for t, rp, lp, ls in samples:
+        if ls and not in_span:
+            in_span = True
+            s_start = t
+        elif not ls and in_span:
+            in_span = False
+            solid_spans.append((s_start, t))
+    if in_span and samples:
+        solid_spans.append((s_start, samples[-1][0]))
+
+    for s0, s1 in solid_spans:
+        sx0 = t_to_x(s0)
+        sx1 = t_to_x(s1)
+        sw = max(0.4, sx1 - sx0)
+        sr = patches.Rectangle((sx0, y_bot), sw, y_top - y_bot, facecolor="#E2E8F0", edgecolor="#94A3B8", hatch="///", lw=0.5, alpha=0.85, zorder=2)
+        ax.add_patch(sr)
+
+    ax.text(7.5, 40.0, "右变道放行\n(0 / 1)", fontproperties=font_bold, size=8.5, color="#2563EB", ha="center", va="center")
+    ax.text(7.5, 26.0, "左变道放行\n(0 / 1)", fontproperties=font_bold, size=8.5, color="#16A34A", ha="center", va="center")
+
+    ax.plot([t_to_x(0), t_to_x(100)], [y_bot - 2.0, y_bot - 2.0], color="#CBD5E1", lw=1.0, zorder=2)
+    for tv in range(0, 101, 10):
+        tx = t_to_x(tv)
+        ax.plot([tx, tx], [y_bot - 3.0, y_bot - 1.0], color="#94A3B8", lw=1.0, zorder=2)
+        ax.text(tx, y_bot - 4.5, f"{tv}s", fontproperties=font_reg, size=7.5, color=COLOR_TEXT_MUTED, ha="center", va="top")
+
+    if samples:
+        t_pts = [t_to_x(s[0]) for s in samples]
+        r_pts = [35.0 + s[1] * 10.0 for s in samples]
+        l_pts = [21.0 + s[2] * 10.0 for s in samples]
+
+        ax.plot([t_to_x(0), t_to_x(100)], [35.0, 35.0], color="#E2E8F0", lw=0.8, ls="--", zorder=2)
+        ax.plot([t_to_x(0), t_to_x(100)], [45.0, 45.0], color="#E2E8F0", lw=0.8, ls="--", zorder=2)
+        ax.plot([t_to_x(0), t_to_x(100)], [21.0, 21.0], color="#E2E8F0", lw=0.8, ls="--", zorder=2)
+        ax.plot([t_to_x(0), t_to_x(100)], [31.0, 31.0], color="#E2E8F0", lw=0.8, ls="--", zorder=2)
+
+        ax.step(t_pts, r_pts, where="post", color="#2563EB", lw=1.8, zorder=4)
+        ax.step(t_pts, l_pts, where="post", color="#16A34A", lw=1.8, zorder=4)
+
+    # 图注
+    ax.text(50.0, 6.0, "决策滞后约 1 s 为解码启动；左线为实线时不放行左变道", fontproperties=font_reg, size=9.0, color=COLOR_TEXT_MUTED, ha="center", va="center")
+
+    return fig
+
+
+# ---------------------------------------------------------
+# 双目测距板载实拍照预处理 (photo_st2c.jpg)
+# ---------------------------------------------------------
+def prep_photo_st2c():
+    src_path = "log/board_20261101/st2c_board_20261101.jpg"
+    out_path = os.path.join(OUTPUT_DIR, "photo_st2c.jpg")
+    if not os.path.exists(src_path):
+        print(f"WARN: {src_path} not found, skipping photo_st2c.jpg")
+        return
+    with Image.open(src_path) as img:
+        w, h = img.size
+        target_w = 1200
+        target_h = round(h * target_w / w)
+        resample = getattr(Image, "Resampling", Image).LANCZOS
+        resized = img.resize((target_w, target_h), resample=resample)
+        resized.save(out_path, format="JPEG", quality=88)
+        size_kb = os.path.getsize(out_path) / 1024.0
+        print(f"[photo] photo_st2c.jpg: {target_w}×{target_h} px, {size_kb:.1f} KB")
 
 
 # ---------------------------------------------------------
@@ -662,6 +925,8 @@ def main():
         ("fig4", "fig4_fbmap.png", build_fig4),
         ("fig5", "fig5_keys.png", build_fig5),
         ("fig6", "fig6_fpga.png", build_fig6),
+        ("fig_night", "fig_night.png", build_fig_night),
+        ("fig_nav", "fig_nav.png", build_fig_nav),
     ]
 
     for name, filename, builder in figures:
@@ -685,7 +950,8 @@ def main():
                 print(f"FAIL {name}: file size {size_kb:.1f} KB < 60 KB")
                 sys.exit(1)
 
-    print("All 6 figures generated and validated successfully.")
+    prep_photo_st2c()
+    print("All figures and photos generated and validated successfully.")
 
 
 if __name__ == "__main__":
