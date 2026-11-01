@@ -6,11 +6,11 @@ cd /userdata/quad
 i=0
 while [ $i -lt 10 ]; do
     v=$(devmem 0xf0204838 32 2>/dev/null)
-    [ "$v" = "0x20261029" ] && break
+    case "$v" in 0x20261029|0x20261101) break ;; esac  # cam17 | cam18
     sleep 1
     i=$((i + 1))
 done
-[ "$v" = "0x20261029" ] || echo "warn: fpga version=$v after ${i}s" >> /tmp/run_boot.log
+case "$v" in 0x20261029|0x20261101) ;; *) echo "warn: fpga version=$v after ${i}s" >> /tmp/run_boot.log ;; esac
 fail_cnt=0
 while :; do
   sel=$(./mode_select --bar1 0xf0204000 --dir /userdata/quad/menu); rc=$?

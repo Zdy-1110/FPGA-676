@@ -187,6 +187,7 @@ def collect_whitelist_files(repo_root, with_assets):
         "tools/menu",
         filter_fn=lambda f, p: f.lower().endswith((".c", ".h", ".sh", ".py", ".md")),
     )
+    add_single_file("tools/menu/S99adas_menu", "tools/menu/S99adas_menu")
     add_directory("tools/adas")
     add_directory("tools/docs_figs", filter_fn=lambda f, p: f.lower().endswith(".py"))
     add_directory("tools/npu_det")
@@ -232,8 +233,6 @@ def collect_whitelist_files(repo_root, with_assets):
         add_single_file(model_f, model_f)
 
     # 5. 文档
-    add_single_file("docs/技术文档_草稿.md", "docs/技术文档_草稿.md")
-    add_single_file("docs/技术文档_大纲.md", "docs/技术文档_大纲.md", optional=True)
     add_single_file("docs/技术文档_最终稿.md", "docs/技术文档_最终稿.md", optional=True)
     add_single_file("docs/技术文档_最终稿.docx", "docs/技术文档_最终稿.docx", optional=True)
     add_single_file("docs/技术文档_最终稿.pdf", "docs/技术文档_最终稿.pdf", optional=True)

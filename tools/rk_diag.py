@@ -7,8 +7,8 @@
 
 检查项：
     1. PCIe 端点存在、enable=1、链路速率/宽度
-    2. BAR1 版本寄存器 0x838 == 0x20261029
-    3. 显示主控 0x800 处于已知状态（0x25 实时 / 0x65 视频）
+    2. BAR1 版本寄存器 0x838 == 0x20261029（cam17）或 0x20261101（cam18）
+    3. 显示主控 0x800 处于已知状态（0x25 实时 / 0x65 视频；[11:10] 夜间模式位忽略）
     4. 欠载计数 0x82C、门铃完成计数 0x1C8 的 1 s 增量
     5. 关键进程（mode_select / menu_daemon / usb_menu / usb_feed）
     6. U 盘挂载点与 CMA 余量
@@ -90,10 +90,10 @@ def main() -> int:
     check("链路 x2", data.get("link_width") == "2", data.get("link_width", "?"))
 
     ver = num(data.get("ver"))
-    check("固件版本 0x20261029", ver == 0x20261029, data.get("ver", "?"))
+    check("固件版本 0x20261029|0x20261101", ver in (0x20261029, 0x20261101), data.get("ver", "?"))
 
     disp = num(data.get("disp"))
-    check("显示主控已知状态", disp in (0x25, 0x65, 0x24, 0x64), data.get("disp", "?"))
+    check("显示主控已知状态", isinstance(disp, int) and (disp & ~0xC00) in (0x25, 0x65, 0x24, 0x64), data.get("disp", "?"))
 
     under = num(data.get("under"))
     check("欠载计数 0x82C = 0", under == 0, data.get("under", "?"))

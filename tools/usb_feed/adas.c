@@ -33,6 +33,7 @@
 #include "RgaApi.h"
 #include "tl_det.h"
 #include "adas.h"
+#include "nav.h"
 
 #if defined(__has_include) && __has_include(<linux/dma-heap.h>)
 #include <linux/dma-heap.h>
@@ -77,6 +78,36 @@ static int g_last_dec = 0;
 static int g_lane_base = -1;
 static int g_moving_base = -1;
 static volatile sig_atomic_t g_rebaseline = 0;
+
+static pthread_mutex_t g_nav_mutex = PTHREAD_MUTEX_INITIALIZER;
+static nav_table_t g_nav_table;
+static int g_nav_enabled = 0;
+static double g_ch0_time = -1.0;
+
+void adas_set_nav(const char *path)
+{
+    pthread_mutex_lock(&g_nav_mutex);
+    if (!path || !*path) {
+        g_nav_enabled = 0;
+        pthread_mutex_unlock(&g_nav_mutex);
+        return;
+    }
+    if (nav_load(&g_nav_table, path) == 0) {
+        g_nav_enabled = 1;
+        fprintf(stderr, "adas: loaded %d nav entries from %s\n", g_nav_table.count, path);
+    } else {
+        g_nav_enabled = 0;
+        fprintf(stderr, "WARNING: failed to parse nav file '%s', navigation disabled\n", path);
+    }
+    pthread_mutex_unlock(&g_nav_mutex);
+}
+
+void adas_set_ch0_time(double t)
+{
+    pthread_mutex_lock(&g_nav_mutex);
+    g_ch0_time = t;
+    pthread_mutex_unlock(&g_nav_mutex);
+}
 
 static void adas_sigusr1_handler(int sig)
 {
@@ -252,6 +283,21 @@ static void *adas_thread(void *arg)
             int lreq = (drv >> 3) & 1;
             int rreq = (drv >> 4) & 1;
 
+            /* 导航虚拟请求注入与状态行显示字符 */
+            char nav_ch = '-';
+            pthread_mutex_lock(&g_nav_mutex);
+            if (g_nav_enabled && g_ch0_time >= 0.0) {
+                char d = nav_lookup(&g_nav_table, g_ch0_time);
+                if (d) nav_ch = d;
+            }
+            pthread_mutex_unlock(&g_nav_mutex);
+
+            if (nav_ch == 'L' || nav_ch == 'U') {
+                lreq |= 1;
+            } else if (nav_ch == 'R') {
+                rreq |= 1;
+            }
+
             int lane_eff;
             int moving_eff;
 
@@ -292,7 +338,9 @@ static void *adas_thread(void *arg)
                 if (b->cls == 8 && b->score >= 0.50f) {
                     limit_sign = 1;
                 }
-                if (b->cls == 0 || b->cls == 1 || b->cls == 6) {
+                int is_static_hazard = (b->cls == 0 || b->cls == 1 || b->cls == 6 || b->cls == 7);
+                int is_veh_hazard = (b->cls == 2 || b->cls == 3 || b->cls == 4) && (moving_eff == 1);
+                if (is_static_hazard || is_veh_hazard) {
                     if (b->score >= 0.30f && b->y1 >= 0.75f * 540.0f) {
                         float cx = (b->x0 + b->x1) * 0.5f;
                         if (cx >= 0.30f * 960.0f && cx <= 0.70f * 960.0f) {
@@ -331,11 +379,12 @@ static void *adas_thread(void *arg)
             g_last_dec = dec;
 
             char ln_ch = (lane_eff == 0) ? 'L' : ((lane_eff == 2) ? 'R' : 'S');
+            char nav_disp = (nav_ch == 'L' || nav_ch == 'R' || nav_ch == 'U') ? nav_ch : '-';
             memset(text, ' ', sizeof(text));
-            snprintf(text, sizeof(text), "L:%s S:%s R:%s LN:%c MOV:%d HZ:%d LIM:%d B:%d%d",
+            snprintf(text, sizeof(text), "L:%s S:%s R:%s LN:%c MOV:%d HZ:%d LIM:%d B:%d%d NAV:%c",
                      tl_str_abbr(g_last_sig[0]), tl_str_abbr(g_last_sig[1]),
                      tl_str_abbr(g_last_sig[2]), ln_ch, moving_eff, hazard, limit_sign,
-                     raw_lane, raw_moving);
+                     raw_lane, raw_moving, nav_disp);
             int len = strlen(text);
             if (len < 64) text[len] = ' ';
             for (int i = 0; i < 16; i++) {
@@ -414,6 +463,11 @@ void adas_stop(void)
     pthread_mutex_unlock(&g_mutex);
     pthread_join(g_thread, NULL);
     free_dma_bgr_buf();
+
+    pthread_mutex_lock(&g_nav_mutex);
+    g_nav_enabled = 0;
+    g_ch0_time = -1.0;
+    pthread_mutex_unlock(&g_nav_mutex);
 }
 
 void adas_stats_line(char *buf, size_t max_len)

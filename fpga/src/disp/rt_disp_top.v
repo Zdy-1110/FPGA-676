@@ -426,6 +426,42 @@ module rt_disp_top #(
     wire       stats_en_pix  = stats_ctrl_s2[0];
     wire [7:0] stats_thr_pix = stats_ctrl_s2[8:1];
 
+    //------------------------------------------------------------------
+    // 20261101 night enhancement : point (a) gamma & brightness stats
+    //------------------------------------------------------------------
+    wire        q0_ng_de, q0_ng_hs, q0_ng_vs;
+    wire [7:0]  q0_ng_r, q0_ng_g, q0_ng_b;
+    wire [7:0]  night_mean;
+    wire        night_active;
+    wire        night_auto_state;
+
+    rt_night #(
+        .PIXELS_PER_FRAME (960 * 540),
+        .MULT_K           (8285),
+        .SHIFT_N          (21),
+        .PRE_SHIFT        (11)
+    ) u_rt_night (
+        .clk              (pix_clk         ),
+        .rst_n            (rstn_out        ),
+        .mode             (cfg_ctrl[11:10] ),
+        .stat_valid       (q0_vid          ),
+        .de_in            (q0_de           ),
+        .hs_in            (q0_hs           ),
+        .vs_in            (q0_vs           ),
+        .r_in             (q0_r            ),
+        .g_in             (q0_g            ),
+        .b_in             (q0_b            ),
+        .de_out           (q0_ng_de        ),
+        .hs_out           (q0_ng_hs        ),
+        .vs_out           (q0_ng_vs        ),
+        .r_out            (q0_ng_r         ),
+        .g_out            (q0_ng_g         ),
+        .b_out            (q0_ng_b         ),
+        .mean             (night_mean      ),
+        .night_active     (night_active    ),
+        .auto_state       (night_auto_state)
+    );
+
     rt_disp_stats u_disp_stats (
         .pix_clk    (pix_clk      ),
         .rst_n      (rstn_out     ),
@@ -502,12 +538,12 @@ module rt_disp_top #(
     rt_lane_det u_rt_lane_det (
         .pix_clk           (pix_clk           ),
         .rst_n             (rstn_out          ),
-        .de                (q0_de             ),
-        .vs                (q0_vs             ),
-        .hs                (q0_hs             ),
-        .r                 (q0_r              ),
-        .g                 (q0_g              ),
-        .b                 (q0_b              ),
+        .de                (q0_ng_de          ),
+        .vs                (q0_ng_vs          ),
+        .hs                (q0_ng_hs          ),
+        .r                 (q0_ng_r           ),
+        .g                 (q0_ng_g           ),
+        .b                 (q0_ng_b           ),
         .cfg_det_en        (lane_ctrl_pix[0]  ),
         .cfg_xc            (lane_xc_pix       ),
         .cfg_ego_x         (lane_ego_x_pix    ),
@@ -605,12 +641,12 @@ module rt_disp_top #(
     wire [15:0] zebra_span_pix  = zebra_cfg_pix[31:16];
     wire [7:0]  zebra_gap_pix   = zebra_cfg_pix[39:32];
 
-    wire        zebra_de_in = zebra_en_pix ? q0_de : 1'b0;
-    wire        zebra_vs_in = zebra_en_pix ? q0_vs : 1'b0;
-    wire        zebra_hs_in = zebra_en_pix ? q0_hs : 1'b0;
-    wire [7:0]  zebra_r_in  = zebra_en_pix ? q0_r  : 8'd0;
-    wire [7:0]  zebra_g_in  = zebra_en_pix ? q0_g  : 8'd0;
-    wire [7:0]  zebra_b_in  = zebra_en_pix ? q0_b  : 8'd0;
+    wire        zebra_de_in = zebra_en_pix ? q0_ng_de : 1'b0;
+    wire        zebra_vs_in = zebra_en_pix ? q0_ng_vs : 1'b0;
+    wire        zebra_hs_in = zebra_en_pix ? q0_ng_hs : 1'b0;
+    wire [7:0]  zebra_r_in  = zebra_en_pix ? q0_ng_r  : 8'd0;
+    wire [7:0]  zebra_g_in  = zebra_en_pix ? q0_ng_g  : 8'd0;
+    wire [7:0]  zebra_b_in  = zebra_en_pix ? q0_ng_b  : 8'd0;
 
     wire        zebra_det_w;
     wire        zebra_raw_w;
@@ -927,18 +963,56 @@ module rt_disp_top #(
     wire       qz_hs = q0_hs | q1_hs | q2_hs | q3_hs;
     wire       qz_vs = q0_vs | q1_vs | q2_vs | q3_vs;
 
-    wire [7:0] pre_r = qmode ? qz_r : rd_r;
-    wire [7:0] pre_g = qmode ? qz_g : rd_g;
-    wire [7:0] pre_b = qmode ? qz_b : rd_b;
+    wire [7:0] pre_r  = qmode ? qz_r  : rd_r;
+    wire [7:0] pre_g  = qmode ? qz_g  : rd_g;
+    wire [7:0] pre_b  = qmode ? qz_b  : rd_b;
     wire       pre_de = qmode ? qz_de : rd_de;
+    wire       pre_hs = qmode ? qz_hs : rd_hs;
+    wire       pre_vs = qmode ? qz_vs : rd_vs;
+
+    //------------------------------------------------------------------
+    // 20261101 night enhancement : point (b) gamma on composite pre_*
+    //------------------------------------------------------------------
+    wire [7:0] post_pre_r, post_pre_g, post_pre_b;
+    wire       post_pre_de, post_pre_hs, post_pre_vs;
+
+    rt_night_gamma u_gamma_pre (
+        .clk          (pix_clk         ),
+        .rst_n        (rstn_out        ),
+        .night_active (night_active    ),
+        .de_in        (pre_de          ),
+        .hs_in        (pre_hs          ),
+        .vs_in        (pre_vs          ),
+        .r_in         (pre_r           ),
+        .g_in         (pre_g           ),
+        .b_in         (pre_b           ),
+        .de_out       (post_pre_de     ),
+        .hs_out       (post_pre_hs     ),
+        .vs_out       (post_pre_vs     ),
+        .r_out        (post_pre_r      ),
+        .g_out        (post_pre_g      ),
+        .b_out        (post_pre_b      )
+    );
+
+    // Synchronously delay downstream coordinate counters by 1 cycle to match gamma
+    reg [11:0] act_x_d1, act_y_d1;
+    always @(posedge pix_clk or negedge rstn_out) begin
+        if (!rstn_out) begin
+            act_x_d1 <= 12'd0;
+            act_y_d1 <= 12'd0;
+        end else begin
+            act_x_d1 <= act_x;
+            act_y_d1 <= act_y;
+        end
+    end
 
     // Grayscale: gray = (r + 2*g + b) >> 2
-    wire [7:0] v_gray = ({2'b00, pre_r} + {1'b0, pre_g, 1'b0} + {2'b00, pre_b}) >> 2;
+    wire [7:0] v_gray = ({2'b00, post_pre_r} + {1'b0, post_pre_g, 1'b0} + {2'b00, post_pre_b}) >> 2;
 
     // Binary: same white criteria as zebra (v_min=140, c_max=30)
-    wire [7:0] v_rq = pre_r & 8'hF8;
-    wire [7:0] v_gq = pre_g & 8'hFC;
-    wire [7:0] v_bq = pre_b & 8'hF8;
+    wire [7:0] v_rq = post_pre_r & 8'hF8;
+    wire [7:0] v_gq = post_pre_g & 8'hFC;
+    wire [7:0] v_bq = post_pre_b & 8'hF8;
     wire [7:0] v_max_rg = (v_rq > v_gq) ? v_rq : v_gq;
     wire [7:0] v_max_c  = (v_max_rg > v_bq) ? v_max_rg : v_bq;
     wire [7:0] v_min_rg = (v_rq < v_gq) ? v_rq : v_gq;
@@ -952,20 +1026,21 @@ module rt_disp_top #(
         case (view_mode_pix)
             2'b01: begin v_mux_r = v_gray; v_mux_g = v_gray; v_mux_b = v_gray; end
             2'b10, 2'b11: begin v_mux_r = v_bin; v_mux_g = v_bin; v_mux_b = v_bin; end
-            default: begin v_mux_r = pre_r; v_mux_g = pre_g; v_mux_b = pre_b; end
+            default: begin v_mux_r = post_pre_r; v_mux_g = post_pre_g; v_mux_b = post_pre_b; end
         endcase
     end
 
-    wire [7:0] src_r = pre_de ? v_mux_r : 8'd0;
-    wire [7:0] src_g = pre_de ? v_mux_g : 8'd0;
-    wire [7:0] src_b = pre_de ? v_mux_b : 8'd0;
-    wire       src_de = pre_de;
-    wire       src_hs = qmode ? qz_hs : rd_hs;
-    wire       src_vs = qmode ? qz_vs : rd_vs;
+    wire [7:0] src_r  = post_pre_de ? v_mux_r : 8'd0;
+    wire [7:0] src_g  = post_pre_de ? v_mux_g : 8'd0;
+    wire [7:0] src_b  = post_pre_de ? v_mux_b : 8'd0;
+    wire       src_de = post_pre_de;
+    wire       src_hs = post_pre_hs;
+    wire       src_vs = post_pre_vs;
 
     assign vid_active = lg_vid_active | q0_vid | q1_vid | q2_vid | q3_vid;
     assign stat_tgl   = qmode ? q0_stgl : lg_stat_tgl;
-    assign stat_bus   = qmode ? q0_sbus : lg_stat_bus;
+    wire [159:0] base_stat_bus = qmode ? q0_sbus : lg_stat_bus;
+    assign stat_bus   = { base_stat_bus[159:156], night_mean, night_active, base_stat_bus[146:0] };
 
     //------------------------------------------------------------------
     // key scanner (free_clk) + OSD controller (pixel) + overlay (pixel)
@@ -1048,8 +1123,8 @@ module rt_disp_top #(
         .de_in       (src_de      ),
         .hs_in       (src_hs      ),
         .vs_in       (src_vs      ),
-        .x_act       (act_x       ),
-        .y_act       (act_y       ),
+        .x_act       (act_x_d1    ),
+        .y_act       (act_y_d1    ),
         .osd_en      (cfg_ctrl[2] ),
         .dec         (dec_w       ),
         .osdctrl     (osdctrl_w   ),

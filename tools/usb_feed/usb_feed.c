@@ -133,6 +133,7 @@ typedef struct {
     int dec_bufs;             /* decoder external buffer count per video */
     const char *npu_model;    /* RKNN model path (NULL = disabled) */
     const char *adas_cfg;     /* ADAS config path (NULL = disabled) */
+    const char *nav_path;     /* navigation route (.nav) path (NULL = disabled) */
     int npu_weights[4];       /* SWRR weights */
     float npu_conf;           /* confidence threshold */
     int npu_dump;             /* dump count */
@@ -1050,6 +1051,15 @@ static void cam_release(Cam *c)
 /* ---------------- pipe reader ---------------- */
 
 /* blocking read of exactly len bytes; 1 = full, 0 = EOF/short, -1 = error */
+static inline void update_ch0_nav_time(Cam *c)
+{
+    if (c->slot == 0) {
+        double fps = (c->fps > 0) ? (double)c->fps : 30.0;
+        uint64_t frame_seq = (c->frames_loop_count > 0) ? (c->frames_loop_count - 1) : 0;
+        adas_set_ch0_time((double)frame_seq / fps);
+    }
+}
+
 static int read_full(int fd, void *buf, size_t len, size_t *got)
 {
     size_t off = 0;
@@ -1122,6 +1132,7 @@ static int cam_run(Cam *c)
             }
             c->grabbed++;
             c->frames_loop_count++;
+            update_ch0_nav_time(c);
             if (!c->cap_bytes) {
                 c->src_w = (int)vf.width;
                 c->src_h = (int)vf.height;
@@ -1234,6 +1245,8 @@ static int cam_run(Cam *c)
                 continue;
             }
             c->grabbed++;
+            c->frames_loop_count++;
+            update_ch0_nav_time(c);
             if (g_opt.npu_model) {
                 QnpuSrc nsrc;
                 memset(&nsrc, 0, sizeof(nsrc));
@@ -1306,6 +1319,7 @@ static int cam_run(Cam *c)
             }
             c->grabbed++;
             c->frames_loop_count++;
+            update_ch0_nav_time(c);
 
             dst_idx = rga_convert(c, &t_rga);
             if (dst_idx < 0) {
@@ -1416,6 +1430,7 @@ static int cam_run(Cam *c)
                 continue;
             }
             c->dma_streak = 0;
+            update_ch0_nav_time(c);
         }
 
         if (c->frames_done == 1) c->t_first = now_ns();
@@ -1628,6 +1643,7 @@ static void usage(const char *p)
         "  --npu-conf F                 confidence threshold (default 0.25)\n"
         "  --npu-dump N                 dump N frames per channel to /tmp/qnpu_dump (default 0)\n"
         "  --adas <cfg>                 enable ADAS lane/traffic light assistant (cfg optional)\n"
+        "  --nav <path>                 load navigation route (.nav) for autonomous lane change\n"
         "  --file-once                  play video files once and exit (default: loop)\n"
         "  --slot0-rgb565               output RGB565 (stride 1920, 960x540) for slot 0\n"
         "  --dump-slot0 N[:K]           dump N frames from slot0 (every K, def 30) to /tmp/slot0_dump (RGB565 LE: R[15:11], G[10:5], B[4:0])\n"
@@ -1827,6 +1843,7 @@ int main(int argc, char **argv)
     g_opt.dec_bufs = 10;
     g_opt.npu_model = NULL;
     g_opt.adas_cfg = NULL;
+    g_opt.nav_path = NULL;
     g_opt.npu_weights[0] = 2;
     g_opt.npu_weights[1] = 1;
     g_opt.npu_weights[2] = 1;
@@ -1895,6 +1912,7 @@ int main(int argc, char **argv)
         }
         else if (!strcmp(a, "--npu") && i + 1 < argc) g_opt.npu_model = argv[++i];
         else if (!strcmp(a, "--adas") && i + 1 < argc) g_opt.adas_cfg = argv[++i];
+        else if (!strcmp(a, "--nav") && i + 1 < argc) g_opt.nav_path = argv[++i];
         else if (!strcmp(a, "--npu-weights") && i + 1 < argc) {
             if (sscanf(argv[++i], "%d,%d,%d,%d", &g_opt.npu_weights[0], &g_opt.npu_weights[1],
                        &g_opt.npu_weights[2], &g_opt.npu_weights[3]) != 4) {
@@ -2180,6 +2198,8 @@ int main(int argc, char **argv)
         if (adas_init(g_reg, g_opt.adas_cfg) != 0) {
             fprintf(stderr, "adas_init failed, continuing without ADAS\n");
             g_opt.adas_cfg = NULL;
+        } else if (g_opt.nav_path) {
+            adas_set_nav(g_opt.nav_path);
         }
     }
 

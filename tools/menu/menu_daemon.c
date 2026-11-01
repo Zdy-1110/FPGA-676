@@ -127,7 +127,7 @@ static void write_text_row(volatile uint32_t *bar1, int row_idx, const char *tex
     }
 }
 
-static const char *get_item_text(int item, const int *cam_on, int npu, int lane, int view, int zebra)
+static const char *get_item_text(volatile uint32_t *bar1, int item, const int *cam_on, int npu, int lane, int view, int zebra, int night)
 {
     switch (item) {
         case 0: return cam_on[0] ? "1 CAM1:ON" : "1 CAM1:OFF";
@@ -141,6 +141,13 @@ static const char *get_item_text(int item, const int *cam_on, int npu, int lane,
             return "6 VIEW:BIN";
         case 6: return zebra ? "7 ZEBRA:ON" : "7 ZEBRA:OFF";
         case 7: return "8 USB VIDEO";
+        case 8:
+            if (night == 1) return "9 NIGHT:ON";
+            if (night == 2) return "9 NIGHT:OFF";
+            {
+                int active = (rd(bar1, 0x820u) >> 3) & 1u;
+                return active ? "9 NIGHT:AUTO*" : "9 NIGHT:AUTO";
+            }
         default: return "";
     }
 }
@@ -158,11 +165,11 @@ static void draw_outer_box(volatile uint32_t *bar1)
     wr(bar1, 0x900u, lo);
 }
 
-static void draw_highlight_box(volatile uint32_t *bar1, int sel, const int *cam_on, int npu, int lane, int view, int zebra)
+static void draw_highlight_box(volatile uint32_t *bar1, int sel, const int *cam_on, int npu, int lane, int view, int zebra, int night)
 {
     int row = 1 + sel / 3;
     int col = (sel % 3) * 21;
-    const char *text = get_item_text(sel, cam_on, npu, lane, view, zebra);
+    const char *text = get_item_text(bar1, sel, cam_on, npu, lane, view, zebra, night);
     int len = (int)strlen(text);
     if (len > 20) len = 20;
 
@@ -181,7 +188,7 @@ static void draw_highlight_box(volatile uint32_t *bar1, int sel, const int *cam_
     wr(bar1, 0x908u, lo);
 }
 
-static void show_popup(volatile uint32_t *bar1, int sel, const int *cam_on, int npu, int lane, int view, int zebra)
+static void show_popup(volatile uint32_t *bar1, int sel, const int *cam_on, int npu, int lane, int view, int zebra, int night)
 {
     write_text_row(bar1, 0, k_header_text);
 
@@ -191,8 +198,8 @@ static void show_popup(volatile uint32_t *bar1, int sel, const int *cam_on, int 
         row_buf[64] = '\0';
         for (int c = 0; c < 3; c++) {
             int item_idx = (r - 1) * 3 + c;
-            if (item_idx >= 8) break;
-            const char *st = get_item_text(item_idx, cam_on, npu, lane, view, zebra);
+            if (item_idx >= 9) break;
+            const char *st = get_item_text(bar1, item_idx, cam_on, npu, lane, view, zebra, night);
             size_t slen = strlen(st);
             if (slen > 20) slen = 20;
             memcpy(row_buf + c * 21, st, slen);
@@ -201,7 +208,7 @@ static void show_popup(volatile uint32_t *bar1, int sel, const int *cam_on, int 
     }
 
     draw_outer_box(bar1);
-    draw_highlight_box(bar1, sel, cam_on, npu, lane, view, zebra);
+    draw_highlight_box(bar1, sel, cam_on, npu, lane, view, zebra, night);
     clear_extra_boxes(bar1);
 
     wr(bar1, REG_OSD_CTRL, 0x30u);
@@ -214,7 +221,7 @@ static void hide_popup(volatile uint32_t *bar1)
     wr(bar1, REG_OSD_CTRL, 0x10u);
 }
 
-static void update_popup_item(volatile uint32_t *bar1, int item_idx, int sel, const int *cam_on, int npu, int lane, int view, int zebra)
+static void update_popup_item(volatile uint32_t *bar1, int item_idx, int sel, const int *cam_on, int npu, int lane, int view, int zebra, int night)
 {
     int row = 1 + item_idx / 3;
     char row_buf[65];
@@ -222,15 +229,15 @@ static void update_popup_item(volatile uint32_t *bar1, int item_idx, int sel, co
     row_buf[64] = '\0';
     for (int c = 0; c < 3; c++) {
         int idx = (row - 1) * 3 + c;
-        if (idx >= 8) break;
-        const char *st = get_item_text(idx, cam_on, npu, lane, view, zebra);
+        if (idx >= 9) break;
+        const char *st = get_item_text(bar1, idx, cam_on, npu, lane, view, zebra, night);
         size_t slen = strlen(st);
         if (slen > 20) slen = 20;
         memcpy(row_buf + c * 21, st, slen);
     }
     write_text_row(bar1, row, row_buf);
 
-    draw_highlight_box(bar1, sel, cam_on, npu, lane, view, zebra);
+    draw_highlight_box(bar1, sel, cam_on, npu, lane, view, zebra, night);
 }
 
 static int is_feed_alive(pid_t pid)
@@ -614,6 +621,7 @@ int main(int argc, char **argv)
     int lane = 0;
     int view = 0;
     int zebra = 0;
+    int night = 0;
 
     // 3. 启动实时 feed（若 g_cam_on 有任意一路为 1 才启动；默认三路全关不启动）
     if (g_cam_on[0] || g_cam_on[1] || g_cam_on[2]) {
@@ -676,7 +684,7 @@ int main(int argc, char **argv)
             // 短按 KEY4：切换弹窗
             popup = !popup;
             if (popup) {
-                show_popup(bar1, sel, g_cam_on, npu, lane, view, zebra);
+                show_popup(bar1, sel, g_cam_on, npu, lane, view, zebra, night);
             } else {
                 hide_popup(bar1);
             }
@@ -684,9 +692,9 @@ int main(int argc, char **argv)
         }
 
         if (popup && type == 1 && key == 0) {
-            // 弹窗内短按 KEY0：sel=(sel+1)%8，重画高亮
-            sel = (sel + 1) % 8;
-            draw_highlight_box(bar1, sel, g_cam_on, npu, lane, view, zebra);
+            // 弹窗内短按 KEY0：sel=(sel+1)%9，重画高亮
+            sel = (sel + 1) % 9;
+            draw_highlight_box(bar1, sel, g_cam_on, npu, lane, view, zebra, night);
             continue;
         }
 
@@ -703,7 +711,7 @@ int main(int argc, char **argv)
                     g_feed_pid = spawn_feed(feed_path, bar1_str_buf, npu_model_path, npu);
                 }
                 last_feed_check = now_ns();
-                update_popup_item(bar1, sel, sel, g_cam_on, npu, lane, view, zebra);
+                update_popup_item(bar1, sel, sel, g_cam_on, npu, lane, view, zebra, night);
             } else if (sel == 3) {
                 // 项3 NPU：翻转 NPU，重启 feed
                 npu = !npu;
@@ -712,7 +720,7 @@ int main(int argc, char **argv)
                     g_feed_pid = spawn_feed(feed_path, bar1_str_buf, npu_model_path, npu);
                 }
                 last_feed_check = now_ns();
-                update_popup_item(bar1, 3, sel, g_cam_on, npu, lane, view, zebra);
+                update_popup_item(bar1, 3, sel, g_cam_on, npu, lane, view, zebra, night);
             } else if (sel == 4) {
                 // 项4 LANE：lane 取反；0x8C0 的 bit0/bit1 同时置/清（保留其他位）
                 lane = !lane;
@@ -720,14 +728,14 @@ int main(int argc, char **argv)
                 if (lane) val |= 3u;
                 else val &= ~3u;
                 wr(bar1, REG_LANE_CTRL, val);
-                update_popup_item(bar1, 4, sel, g_cam_on, npu, lane, view, zebra);
+                update_popup_item(bar1, 4, sel, g_cam_on, npu, lane, view, zebra, night);
             } else if (sel == 5) {
                 // 项5 VIEW：view=(view+1)%3；0x800 = (0x800 & ~0x300) | (view<<8)（保持其余位）
                 view = (view + 1) % 3;
                 uint32_t val = rd(bar1, REG_MAIN_CTRL);
                 val = (val & ~0x300u) | (((uint32_t)view & 3u) << 8);
                 wr(bar1, REG_MAIN_CTRL, val);
-                update_popup_item(bar1, 5, sel, g_cam_on, npu, lane, view, zebra);
+                update_popup_item(bar1, 5, sel, g_cam_on, npu, lane, view, zebra, night);
             } else if (sel == 6) {
                 // 项6 ZEBRA：zebra 取反；0xA20 bit0
                 zebra = !zebra;
@@ -735,7 +743,7 @@ int main(int argc, char **argv)
                 if (zebra) val |= 1u;
                 else val &= ~1u;
                 wr(bar1, REG_ZEBRA_CTRL, val);
-                update_popup_item(bar1, 6, sel, g_cam_on, npu, lane, view, zebra);
+                update_popup_item(bar1, 6, sel, g_cam_on, npu, lane, view, zebra, night);
             } else if (sel == 7) {
                 // 项7 USB VIDEO：进入 USB VIDEO（保持原逻辑：关闭弹窗、停 feed、运行 usb_menu、返回后恢复实时）
                 if (access(k_usb_menu_path, F_OK) == 0) {
@@ -744,7 +752,7 @@ int main(int argc, char **argv)
                     kill_feed();
                     wr(bar1, REG_MAIN_CTRL, 0x65u);
                     system(k_usb_menu_path);
-                    wr(bar1, REG_MAIN_CTRL, 0x25u);
+                    wr(bar1, REG_MAIN_CTRL, 0x25u | (((uint32_t)night & 3u) << 10));
                     for (int i = 0; i < 3; i++) {
                         if (!g_cam_on[i]) {
                             clear_slot_black(bar1, i + 1);
@@ -768,6 +776,13 @@ int main(int argc, char **argv)
                         last_seq = rd(bar1, REG_KEY) & 0xFFu;
                     }
                 }
+            } else if (sel == 8) {
+                // 项8 NIGHT：循环 AUTO(0) -> ON(1) -> OFF(2) -> AUTO(0)；0x800[11:10]
+                night = (night + 1) % 3;
+                uint32_t val = rd(bar1, REG_MAIN_CTRL);
+                val = (val & ~0xC00u) | (((uint32_t)night & 3u) << 10);
+                wr(bar1, REG_MAIN_CTRL, val);
+                update_popup_item(bar1, 8, sel, g_cam_on, npu, lane, view, zebra, night);
             }
             continue;
         }
