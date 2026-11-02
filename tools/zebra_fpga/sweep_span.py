@@ -10,6 +10,7 @@ tools/zebra_fpga/sweep_span.md
 """
 
 import os
+import tempfile
 import sys
 import time
 import pickle
@@ -31,7 +32,7 @@ VIDEO_NAMES = [
     "113539",
 ]
 
-CACHE_DIR = r"C:\Users\Zdy\AppData\Local\Temp\zebra_eval_cache"
+CACHE_DIR = os.path.join(tempfile.gettempdir(), "zebra_eval_cache")
 SWEEP_MD_PATH = os.path.join(REPO_ROOT, "tools", "zebra_fpga", "sweep_span.md")
 RUNS_CACHE_FILE = os.path.join(CACHE_DIR, "row_valid_runs_300_480.pkl")
 

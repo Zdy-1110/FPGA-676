@@ -11,6 +11,7 @@
 
 import csv
 import os
+import tempfile
 import sys
 import time
 import cv2
@@ -32,7 +33,7 @@ VIDEO_NAMES = [
     "113539",
 ]
 
-CACHE_DIR = r"C:\Users\Zdy\AppData\Local\Temp\zebra_eval_cache"
+CACHE_DIR = os.path.join(tempfile.gettempdir(), "zebra_eval_cache")
 EVENTS_DIR = os.path.join(REPO_ROOT, "log", "zebra_fpga", "events")
 EVENTS_CSV_PATH = os.path.join(REPO_ROOT, "tools", "zebra_fpga", "events.csv")
 REPORT_MD_PATH = os.path.join(REPO_ROOT, "tools", "zebra_fpga", "eval_report.md")

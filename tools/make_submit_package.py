@@ -4,14 +4,19 @@ make_submit_package.py - 竞赛源码提交包打包脚本 (Python 3 标准库)
 
 Usage:
     python tools/make_submit_package.py [--out PATH] [--dry-run] [--with-assets | --without-assets]
+    Default output is dist/nesai2026_src_{YYYYMMDD}.rar.
 """
 
 import argparse
 import datetime
 import glob
+import hashlib
 import os
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 import zipfile
 
 SECRET_KEYWORDS = ["password", "passwd", "token", "api_key", "secret"]
@@ -20,7 +25,7 @@ SECRET_PATTERN = re.compile(r"\b(" + "|".join(SECRET_KEYWORDS) + r")\b", re.IGNO
 TEXT_EXTENSIONS = {
     ".c", ".h", ".v", ".sv", ".vh", ".py", ".sh", ".json", ".md",
     ".tcl", ".fdc", ".pds", ".txt", ".idf", ".csv", ".yaml", ".yml",
-    ".toml", ".ini", ".conf", ".cfg"
+    ".toml", ".ini", ".conf", ".cfg", ".ps1"
 }
 
 # 运行时内置最小模板（当 docs/submit/ 下对应文件不存在时兜底使用）
@@ -166,7 +171,7 @@ def collect_whitelist_files(repo_root, with_assets):
     # 1. FPGA
     add_directory("fpga/src", filter_fn=lambda f, p: f.lower().endswith((".v", ".sv", ".vh")))
     for pnr_f in [
-        "fpga/pnr/build_cam18.tcl",
+        "fpga/pnr/build_cam23.tcl",
         "fpga/pnr/pango_pcie_top.fdc",
     ]:
         add_single_file(pnr_f, pnr_f)
@@ -180,6 +185,19 @@ def collect_whitelist_files(repo_root, with_assets):
         "fpga/tools_night",
         filter_fn=lambda f, p: f.lower().endswith((".v", ".do", ".py", ".md")),
     )
+
+    def _sim_filter(f, p):
+        if not f.lower().endswith((".v", ".sv", ".do", ".sh", ".py", ".md")):
+            return False
+        parts = p.replace("\\", "/").split("/")
+        if "work" in parts:
+            return False
+        return True
+
+    add_directory("fpga/sim_sccb", filter_fn=_sim_filter)
+    add_directory("fpga/sim_zoom", filter_fn=_sim_filter)
+    add_directory("fpga/sim_lane_thr", filter_fn=_sim_filter)
+
     add_directory("fpga/ref_hdmi", filter_fn=lambda f, p: f.lower().endswith(".v"))
     add_directory(
         "fpga/linux/driver",
@@ -195,8 +213,25 @@ def collect_whitelist_files(repo_root, with_assets):
     )
     add_single_file("tools/menu/S99adas_menu", "tools/menu/S99adas_menu")
     add_directory("tools/adas")
-    add_directory("tools/docs_figs", filter_fn=lambda f, p: f.lower().endswith(".py"))
     add_directory("tools/npu_det")
+    add_directory(
+        "tools/ov_sccb",
+        filter_fn=lambda f, p: f.lower().endswith((".sh", ".txt", ".py", ".md")),
+    )
+    add_directory(
+        "tools/fcam_rb",
+        filter_fn=lambda f, p: f.lower().endswith((".c", ".h", ".py", ".md")),
+    )
+
+    def _board_eval_filter(f, p):
+        if not f.lower().endswith((".py", ".sh", ".md")):
+            return False
+        norm = p.replace("\\", "/")
+        if "tools/board_eval/out/" in norm:
+            return False
+        return True
+
+    add_directory("tools/board_eval", filter_fn=_board_eval_filter)
     for rk_tool in [
         "tools/rk_build.sh",
         "tools/rk_push.py",
@@ -206,8 +241,12 @@ def collect_whitelist_files(repo_root, with_assets):
         "tools/rk_diag.py",
         "tools/selftest.py",
         "tools/make_demo_udisk.py",
+        "tools/fpga_reload.sh",
+        "tools/flash/flash_program_cam23.tcl",
+        "tools/flash/prog_cam23.tcl",
     ]:
         add_single_file(rk_tool, rk_tool)
+    add_single_file("tools/jtag_run_tcl.ps1", "tools/jtag_run_tcl.ps1", optional=True)
 
     # 导航示例 (tools/nav_proto)
     for nav_f in [
@@ -253,6 +292,13 @@ def collect_whitelist_files(repo_root, with_assets):
     ]:
         add_single_file(ev, "evidence/" + os.path.basename(ev), optional=True)
 
+    for ev_src, ev_arc in [
+        ("D:/pango_work/quad/out/cam23_reports/pango_pcie_dma_top.rtr", "evidence/cam23_timing.rtr"),
+        ("D:/pango_work/quad/out/cam23_reports/pango_pcie_dma_top.dmr", "evidence/cam23_resource.dmr"),
+        ("D:/pango_work/quad/out/cam23_reports/multiseed_result.csv", "evidence/cam23_multiseed_result.csv"),
+    ]:
+        add_single_file(ev_src, ev_arc, optional=True)
+
     # 3. 算法参考
     add_directory("tools/lane_fpga")
     add_directory("tools/zebra_fpga")
@@ -270,36 +316,26 @@ def collect_whitelist_files(repo_root, with_assets):
     ]:
         add_single_file(model_f, model_f)
 
-    # 5. 文档
-    add_single_file("docs/技术文档_最终稿.md", "docs/技术文档_最终稿.md", optional=True)
-    add_single_file("docs/技术文档_最终稿.docx", "docs/技术文档_最终稿.docx", optional=True)
-    add_single_file("docs/技术文档_最终稿.pdf", "docs/技术文档_最终稿.pdf", optional=True)
-    add_single_file("docs/演示视频_分镜.md", "docs/演示视频_分镜.md", optional=True)
-    add_single_file("docs/附录A_寄存器映射.md", "docs/附录A_寄存器映射.md", optional=True)
-    add_single_file("docs/附录B_验证复现.md", "docs/附录B_验证复现.md", optional=True)
-    add_single_file("docs/附录C_术语与缩写.md", "docs/附录C_术语与缩写.md", optional=True)
-    add_single_file("docs/答辩要点_评委问答.md", "docs/答辩要点_评委问答.md", optional=True)
-    add_single_file("docs/演示现场运行手册.md", "docs/演示现场运行手册.md", optional=True)
-    add_directory("docs/figs", optional=True)
+    # 5. 构建/部署说明（官方"上传全部代码"只要求代码：技术报告、附录、插图等文档不入包）
     add_directory("docs/submit", optional=True)
 
     # 6. 预编译 (--with-assets)
     if with_assets:
-        add_single_file("D:/pango_work/quad/out/quad_cam18.sbit", "prebuilt/fpga/quad_cam18.sbit")
-        add_single_file("D:/pango_work/quad/out/quad_cam18.sfc", "prebuilt/fpga/quad_cam18.sfc")
-        add_single_file("D:/pango_work/quad/out/quad_cam17.sbit", "prebuilt/fpga/quad_cam17.sbit")
+        add_single_file("D:/pango_work/quad/out/quad_cam23.sbit", "prebuilt/fpga/quad_cam23.sbit")
+        add_single_file("D:/pango_work/quad/out/quad_cam23.sfc", "prebuilt/fpga/quad_cam23.sfc")
         add_single_file("menu/ui_cjk.bin", "prebuilt/menu/ui_cjk.bin")
 
-        tile_matches = glob.glob(os.path.join(repo_root, "menu", "tile[0-3].*"))
-        if not tile_matches:
-            fail_missing("menu/tile0-3.*")
-        for m in tile_matches:
-            add_single_file(m, f"prebuilt/menu/{os.path.basename(m)}")
-
-        sel_matches = glob.glob(os.path.join(repo_root, "menu", "sel[0-3].*"))
-        if not sel_matches:
-            fail_missing("menu/sel0-3.*")
-        for m in sel_matches:
+        menu_assets = [
+            "menu/tile0.rgb565",
+            "menu/tile1.nv12",
+            "menu/tile2.nv12",
+            "menu/tile3.nv12",
+            "menu/sel0.rgb565",
+            "menu/sel1.nv12",
+            "menu/sel2.nv12",
+            "menu/sel3.nv12",
+        ]
+        for m in menu_assets:
             add_single_file(m, f"prebuilt/menu/{os.path.basename(m)}")
 
     return entries
@@ -323,16 +359,47 @@ def prepare_memory_docs(repo_root):
     return docs_to_inject
 
 
+def generate_manifest_content(entries):
+    """
+    生成 MANIFEST.txt 内容（路径/大小/SHA256）
+    """
+    manifest = ["# nesai2026 source package manifest", "# path\tsize_bytes\tsha256"]
+    for arc_name, abs_path in sorted(entries.items()):
+        h = hashlib.sha256()
+        with open(abs_path, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                h.update(chunk)
+        manifest.append(f"{arc_name}\t{os.path.getsize(abs_path)}\t{h.hexdigest()}")
+    return "\n".join(manifest) + "\n"
+
+
+def find_rar_executable():
+    """
+    按顺序查找 rar 可执行文件
+    """
+    rar = shutil.which("rar")
+    if rar:
+        return rar
+    candidates = [
+        r"C:\Program Files\WinRAR\Rar.exe",
+        r"C:\Program Files (x86)\WinRAR\Rar.exe",
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return c
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser(description="竞赛源码提交包打包脚本")
     today_str = datetime.date.today().strftime("%Y%m%d")
-    default_out = os.path.join("dist", f"nesai2026_src_{today_str}.zip")
+    default_out = os.path.join("dist", f"nesai2026_src_{today_str}.rar")
 
     parser.add_argument(
         "--out",
         dest="out",
         default=default_out,
-        help=f"Output zip path (default: {default_out})",
+        help=f"Output archive path (default: {default_out})",
     )
     parser.add_argument(
         "--dry-run",
@@ -378,34 +445,64 @@ def main():
             print(f"  {item}")
         sys.exit(0)
 
-    # 真实创建 zip
+    # 真实创建压缩包
     out_path = args.out
     if not os.path.isabs(out_path):
         out_path = os.path.join(repo_root, out_path)
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
-    with zipfile.ZipFile(out_path, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-        # 写入根目录下 4 个自动生成文档
-        for doc_name, content in memory_docs.items():
-            zf.writestr(doc_name, content)
+    manifest_text = generate_manifest_content(entries)
+    lower_out = out_path.lower()
 
-        # 写入物理收集的文件，并生成 MANIFEST（路径/大小/SHA256）
-        import hashlib
-        manifest = ["# nesai2026 source package manifest", "# path\tsize_bytes\tsha256"]
-        for arc_name, abs_path in sorted(entries.items()):
-            zf.write(abs_path, arc_name)
-            h = hashlib.sha256()
-            with open(abs_path, "rb") as f:
-                for chunk in iter(lambda: f.read(1 << 20), b""):
-                    h.update(chunk)
-            manifest.append(f"{arc_name}\t{os.path.getsize(abs_path)}\t{h.hexdigest()}")
-        zf.writestr("MANIFEST.txt", "\n".join(manifest) + "\n")
+    if lower_out.endswith(".zip"):
+        with zipfile.ZipFile(out_path, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for doc_name, content in memory_docs.items():
+                zf.writestr(doc_name, content)
+            for arc_name, abs_path in sorted(entries.items()):
+                zf.write(abs_path, arc_name)
+            zf.writestr("MANIFEST.txt", manifest_text)
+    elif lower_out.endswith(".rar"):
+        staging = tempfile.mkdtemp()
+        try:
+            for arc_name, abs_path in sorted(entries.items()):
+                target_dest = os.path.join(staging, arc_name)
+                os.makedirs(os.path.dirname(target_dest), exist_ok=True)
+                shutil.copy2(abs_path, target_dest)
 
-    zip_size = os.path.getsize(out_path)
-    size_mb = zip_size / (1024 * 1024)
+            for doc_name, content in memory_docs.items():
+                target_dest = os.path.join(staging, doc_name)
+                os.makedirs(os.path.dirname(target_dest), exist_ok=True)
+                with open(target_dest, "w", encoding="utf-8") as f:
+                    f.write(content)
+
+            manifest_path = os.path.join(staging, "MANIFEST.txt")
+            with open(manifest_path, "w", encoding="utf-8") as f:
+                f.write(manifest_text)
+
+            rar_bin = find_rar_executable()
+            if not rar_bin:
+                sys.stderr.write("ERROR [Exit 4]: rar executable not found\n")
+                sys.exit(4)
+
+            if os.path.exists(out_path):
+                os.remove(out_path)
+
+            cmd = [rar_bin, "a", "-r", "-m5", "-ep1", "-idq", "-y", out_path, os.path.join(staging, "*")]
+            ret = subprocess.call(cmd)
+            if ret != 0:
+                sys.stderr.write(f"ERROR [Exit 5]: rar command failed with return code {ret}\n")
+                sys.exit(5)
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
+    else:
+        sys.stderr.write(f"ERROR [Exit 2]: Unsupported archive extension: {out_path}\n")
+        sys.exit(2)
+
+    archive_size = os.path.getsize(out_path)
+    size_mb = archive_size / (1024 * 1024)
     rel_out = os.path.relpath(out_path, repo_root).replace("\\", "/")
 
-    print(f"files={total_files} bytes={size_mb:.2f}MB zip={rel_out}")
+    print(f"files={total_files} bytes={size_mb:.2f}MB archive={rel_out}")
     sys.exit(0)
 
 
