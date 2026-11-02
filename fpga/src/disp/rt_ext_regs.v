@@ -104,9 +104,9 @@ module rt_ext_regs
     input               i_stats_tgl             ,
 
     // 20261028 lane detection & decision registers (BAR1 0x8C0 - 0x8EC, 0xA00 - 0xA1C)
-    output wire [159:0] o_lane_cfg_bus          ,
+    output wire [191:0] o_lane_cfg_bus          ,
     output reg          o_lane_cfg_tgl = 1'b0   ,
-    input       [223:0] i_lane_stat_bus         ,
+    input       [255:0] i_lane_stat_bus         ,
     input       [223:0] i_lane_dbg_bus          ,
     input               i_lane_stat_tgl         ,
 
@@ -114,7 +114,13 @@ module rt_ext_regs
     output wire [47:0]  o_zebra_cfg_bus         ,
     output reg          o_zebra_cfg_tgl = 1'b0  ,
     input       [95:0]  i_zebra_stat_bus        ,
-    input               i_zebra_stat_tgl
+    input               i_zebra_stat_tgl        ,
+
+    // 20261106 cam23: Runtime SCCB interface (BAR1 0x8F8 / 0x8FC)
+    output reg  [23:0]  o_sccb_cmd              ,
+    output reg          o_sccb_req_tgl = 1'b0   ,
+    input               i_sccb_done_tgl         ,
+    input               i_sccb_nack
 );
 
 
@@ -138,12 +144,20 @@ module rt_ext_regs
     reg [31:0] reg_lane_roi;
     reg [31:0] reg_lane_thr;
     reg [31:0] reg_lane_dbg_sel;
+    reg [31:0] reg_lane_solid_thr;
 
     // 20261029 zebra registers
     reg [31:0] reg_zebra_ctrl;
     reg [31:0] reg_zebra_gap;
     assign o_zebra_cfg_bus = { reg_zebra_gap[7:0], 8'd0, reg_zebra_ctrl };
-    assign o_lane_cfg_bus = { reg_lane_dbg_sel, reg_lane_thr, reg_lane_roi, reg_lane_geom, reg_lane_ctrl };
+    assign o_lane_cfg_bus = { reg_lane_solid_thr, reg_lane_dbg_sel, reg_lane_thr, reg_lane_roi, reg_lane_geom, reg_lane_ctrl };
+
+    // 20261106 cam23: SCCB registers
+    reg [23:0] reg_sccb_cmd = 24'd0;
+    reg        sccb_overrun = 1'b0;
+    always @(*) o_sccb_cmd = reg_sccb_cmd;
+    reg sccb_done_s2;
+    wire sccb_busy = (o_sccb_req_tgl != sccb_done_s2);
 
     // osd registers
 
@@ -221,11 +235,17 @@ module rt_ext_regs
             reg_lane_roi  <= {6'd0, 10'd500, 6'd0, 10'd260}; // [25:16]=y_bot(500), [9:0]=y_top(260)
             reg_lane_thr  <= {8'd60, 8'd14, 8'd120, 8'd18};  // [31:24]=60, [23:16]=14, [15:8]=120, [7:0]=18
             reg_lane_dbg_sel <= {6'd0, 10'd480, 6'd0, 10'd360}; // [25:16]=dbg_x(480), [9:0]=dbg_row(360)
+            reg_lane_solid_thr <= {16'd61, 16'd61};              // [31:16]=dbl_rows(61), [15:0]=solid_rows(61)
             o_lane_cfg_tgl<= 1'b0;
             // 20261029 zebra defaults
             reg_zebra_ctrl  <= 32'd0;
             reg_zebra_gap   <= 32'd0;
             o_zebra_cfg_tgl <= 1'b0;
+            // reg_sccb_cmd / o_sccb_req_tgl: power-on init only, NOT reset here.
+            // reg_config's rt_done_tgl is reset only by the camera power-on reset;
+            // clearing the request toggle on rst_n would make the two toggles
+            // disagree and fire one spurious SCCB write.
+            sccb_overrun    <= 1'b0;
             for (bi=0; bi<16; bi=bi+1) begin box_lo[bi]<=32'd0; box_hi[bi]<=32'd0; end
             cfg_tgl       <= 1'b0;
             commit_tgl    <= 1'b0;
@@ -310,6 +330,18 @@ module rt_ext_regs
                     12'h8C4: begin reg_lane_geom <= i_tap_data; o_lane_cfg_tgl <= ~o_lane_cfg_tgl; end
                     12'h8C8: begin reg_lane_roi  <= i_tap_data; o_lane_cfg_tgl <= ~o_lane_cfg_tgl; end
                     12'h8CC: begin reg_lane_thr  <= i_tap_data; o_lane_cfg_tgl <= ~o_lane_cfg_tgl; end
+                    12'h8F0: begin reg_lane_solid_thr <= i_tap_data; o_lane_cfg_tgl <= ~o_lane_cfg_tgl; end
+                    12'h8F8: begin
+                        if (!sccb_busy) begin
+                            reg_sccb_cmd   <= i_tap_data[23:0];
+                            o_sccb_req_tgl <= ~o_sccb_req_tgl;
+                        end else begin
+                            sccb_overrun   <= 1'b1;
+                        end
+                    end
+                    12'h8FC: begin
+                        sccb_overrun <= 1'b0;
+                    end
                     12'hA00: begin reg_lane_dbg_sel <= i_tap_data; o_lane_cfg_tgl <= ~o_lane_cfg_tgl; end
                     12'hA20: begin reg_zebra_ctrl <= i_tap_data; o_zebra_cfg_tgl <= ~o_zebra_cfg_tgl; end
                     12'hA2C: begin reg_zebra_gap  <= i_tap_data; o_zebra_cfg_tgl <= ~o_zebra_cfg_tgl; end
@@ -362,6 +394,7 @@ module rt_ext_regs
         cfg_ctrl[4] = reg_disp_ctrl[4];
         cfg_ctrl[5] = reg_disp_ctrl[5];   // 20261026 quad: QUAD_EN
         cfg_ctrl[6] = reg_disp_ctrl[6];   // 20261027 cam: CAM_OFF
+        cfg_ctrl[7] = reg_disp_ctrl[7];   // 20261102 zoom: ZOOM2X
         cfg_ctrl[8] = reg_disp_ctrl[8];   // 20261029 view_mode[0]
         cfg_ctrl[9] = reg_disp_ctrl[9];   // 20261029 view_mode[1]
         cfg_ctrl[10]= reg_disp_ctrl[10];  // 20261101 night_mode[0]
@@ -578,7 +611,7 @@ module rt_ext_regs
     //------------------------------------------------------------------
     reg ls_s1, ls_s2, ls_s2d;
     reg [1:0] ls_wait_cnt;
-    reg [223:0] lane_stat_shadow;
+    reg [255:0] lane_stat_shadow;
     reg [223:0] lane_dbg_shadow;
 
     always @(posedge clk or negedge rst_n) begin
@@ -587,7 +620,7 @@ module rt_ext_regs
             ls_s2            <= 1'b0;
             ls_s2d           <= 1'b0;
             ls_wait_cnt      <= 2'd0;
-            lane_stat_shadow <= 224'd0;
+            lane_stat_shadow <= 256'd0;
             lane_dbg_shadow  <= 224'd0;
         end else begin
             ls_s1  <= i_lane_stat_tgl;
@@ -636,6 +669,44 @@ module rt_ext_regs
         end
     end
 
+    //------------------------------------------------------------------
+    // 20261106 cam23: SCCB sync and status
+    //------------------------------------------------------------------
+    reg sccb_done_s1 = 1'b0, sccb_done_s2d = 1'b0;
+    reg sccb_nack_s1 = 1'b0, sccb_nack_s2 = 1'b0;
+    reg [15:0] done_cnt = 16'd0;
+    reg [7:0]  nack_cnt = 8'd0;
+    reg        last_nack = 1'b0;
+
+    wire cfg_done_s = cam_s_cfgdone[2];
+    wire [31:0] sccb_stat = {done_cnt[15:0], nack_cnt[7:0], 4'd0, sccb_overrun, cfg_done_s, last_nack, sccb_busy};
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            sccb_done_s1  <= 1'b0;
+            sccb_done_s2  <= 1'b0;
+            sccb_done_s2d <= 1'b0;
+            sccb_nack_s1  <= 1'b0;
+            sccb_nack_s2  <= 1'b0;
+            done_cnt      <= 16'd0;
+            nack_cnt      <= 8'd0;
+            last_nack     <= 1'b0;
+        end else begin
+            sccb_done_s1  <= i_sccb_done_tgl;
+            sccb_done_s2  <= sccb_done_s1;
+            sccb_done_s2d <= sccb_done_s2;
+            sccb_nack_s1  <= i_sccb_nack;
+            sccb_nack_s2  <= sccb_nack_s1;
+
+            if (sccb_done_s2 ^ sccb_done_s2d) begin
+                done_cnt  <= done_cnt + 1'b1;
+                last_nack <= sccb_nack_s2;
+                if (sccb_nack_s2 && (nack_cnt != 8'hFF))
+                    nack_cnt <= nack_cnt + 1'b1;
+            end
+        end
+    end
+
 
     //------------------------------------------------------------------
     // read decode : 128-bit group selected by i_rd_addr[11:4]
@@ -659,7 +730,7 @@ module rt_ext_regs
                 8'h80: o_rd128 <= { reg_stride    , reg_slot_size, reg_fb_base  , reg_disp_ctrl };
                 8'h81: o_rd128 <= { 32'd0, 32'd0       , 32'd0        , reg_uv_off    };
                 8'h82: o_rd128 <= { stat_underflow, stat_newfr, stat_frames, fb_stat_w };
-                8'h83: o_rd128 <= { 32'h4F53_4431, 32'h2026_1101, hdmi_stat_r, stat_dbg };   // "OSD1", 0x838=0x20261101
+                8'h83: o_rd128 <= { 32'h4F53_4431, 32'h2026_1106, hdmi_stat_r, stat_dbg };   // "OSD1", 0x838=0x20261106 (cam23: 运行时 SCCB 写口 0x8F8/0x8FC)
                 8'h84: o_rd128 <= { led_rd_w, drv_state_w, key_evt_w, key_stat_w };
                 8'h85: o_rd128 <= { 32'd0, 32'd0, 32'd0, reg_decision };
                 8'h88: o_rd128 <= { 32'd0, 32'd0, 32'd0, reg_osd_ctrl };
@@ -683,10 +754,11 @@ module rt_ext_regs
                     {stats_shadow[15:0],  stats_shadow[31:16]},                                             // 0x8B4: {frame_cnt[15:0], edge_cnt[15:0]}
                     {23'd0, reg_stats_ctrl}                                                                 // 0x8B0: {23'd0, stats_ctrl[8:0]}
                 };
-                // 20261028 lane : 0x8C0 CTRL/GEOM/ROI/THR, 0x8D0 L_STAT/A/B/R_STAT, 0x8E0 R_A/B/STAT
+                // 20261028 lane : 0x8C0 CTRL/GEOM/ROI/THR, 0x8D0 L_STAT/A/B/R_STAT, 0x8E0 R_A/B/STAT, 0x8F0 SOLID_THR/RUN_STAT
                 8'h8C: o_rd128 <= { reg_lane_thr, reg_lane_roi, reg_lane_geom, reg_lane_ctrl };
                 8'h8D: o_rd128 <= { lane_stat_shadow[127:96], lane_stat_shadow[95:64], lane_stat_shadow[63:32], lane_stat_shadow[31:0] };
                 8'h8E: o_rd128 <= { 32'd0, lane_stat_shadow[223:192], lane_stat_shadow[191:160], lane_stat_shadow[159:128] };
+                8'h8F: o_rd128 <= { sccb_stat, {8'd0, reg_sccb_cmd}, lane_stat_shadow[255:224], reg_lane_solid_thr };
                 // 20261028 lane debug : 0xA00 DBG_SEL, 0xA04-0xA0C, 0xA10-0xA1C
                 8'hA0: o_rd128 <= { lane_dbg_shadow[95:64], lane_dbg_shadow[63:32], lane_dbg_shadow[31:0], reg_lane_dbg_sel };
                 8'hA1: o_rd128 <= { lane_dbg_shadow[223:192], lane_dbg_shadow[191:160], lane_dbg_shadow[159:128], lane_dbg_shadow[127:96] };

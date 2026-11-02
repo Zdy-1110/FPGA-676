@@ -1,0 +1,57 @@
+Reading pref.tcl
+
+# 2025.3
+
+# ** Note: (vsim-220) 'D:/Questa/questa_fse/win64/../modelsim.ini' is used as the ini file.
+# vsim -c -t 1ps work.tb_lane_thr "+SEG=seg_board" -do "run -all; quit -f" 
+# Start time: 21:48:55 on Nov 02,2026
+# ** Note: (vsim-8009) Loading existing optimized design _opt1
+# //  Questa Altera Starter FPGA Edition-64
+# //  Version 2025.3 win64 Sep 15 2025
+# //
+# // Unpublished work. Copyright 2025 Siemens
+# //
+# // This material contains trade secrets or otherwise confidential information
+# // owned by Siemens Industry Software Inc. or its affiliates (collectively,
+# // "SISW"), or its licensors. Access to and use of this information is strictly
+# // limited as set forth in the Customer's applicable agreements with SISW.
+# //
+# // This material may not be copied, distributed, or otherwise disclosed outside
+# // of the Customer's facilities without the express written permission of SISW,
+# // and may not be used in any way not expressly authorized by SISW.
+# //
+# Loading sv_std.std
+# Loading work.tb_lane_thr(fast)
+# run -all
+#   [4509790000] Frame 0/24 done: row_err=0 fld_err=0
+#   [9019483000] Frame 1/24 done: row_err=0 fld_err=0
+#   [13529175000] Frame 2/24 done: row_err=0 fld_err=0
+#   [18038867000] Frame 3/24 done: row_err=0 fld_err=0
+#   [22548560000] Frame 4/24 done: row_err=0 fld_err=0
+#   [27058252000] Frame 5/24 done: row_err=0 fld_err=0
+#   [31567945000] Frame 6/24 done: row_err=0 fld_err=0
+#   [36077637000] Frame 7/24 done: row_err=0 fld_err=0
+#   [40587330000] Frame 8/24 done: row_err=0 fld_err=0
+#   [45097022000] Frame 9/24 done: row_err=0 fld_err=0
+#   [49606715000] Frame 10/24 done: row_err=0 fld_err=0
+#   [54116407000] Frame 11/24 done: row_err=0 fld_err=0
+#   [58626100000] Frame 12/24 done: row_err=0 fld_err=0
+#   [63135792000] Frame 13/24 done: row_err=0 fld_err=0
+#   [67645485000] Frame 14/24 done: row_err=0 fld_err=0
+#   [72155177000] Frame 15/24 done: row_err=0 fld_err=0
+#   [76664869000] Frame 16/24 done: row_err=0 fld_err=0
+#   [81174562000] Frame 17/24 done: row_err=0 fld_err=0
+#   [85684254000] Frame 18/24 done: row_err=0 fld_err=0
+#   [90193947000] Frame 19/24 done: row_err=0 fld_err=0
+#   [94703639000] Frame 20/24 done: row_err=0 fld_err=0
+#   [99213332000] Frame 21/24 done: row_err=0 fld_err=0
+#   [103723024000] Frame 22/24 done: row_err=0 fld_err=0
+#   [108232717000] Frame 23/24 done: row_err=0 fld_err=0
+# SEG seg_board: row_mismatch=0 frame_field_mismatch=0
+#   STATISTICS [seg_board N=24 THR=61]:
+#     L_frame_type: solid=0, dashed=10, dbl=12 | L_voted: solid=0, dashed=0, dbl=24
+#     R_frame_type: solid=8, dashed=5, dbl=11 | R_voted: solid=0, dashed=3, dbl=21
+# ** Note: $finish    : tb_lane_thr.sv(326)
+#    Time: 108232716683 ps  Iteration: 1  Instance: /tb_lane_thr
+# End time: 21:53:30 on Nov 02,2026, Elapsed time: 0:04:35
+# Errors: 0, Warnings: 0

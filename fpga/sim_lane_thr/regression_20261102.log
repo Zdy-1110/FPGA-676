@@ -1,0 +1,46 @@
+Generated seg_A_solid: frames=14460 rows=14460
+Generated seg_B_dashed: frames=14460 rows=14460
+Generated seg_C_double_yellow: frames=14460 rows=14460
+Generated seg_board: frames=5784 rows=5784
+Generated seg_recover: frames=9640 rows=9640
+Questa Altera Starter FPGA Edition-64 vlog 2025.3 Compiler 2025.09 Sep 15 2025
+Start time: 21:12:57 on Nov 02,2026
+vlog -sv ../src/disp/rt_lane_det.v tb_lane_thr.sv 
+** Note: (vlog-220) 'D:/Questa/questa_fse/win64/../modelsim.ini' is used as the ini file.
+-- Compiling module rt_lane_det
+-- Compiling module tb_lane_thr
+
+Top level modules:
+	tb_lane_thr
+End time: 21:12:57 on Nov 02,2026, Elapsed time: 0:00:00
+Errors: 0, Warnings: 0
+============================================================
+RUNNING 5-SEGMENT LANE RTL REGRESSION (DEFAULT THRESHOLD = 61)
+============================================================
+--- Testing seg_A_solid ---
+# SEG seg_A_solid: row_mismatch=0 frame_field_mismatch=0 (exit_code: 0)
+  [PASS] seg_A_solid
+--- Testing seg_B_dashed ---
+# SEG seg_B_dashed: row_mismatch=0 frame_field_mismatch=0 (exit_code: 0)
+  [PASS] seg_B_dashed
+--- Testing seg_C_double_yellow ---
+# SEG seg_C_double_yellow: row_mismatch=0 frame_field_mismatch=0 (exit_code: 0)
+  [PASS] seg_C_double_yellow
+--- Testing seg_board ---
+# SEG seg_board: row_mismatch=0 frame_field_mismatch=0 (exit_code: 0)
+  [PASS] seg_board
+--- Testing seg_recover ---
+# SEG seg_recover: row_mismatch=0 frame_field_mismatch=0 (exit_code: 0)
+  [PASS] seg_recover
+
+============================================================
+RUNNING THRESHOLD solid_rows=120 TESTS
+============================================================
+--- seg_B_dashed (default 61 statistics) ---
+# SEG seg_B_dashed: row_mismatch=0 frame_field_mismatch=0
+--- seg_B_dashed (solid_rows=120 statistics) ---
+# SEG seg_B_dashed (THR solid=120 dbl=61): row_mismatch=0
+--- seg_A_solid (default 61 statistics) ---
+# SEG seg_A_solid: row_mismatch=0 frame_field_mismatch=0
+--- seg_A_solid (solid_rows=120 statistics) ---
+EXIT=124

@@ -19,7 +19,9 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 //camera�мĴ��������ó���
- module reg_config(     
+module reg_config #(
+    parameter I2C_DIV = 16'd1249
+)(     
 		  input clk_25M,
 		  input camera_rstn,
 		  input initial_en,
@@ -28,7 +30,12 @@
 		  inout i2c_sdat,
 		  output reg clock_20k,
 		  output reg [8:0]reg_index,
-		  output reg nack_after102
+		  output reg nack_after102,
+		  // Runtime SCCB write interface
+		  input [23:0] rt_cmd,
+		  input rt_req_tgl,
+		  output reg rt_done_tgl,
+		  output reg rt_nack
 	  );
 
      reg [15:0]clock_20k_cnt;
@@ -39,6 +46,13 @@
 	 reg reg_conf_done_reg;
 	 wire ack;
 	 wire tr_end;
+
+	 // Runtime SCCB synchronization into clock_20k domain
+	 // Note on cross-clock assumption: rt_cmd is held stable by the source domain
+	 // (pclk_div2) while a request is pending (between rt_req_tgl flip and rt_done_tgl flip).
+	 reg rt_req_s1, rt_req_s2;
+	 wire rt_pending = rt_req_s2 ^ rt_done_tgl;
+	 reg [1:0] rt_step;
 	  
      i2c_com u1(.clock_i2c(clock_20k),
                .camera_rstn(camera_rstn),
@@ -57,7 +71,7 @@ begin
         clock_20k<=0;
         clock_20k_cnt<=0;
    end
-   else if(clock_20k_cnt<1249)
+   else if(clock_20k_cnt<I2C_DIV)
       clock_20k_cnt<=clock_20k_cnt+1'b1;
    else begin
          clock_20k<=!clock_20k;
@@ -75,8 +89,15 @@ begin
        reg_index<=0;
 		 reg_conf_done_reg<=0;
        nack_after102<=1'b0;
+       rt_req_s1<=1'b0;
+       rt_req_s2<=1'b0;
+       rt_done_tgl<=1'b0;
+       rt_nack<=1'b0;
+       rt_step<=2'd0;
    end
    else begin
+       rt_req_s1<=rt_req_tgl;
+       rt_req_s2<=rt_req_s1;
       if(reg_conf_done_reg==1'b0) begin          //���camera��ʼ��δ���
 			  if(reg_index<357) begin               //���üĴ���
 					 case(config_step)
@@ -101,6 +122,27 @@ begin
 				end
 			 else 
 				reg_conf_done_reg<=1'b1;                //OV5640�Ĵ�����ʼ�����
+      end
+      else if(rt_pending) begin
+          case(rt_step)
+          2'd0: begin
+              i2c_data <= {8'h78, rt_cmd};
+              start <= 1'b1;
+              rt_step <= 2'd1;
+          end
+          2'd1: begin
+              if(tr_end) begin
+                  start <= 1'b0;
+                  rt_nack <= ack;
+                  rt_step <= 2'd2;
+              end
+          end
+          2'd2: begin
+              rt_done_tgl <= ~rt_done_tgl;
+              rt_step <= 2'd0;
+          end
+          default: rt_step <= 2'd0;
+          endcase
       end
    end
  end

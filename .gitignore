@@ -137,3 +137,15 @@ tmp_test/
 
 # 提交文档（由 tools/docs_figs/build_doc.py --compact 生成）
 docs/提交文档_初稿.docx
+docs/提交文档_初稿.pdf
+
+# 提交材料草稿与历史备份
+docs/drafts/
+
+# 仿真/综合产物
+fpga/sim_*/work*/
+fpga/sim_*/transcript
+fpga/sim_lane_thr_par/run_seg_*/
+*.qdb
+*.qpg
+tools/fcam_rb/fcam_rb

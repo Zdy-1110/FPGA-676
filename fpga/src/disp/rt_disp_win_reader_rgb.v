@@ -50,6 +50,7 @@ module rt_disp_win_reader_rgb #(
     output reg          stat_tgl        ,
     output reg  [159:0] stat_bus        ,
     output wire         video_active_o  ,
+    output wire         zoom_o          ,
     // timing from sync_vg (full raster)
     input               vs              ,
     input               hs              ,
@@ -109,11 +110,22 @@ module rt_disp_win_reader_rgb #(
     //========================================================================
 
     // window coordinates (full raster -> window local, wraps outside)
-    wire [11:0] xw = x_act - X0;
-    wire [11:0] yw = y_act - Y0;
-    wire in_win   = (x_act >= X0) && (x_act < X1) &&
-                    (y_act >= Y0) && (y_act < Y1);
-    wire in_win_y = (y_act >= Y0) && (y_act < Y1);
+    reg        ac_zoom;
+    wire [11:0] xw_norm = x_act - X0;
+    wire [11:0] yw_norm = y_act - Y0;
+    wire in_win_norm   = (x_act >= X0) && (x_act < X1) &&
+                         (y_act >= Y0) && (y_act < Y1);
+    wire in_win_y_norm = (y_act >= Y0) && (y_act < Y1);
+
+    wire [11:0] xw_zoom = x_act >> 1;
+    wire [11:0] yw_zoom = y_act >> 1;
+    wire in_win_zoom   = (x_act < H_ACT) && (y_act < V_ACT);
+    wire in_win_y_zoom = (y_act < V_ACT);
+
+    wire [11:0] xw = ac_zoom ? xw_zoom : xw_norm;
+    wire [11:0] yw = ac_zoom ? yw_zoom : yw_norm;
+    wire in_win    = ac_zoom ? in_win_zoom : in_win_norm;
+    wire in_win_y  = ac_zoom ? in_win_y_zoom : in_win_y_norm;
 
     // cross-domain debug/status wires exported from the core domain
     wire [11:0] fetched_c_gray;
@@ -216,6 +228,7 @@ module rt_disp_win_reader_rgb #(
             consumed_bin<=0;
             fs_tgl<=0; fs_bus<=100'd0;
             ac_video_en<=0; ac_base<=0;
+            ac_zoom<=1'b0;
         end
         else
         begin
@@ -223,7 +236,7 @@ module rt_disp_win_reader_rgb #(
             if (cm_edge && (commit_slot == WIN_IDX))
                 begin have_commit<=1'b1; pend_slot<=commit_slot; pend_fid<=commit_frame_id; end
 
-            if ((~de & de_d) && in_win_y && (yw != (WIN_H-12'd1)))
+            if ((~de & de_d) && in_win_y && (yw != (WIN_H-12'd1)) && (!ac_zoom || y_act[0]))
                 consumed_bin <= consumed_bin + 1'b1;
 
             if ((de & ~de_d) && in_win_y && video_active &&
@@ -234,6 +247,7 @@ module rt_disp_win_reader_rgb #(
             begin
                 ac_video_en <= sh_ctrl[0];
                 ac_base     <= sh_base;
+                ac_zoom     <= sh_ctrl[7];
 
                 disp_frames <= disp_frames + 1'b1;
                 consumed_bin<= 12'd0;
@@ -266,6 +280,7 @@ module rt_disp_win_reader_rgb #(
     end
 
     assign video_active_o = video_active;
+    assign zoom_o         = ac_zoom;
 
     // ---- line ready / black -------------------------------------------
     reg line_ready;

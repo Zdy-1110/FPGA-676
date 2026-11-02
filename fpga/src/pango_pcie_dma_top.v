@@ -704,6 +704,11 @@ wire [15:0]     cam_commit_fid      ;
 wire            cam_commit_buf      ;   // slot0 double buffer index
 wire            cam_urgent          ;   // camera FIFO nearly full -> MRd pause
 wire [31:0]     cam_urg_cnt         ;   // MRd pause episodes (0x8A8)
+// 20261106 cam23: runtime SCCB wires (declared before u_cam1_reg_config uses them)
+wire [23:0]     sccb_cmd            ;
+wire            sccb_req_tgl        ;
+wire            sccb_done_tgl       ;
+wire            sccb_nack           ;
 
 // power on sequence : 5 ms / 1.3 ms / 21 ms tuned for 50 MHz.  free_clk is
 // 27 MHz, so every delay is ~1.85x longer, which is on the safe side (the
@@ -727,7 +732,11 @@ reg_config u_cam1_reg_config (
     .i2c_sdat     (cmos1_sda        ),
     .clock_20k    (                 ),
     .reg_index    (                 ),
-    .nack_after102(                 )
+    .nack_after102(                 ),
+    .rt_cmd       (sccb_cmd         ),
+    .rt_req_tgl   (sccb_req_tgl     ),
+    .rt_done_tgl  (sccb_done_tgl    ),
+    .rt_nack      (sccb_nack        )
 );
 
 // cam2 : only the pins (SCCB released, reset follows the same power sequence)
@@ -893,7 +902,7 @@ rt_ddr_rd_arb u_rt_ddr_rd_arb (
 // 20261028 lane wires
 wire [159:0] ext_lane_cfg_bus;
 wire         ext_lane_cfg_tgl;
-wire [223:0] ext_lane_stat_bus;
+wire [255:0] ext_lane_stat_bus;   // 20261105: 原为 [223:0]，最高 32 位(max_consec/double_cnt, 0x8F4)被截断恒为 0
 wire [223:0] ext_lane_dbg_bus;
 wire         ext_lane_stat_tgl;
 
@@ -968,7 +977,12 @@ rt_ext_regs u_rt_ext_regs (
     .o_zebra_cfg_bus  (ext_zebra_cfg_bus ),
     .o_zebra_cfg_tgl  (ext_zebra_cfg_tgl ),
     .i_zebra_stat_bus (ext_zebra_stat_bus),
-    .i_zebra_stat_tgl (ext_zebra_stat_tgl)
+    .i_zebra_stat_tgl (ext_zebra_stat_tgl),
+    // 20261106 cam23: runtime SCCB
+    .o_sccb_cmd       (sccb_cmd         ),
+    .o_sccb_req_tgl   (sccb_req_tgl     ),
+    .i_sccb_done_tgl  (sccb_done_tgl    ),
+    .i_sccb_nack      (sccb_nack        )
 );
 
 // 20261018 disp: display subsystem

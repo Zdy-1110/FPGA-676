@@ -33,7 +33,9 @@ module rt_lane_det #(
     parameter [7:0] DEF_WHITE_DELTA    = 8'd18,
     parameter [7:0] DEF_WHITE_G_MIN    = 8'd120,
     parameter [7:0] DEF_YELLOW_DELTA   = 8'd14,
-    parameter [7:0] DEF_DEPART_MARGIN  = 8'd60
+    parameter [7:0] DEF_DEPART_MARGIN  = 8'd60,
+    parameter [7:0] DEF_SOLID_ROWS     = 8'd61,
+    parameter [7:0] DEF_DBL_ROWS       = 8'd61
 )(
     input  wire        pix_clk,
     input  wire        rst_n,
@@ -56,6 +58,9 @@ module rt_lane_det #(
     input  wire [7:0]  cfg_white_g_min,
     input  wire [7:0]  cfg_yellow_delta,
     input  wire [7:0]  cfg_depart_margin,
+    input  wire [7:0]  cfg_solid_rows,
+    input  wire [7:0]  cfg_dbl_rows,
+    input  wire [3:0]  cfg_gap_tol,       // 20261104: 0x8F0[11:8] solid-run gap tolerance (rows), 0 = off (cam20 behaviour)
 
     // Lane line detection outputs (to OSD and Registers)
     output reg         out_l_valid,
@@ -81,6 +86,11 @@ module rt_lane_det #(
     output reg         out_depart,
     output reg         out_frame_done,
     output reg  [7:0]  out_frame_cnt,
+
+    output reg  [7:0]  out_max_consec_l,
+    output reg  [7:0]  out_max_consec_r,
+    output reg  [7:0]  out_dbl_cnt_l,
+    output reg  [7:0]  out_dbl_cnt_r,
 
     // Debug interface
     input       [9:0]  dbg_row,
@@ -118,26 +128,34 @@ module rt_lane_det #(
 
     reg [9:0] y_top_eff, y_bot_eff, xc_eff, ego_eff;
     reg [7:0] w_delta, w_gmin, y_delta, dep_margin;
+    reg [7:0] solid_rows_eff, dbl_rows_eff;
+    reg [3:0] gap_eff;
 
     always @(posedge pix_clk or negedge rst_n) begin
         if (!rst_n) begin
-            y_top_eff  <= DEF_Y_TOP;
-            y_bot_eff  <= DEF_Y_BOT;
-            xc_eff     <= DEF_X_C;
-            ego_eff    <= DEF_EGO_X;
-            w_delta    <= DEF_WHITE_DELTA;
-            w_gmin     <= DEF_WHITE_G_MIN;
-            y_delta    <= DEF_YELLOW_DELTA;
-            dep_margin <= DEF_DEPART_MARGIN;
+            y_top_eff      <= DEF_Y_TOP;
+            y_bot_eff      <= DEF_Y_BOT;
+            xc_eff         <= DEF_X_C;
+            ego_eff        <= DEF_EGO_X;
+            w_delta        <= DEF_WHITE_DELTA;
+            w_gmin         <= DEF_WHITE_G_MIN;
+            y_delta        <= DEF_YELLOW_DELTA;
+            dep_margin     <= DEF_DEPART_MARGIN;
+            solid_rows_eff <= DEF_SOLID_ROWS;
+            dbl_rows_eff   <= DEF_DBL_ROWS;
+            gap_eff        <= 4'd0;
         end else begin
-            y_top_eff  <= (cfg_y_top != 10'd0) ? cfg_y_top : DEF_Y_TOP;
-            y_bot_eff  <= (cfg_y_bot != 10'd0) ? cfg_y_bot : DEF_Y_BOT;
-            xc_eff     <= (cfg_xc != 10'd0)    ? cfg_xc    : DEF_X_C;
-            ego_eff    <= (cfg_ego_x != 10'd0) ? cfg_ego_x : DEF_EGO_X;
-            w_delta    <= (cfg_white_delta != 8'd0) ? cfg_white_delta : DEF_WHITE_DELTA;
-            w_gmin     <= (cfg_white_g_min != 8'd0) ? cfg_white_g_min : DEF_WHITE_G_MIN;
-            y_delta    <= (cfg_yellow_delta != 8'd0)? cfg_yellow_delta: DEF_YELLOW_DELTA;
-            dep_margin <= (cfg_depart_margin!= 8'd0)? cfg_depart_margin:DEF_DEPART_MARGIN;
+            y_top_eff      <= (cfg_y_top != 10'd0) ? cfg_y_top : DEF_Y_TOP;
+            y_bot_eff      <= (cfg_y_bot != 10'd0) ? cfg_y_bot : DEF_Y_BOT;
+            xc_eff         <= (cfg_xc != 10'd0)    ? cfg_xc    : DEF_X_C;
+            ego_eff        <= (cfg_ego_x != 10'd0) ? cfg_ego_x : DEF_EGO_X;
+            w_delta        <= (cfg_white_delta != 8'd0) ? cfg_white_delta : DEF_WHITE_DELTA;
+            w_gmin         <= (cfg_white_g_min != 8'd0) ? cfg_white_g_min : DEF_WHITE_G_MIN;
+            y_delta        <= (cfg_yellow_delta != 8'd0)? cfg_yellow_delta: DEF_YELLOW_DELTA;
+            dep_margin     <= (cfg_depart_margin!= 8'd0)? cfg_depart_margin:DEF_DEPART_MARGIN;
+            solid_rows_eff <= (cfg_solid_rows != 8'd0)  ? cfg_solid_rows : DEF_SOLID_ROWS;
+            dbl_rows_eff   <= (cfg_dbl_rows != 8'd0)    ? cfg_dbl_rows   : DEF_DBL_ROWS;
+            gap_eff        <= cfg_gap_tol;
         end
     end
 
@@ -510,6 +528,7 @@ module rt_lane_det #(
     reg [7:0]  cur_consec_l, max_consec_l;
     reg [7:0]  cur_consec_r, max_consec_r;
     reg [7:0]  double_cnt_l, double_cnt_r;
+    reg [3:0]  cur_gap_l, cur_gap_r;      // missed rows inside the current run (gap tolerance)
 
     wire [9:0] dbl_dist_l = (run_buf[lb_idx] > best_x_l) ? (run_buf[lb_idx] - best_x_l) : (best_x_l - run_buf[lb_idx]);
 
@@ -538,6 +557,8 @@ module rt_lane_det #(
             max_consec_l <= 8'd0;
             cur_consec_r <= 8'd0;
             max_consec_r <= 8'd0;
+            cur_gap_l    <= 4'd0;
+            cur_gap_r    <= 4'd0;
             double_cnt_l <= 8'd0;
             double_cnt_r <= 8'd0;
             cur_dy       <= 4'd3;
@@ -573,6 +594,8 @@ module rt_lane_det #(
             max_consec_l <= 8'd0;
             cur_consec_r <= 8'd0;
             max_consec_r <= 8'd0;
+            cur_gap_l    <= 4'd0;
+            cur_gap_r    <= 4'd0;
             double_cnt_l <= 8'd0;
             double_cnt_r <= 8'd0;
             cur_dy       <= 4'd3;
@@ -640,10 +663,14 @@ module rt_lane_det #(
                         if (dbl_l_reg) double_cnt_l <= double_cnt_l + 8'd1;
 
                         cur_consec_l <= cur_consec_l + 8'd1;
+                        cur_gap_l    <= 4'd0;
                         if (cur_consec_l + 8'd1 > max_consec_l)
                             max_consec_l <= cur_consec_l + 8'd1;
+                    end else if (cur_gap_l < gap_eff) begin
+                        cur_gap_l    <= cur_gap_l + 4'd1;   // tolerated miss: keep the run, do not count
                     end else begin
                         cur_consec_l <= 8'd0;
+                        cur_gap_l    <= 4'd0;
                     end
 
                     // Accumulate Right
@@ -657,10 +684,14 @@ module rt_lane_det #(
                         if (dbl_r_reg) double_cnt_r <= double_cnt_r + 8'd1;
 
                         cur_consec_r <= cur_consec_r + 8'd1;
+                        cur_gap_r    <= 4'd0;
                         if (cur_consec_r + 8'd1 > max_consec_r)
                             max_consec_r <= cur_consec_r + 8'd1;
+                    end else if (cur_gap_r < gap_eff) begin
+                        cur_gap_r    <= cur_gap_r + 4'd1;   // tolerated miss: keep the run, do not count
                     end else begin
                         cur_consec_r <= 8'd0;
+                        cur_gap_r    <= 4'd0;
                     end
 
                     // Pipeline Stage 1 for next row (timing closure)
@@ -967,9 +998,13 @@ module rt_lane_det #(
             out_r_dx_q16   <= INIT_A_RIGHT;
             out_r_x_bot    <= 16'd776;
             out_r_n        <= 8'd0;
-            out_depart     <= 1'b0;
-            out_frame_done <= 1'b0;
-            out_frame_cnt  <= 8'd0;
+            out_depart          <= 1'b0;
+            out_frame_done      <= 1'b0;
+            out_frame_cnt       <= 8'd0;
+            out_max_consec_l    <= 8'd0;
+            out_max_consec_r    <= 8'd0;
+            out_dbl_cnt_l       <= 8'd0;
+            out_dbl_cnt_r       <= 8'd0;
         end else begin
             out_frame_done <= 1'b0;
 
@@ -1135,12 +1170,12 @@ module rt_lane_det #(
                     if (side_sel == 1'b0) raw_valid_l <= slope_ok_reg && range_ok_reg && rms_ok_reg;
                     else                  raw_valid_r <= slope_ok_reg && range_ok_reg && rms_ok_reg;
 
-                    solid_flag_reg <= ({8'd0, (side_sel == 1'b0 ? max_consec_l : max_consec_r)} * 16'd1000) >= 24'd60250;
-                    dbl_flag_reg   <= ({8'd0, (side_sel == 1'b0 ? double_cnt_l : double_cnt_r)} * 16'd1000) >= 24'd60250;
+                    solid_flag_reg <= (side_sel == 1'b0 ? max_consec_l : max_consec_r) >= solid_rows_eff;
+                    dbl_flag_reg   <= (side_sel == 1'b0 ? double_cnt_l : double_cnt_r) >= dbl_rows_eff;
 
                     cur_f_type_reg <= !(slope_ok_reg && range_ok_reg && rms_ok_reg) ? 2'd0 :
-                                      (({8'd0, (side_sel == 1'b0 ? double_cnt_l : double_cnt_r)} * 16'd1000) >= 24'd60250) ? 2'd3 :
-                                      (({8'd0, (side_sel == 1'b0 ? max_consec_l : max_consec_r)} * 16'd1000) >= 24'd60250) ? 2'd2 : 2'd1;
+                                      ((side_sel == 1'b0 ? double_cnt_l : double_cnt_r) >= dbl_rows_eff) ? 2'd3 :
+                                      ((side_sel == 1'b0 ? max_consec_l : max_consec_r) >= solid_rows_eff) ? 2'd2 : 2'd1;
                     fe_fsm         <= 5'd7;
                 end
 
@@ -1243,6 +1278,10 @@ module rt_lane_det #(
                     out_depart          <= dep_l_reg | dep_r_reg;
                     out_frame_done      <= 1'b1;
                     out_frame_cnt       <= out_frame_cnt + 8'd1;
+                    out_max_consec_l    <= max_consec_l;
+                    out_max_consec_r    <= max_consec_r;
+                    out_dbl_cnt_l       <= double_cnt_l;
+                    out_dbl_cnt_r       <= double_cnt_r;
                     fe_fsm              <= 5'd9;
                 end
 
