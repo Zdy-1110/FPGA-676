@@ -4,7 +4,7 @@ RK3568 用户态程序，全部只用 libc + 直接 mmap BAR1，不依赖 Qt/GTK
 
 | 文件 | 作用 | 关键行为 |
 |---|---|---|
-| `mode_select.c` | 开机二选一界面 | 推 4 格预渲染素材；KEY0 切换、KEY1 返回 `0`/`1`；KEY4 长按退出（rc=2）；推图前等 DMA 静止并重试 3 次；写 `0x800=0x865`（`0x65 + NIGHT OFF`）防止暗底 UI 被 AUTO 误判夜间 |
+| `mode_select.c` | 开机三选一界面 | 推 4 格预渲染素材；KEY0 循环切换（0–2）、KEY1 返回模式号（`0`/`1`/`2`）；KEY4 长按退出（rc=2）；推图前等 DMA 静止并重试 3 次；写 `0x800=0x865`（`0x65 + NIGHT OFF`）防止暗底 UI 被 AUTO 误判夜间 |
 | `menu_daemon.c` | 实时四路 + 弹窗 | 拉起 `usb_feed`（3 路 USB）；KEY4 短按唤出 9 项 3×3 弹窗（CAM1、CAM2、CAM3、NPU、LANE、VIEW、ZEBRA、USB VIDEO、NIGHT），长按退出回选择界面；子进程按进程组回收 |
 | `usb_menu.c` | U 盘浏览器 + 播放 | 中文文件名（GBK 位图字库）、按顺序选 1–4 个 mp4/图片；列表界面写 `0x800=0x865`（`0x65 + NIGHT OFF`）；播放唤出 5 项弹窗（NPU、LANE、VIEW、ZEBRA、NIGHT）、`--dec-bufs` 自适应 |
 | `menu.c` | 推图/OSD/按键参考实现 | 被上述程序复制的 DMA/OSD 函数原型 |
@@ -14,10 +14,17 @@ RK3568 用户态程序，全部只用 libc + 直接 mmap BAR1，不依赖 Qt/GTK
 ```
 /etc/init.d/S99adas_menu  (守护循环)
   └─ run_boot.sh           (等 0x838 就绪；mode_select 失败重试 3 次)
-       └─ mode_select      (rc 0=实时, 1=U盘, 2=用户退出)
-            ├─ menu_daemon
-            └─ usb_menu
+       └─ mode_select      (stdout 输出 0/1/2，rc=2 为用户长按 KEY4 退出重选)
+            ├─ 0: menu_daemon --bar1 0xf0204000
+            ├─ 1: usb_menu --bar1 0xf0204000
+            └─ 2: usb_menu --bar1 0xf0204000 --single (单路满屏检测)
 ```
+
+开机三选一模式：
+- **MODE 01（模式 0）**：四路摄像头，拉起 `menu_daemon`（3×USB + 1×FPGA 实时画面，ADAS 算法联动）；
+- **MODE 02（模式 1）**：U 盘视频流，拉起 `usb_menu`（1~4 路视频自适应分屏回放）；
+- **MODE 03（模式 2）**：单路显示，拉起 `./usb_menu --bar1 0xf0204000 --single`（任选一路满屏检测，支持 FPGA 前摄 / USB 摄像头 1–3 / U 盘单文件）。
+  - FPGA 前摄：FPGA 车道线检测常开；进入时另起 `usb_feed --fcam:15 --zoom2x`，把 DDR 中的前摄画面回读给 NPU 与红绿灯识别（弹窗 5 项含 NPU）。
 
 ## 编译
 
@@ -34,7 +41,7 @@ sh tools/rk_build.sh tools/menu/usb_menu   tools/menu/usb_menu.c
 | 路径 | 内容 |
 |---|---|
 | `/userdata/quad/menu/tile0-3.*` | 四路实时四格素材（`tile0.rgb565` + `tile1-3.nv12`） |
-| `/userdata/quad/menu/sel0-3.*` | 二选一界面四格素材 |
+| `/userdata/quad/menu/sel0-3.*` | 三选一界面四格素材 |
 | `/userdata/quad/ui_cjk.bin` | GBK 字库（21,791 字，26×26，2.33 MB） |
 
 素材由 `gen_tiles.py` / `gen_selector.py` / `gen_cjk_font.py` 生成。
@@ -72,4 +79,7 @@ sh tools/rk_build.sh tools/menu/usb_menu   tools/menu/usb_menu.c
 
 - 静态图片解码走板端 GStreamer `decodebin`，已于 10-30 完成板端实测验证（静态图片推流与按键基线，详见 `docs/提交清单与待办.md:21-31`）；
 - `usb_menu` 的 SIGUSR1 基线重置已接入但未实测；
-- 返回选择界面的 DMA 卡死已从进程回收/等待/重试三处加固，待上板复测。
+- 返回选择界面的 DMA 卡死已从进程回收/等待/重试三处加固，待上板复测；
+- 单图播放走四宫格 slot0（左上格），其余三格黑：cam18 legacy 单窗全屏通路会花屏且退出后显示损坏，且 FPGA 车道线检测只读 slot0；
+- `.scene` 场景预设仅在单张图片模式生效，多图或视频时自动清空环境变量；
+- `.nav` 导航文件同目录不存在时，自动回退查找板端本地导航库 `/userdata/quad/nav/<stem>.nav`。

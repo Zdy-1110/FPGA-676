@@ -17,6 +17,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/mount.h>
+#include <sys/prctl.h>
+#include "dmabuf_sync.h"
 
 #if defined(__has_include) && __has_include(<linux/dma-heap.h>)
 #include <linux/dma-heap.h>
@@ -104,6 +106,7 @@ static void print_usage(const char *prog)
     printf("  --feed PATH        Path to usb_feed binary (default: /userdata/quad/usb_feed)\n");
     printf("  --npu-model PATH   Path to NPU RKNN model (default: /userdata/quad/b5_v6n_band.rknn)\n");
     printf("  --cjk PATH         Path to CJK font binary (default: /userdata/quad/ui_cjk.bin)\n");
+    printf("  --single           Single-source full-screen display mode\n");
     printf("  -h, --help         Show this help message\n");
 }
 
@@ -241,21 +244,26 @@ static int dma_push_all_slots(volatile uint32_t *bar1, uint32_t fb_base, uint32_
     return 0;
 }
 
-static void make_black_frame(void **vas, const size_t *sizes)
+static void make_black_frame(const int *fds, void **vas, const size_t *sizes)
 {
     // slot 0: RGB565 black (0x0000)
+    dmabuf_cpu_begin(fds[0]);
     memset(vas[0], 0, sizes[0]);
+    dmabuf_cpu_end_flush(fds[0], vas[0], sizes[0]);
     // slot 1..3: NV12 black (Y=16, UV=128)
     for (int s = 1; s < 4; s++) {
+        dmabuf_cpu_begin(fds[s]);
         uint8_t *va = (uint8_t *)vas[s];
         memset(va, 16, 518400);        // Y plane
         memset(va + 518400, 128, 259200); // UV plane
+        dmabuf_cpu_end_flush(fds[s], vas[s], 518400 + 259200);
     }
 }
 
-static void canvas_to_slots(const uint8_t *canvas, void **vas)
+static void canvas_to_slots(const int *fds, const uint8_t *canvas, void **vas)
 {
     // Slot 0: Top-left (0,0)-(960,540) -> RGB565
+    dmabuf_cpu_begin(fds[0]);
     uint8_t *dst0 = (uint8_t *)vas[0];
     for (int y = 0; y < SLOT_H; y++) {
         const uint8_t *src_row = canvas + (y * SCREEN_W) * 3;
@@ -264,17 +272,20 @@ static void canvas_to_slots(const uint8_t *canvas, void **vas)
             uint8_t r = src_row[x * 3 + 0];
             uint8_t g = src_row[x * 3 + 1];
             uint8_t b = src_row[x * 3 + 2];
-            uint16_t v = (uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
+            /* FPGA slot0 reader RB_SWAP=1：软件打包 B 在高位 */
+            uint16_t v = (uint16_t)(((b >> 3) << 11) | ((g >> 2) << 5) | (r >> 3));
             dst_row[x * 2 + 0] = (uint8_t)(v & 0xFF);
             dst_row[x * 2 + 1] = (uint8_t)(v >> 8);
         }
     }
+    dmabuf_cpu_end_flush(fds[0], vas[0], (size_t)SLOT_W * SLOT_H * 2);
 
     // Slots 1..3: NV12 (BT.601 limited range)
     static const int slot_ox[4] = { 0, SLOT_W, 0, SLOT_W };
     static const int slot_oy[4] = { 0, 0, SLOT_H, SLOT_H };
 
     for (int s = 1; s < 4; s++) {
+        dmabuf_cpu_begin(fds[s]);
         int ox = slot_ox[s];
         int oy = slot_oy[s];
         uint8_t *y_plane = (uint8_t *)vas[s];
@@ -322,6 +333,7 @@ static void canvas_to_slots(const uint8_t *canvas, void **vas)
                 dst_uv[x + 1] = (uint8_t)v_sub;
             }
         }
+        dmabuf_cpu_end_flush(fds[s], vas[s], (size_t)SLOT_W * SLOT_H * 3 / 2);
     }
 }
 
@@ -1090,6 +1102,18 @@ static void clear_all_boxes(volatile uint32_t *bar1)
     }
 }
 
+static void restore_display_defaults(volatile uint32_t *bar1)
+{
+    wr(bar1, 0x800u, 0x865u);  // 恢复列表界面：bit7 清零, CAM_OFF=1, NIGHT OFF
+    wr(bar1, 0x80Cu, 960u);
+    wr(bar1, 0x810u, 518400u);
+    wr(bar1, 0x880u, 0x10u);
+    wr(bar1, 0x8C0u, rd(bar1, 0x8C0u) & ~3u);  // 清 bit0/1（不残留车道线）
+    wr(bar1, 0xA20u, rd(bar1, 0xA20u) & ~1u);  // 关斑马线
+    clear_text_ram(bar1);
+    clear_all_boxes(bar1);
+}
+
 static void kill_pid_gracefully(pid_t pid)
 {
     if (pid <= 0) return;
@@ -1134,32 +1158,43 @@ static void write_osd_text_row(volatile uint32_t *bar1, int row_idx, const char 
     }
 }
 
-static void show_playback_popup(volatile uint32_t *bar1, int sel, int npu, int lane, int view, int zebra, int night)
+/*
+ * OSD 文字硬件只有 4 行（0xC00 + row*0x40，每行 64 字符）：
+ *   行 2 = usb_feed 的 NPU 统计（quad_npu.c 写 0xC80），行 3 = ADAS 状态（adas.c 写 0xCC0）。
+ * 弹窗因此压缩在行 0-1，NPU/ADAS 行显示在弹窗下方，互不覆盖。
+ *   行0: <源>      >1 NPU:ON    2 LANE:ON    3 VIEW:COLOR   K0 NEXT  K1 OK
+ *   行1:           >4 ZEBRA:OFF 5 NIGHT:AUTO                 K4 HOLD CLOSE
+ */
+static void popup_put(char *row, int col, int marked, const char *s)
 {
-    write_osd_text_row(bar1, 0, "USB PLAY  KEY0 NEXT  KEY1 OK  KEY4 HOLD CLOSE");
+    row[col] = marked ? '>' : ' ';
+    size_t n = strlen(s);
+    if (col + 1 + (int)n > 64) n = (size_t)(64 - col - 1);
+    memcpy(row + col + 1, s, n);
+}
 
-    char row1[65];
-    memset(row1, ' ', 64);
-    row1[64] = '\0';
-    row1[0] = (sel == 0) ? '>' : ' ';
-    const char *t0 = npu ? "1 NPU:ON" : "1 NPU:OFF";
-    memcpy(row1 + 1, t0, strlen(t0));
-    row1[20] = (sel == 1) ? '>' : ' ';
-    const char *t1 = lane ? "2 LANE:ON" : "2 LANE:OFF";
-    memcpy(row1 + 21, t1, strlen(t1));
-    write_osd_text_row(bar1, 1, row1);
+static void show_playback_popup(volatile uint32_t *bar1, const char *title,
+                                int sel, int npu, int lane, int view, int zebra, int night,
+                                int npu_available)
+{
+    char row0[65], row1[65];
+    memset(row0, ' ', 64); row0[64] = '\0';
+    memset(row1, ' ', 64); row1[64] = '\0';
 
-    char row2[65];
-    memset(row2, ' ', 64);
-    row2[64] = '\0';
-    row2[0] = (sel == 2) ? '>' : ' ';
-    const char *t2 = (view == 0) ? "3 VIEW:COLOR" : ((view == 1) ? "3 VIEW:GRAY" : "3 VIEW:BIN");
-    memcpy(row2 + 1, t2, strlen(t2));
-    row2[18] = (sel == 3) ? '>' : ' ';
-    const char *t3 = zebra ? "4 ZEBRA:ON" : "4 ZEBRA:OFF";
-    memcpy(row2 + 19, t3, strlen(t3));
+    /* 源名称 = title 中第一个双空格之前的部分（如 "FPGA CAM"、"USB PLAY"），最多 9 字符 */
+    const char *t = title ? title : "USB PLAY";
+    const char *gap = strstr(t, "  ");
+    size_t tl = gap ? (size_t)(gap - t) : strlen(t);
+    if (tl > 9) tl = 9;
+    memcpy(row0, t, tl);
 
-    row2[38] = (sel == 4) ? '>' : ' ';
+    const char *t0 = !npu_available ? "1 NPU:N/A" : (npu ? "1 NPU:ON" : "1 NPU:OFF");
+    popup_put(row0, 10, npu_available && sel == 0, t0);
+    popup_put(row0, 22, sel == 1, lane ? "2 LANE:ON" : "2 LANE:OFF");
+    popup_put(row0, 35, sel == 2,
+              (view == 0) ? "3 VIEW:COLOR" : ((view == 1) ? "3 VIEW:GRAY" : "3 VIEW:BIN"));
+    memcpy(row0 + 50, "K0 NEXT  K1 OK", 14);
+
     const char *t4;
     if (night == 1) {
         t4 = "5 NIGHT:ON";
@@ -1169,8 +1204,12 @@ static void show_playback_popup(volatile uint32_t *bar1, int sel, int npu, int l
         int active = (rd(bar1, 0x820u) >> 3) & 1u;
         t4 = active ? "5 NIGHT:AUTO*" : "5 NIGHT:AUTO";
     }
-    memcpy(row2 + 39, t4, strlen(t4));
-    write_osd_text_row(bar1, 2, row2);
+    popup_put(row1, 10, sel == 3, zebra ? "4 ZEBRA:ON" : "4 ZEBRA:OFF");
+    popup_put(row1, 22, sel == 4, t4);
+    memcpy(row1 + 50, "K4 HOLD CLOSE", 13);
+
+    write_osd_text_row(bar1, 0, row0);
+    write_osd_text_row(bar1, 1, row1);
 }
 
 static void hide_playback_popup(volatile uint32_t *bar1)
@@ -1180,27 +1219,147 @@ static void hide_playback_popup(volatile uint32_t *bar1)
     write_osd_text_row(bar1, 2, "");
 }
 
+static void apply_scene_env(const char *media_path)
+{
+    unsetenv("ADAS_LANE_BASE");
+    unsetenv("ADAS_MOVING_BASE");
+    unsetenv("ADAS_SCENE_LANE");
+    unsetenv("ADAS_SCENE_MOVING");
+    unsetenv("ADAS_SCENE_REQ");
+    unsetenv("ADAS_SCENE_FORCE");
+    unsetenv("ADAS_SCENE_LTYPE_L");
+    unsetenv("ADAS_SCENE_LTYPE_R");
+    unsetenv("ADAS_SCENE_HAZARD");
+
+    if (!media_path || !*media_path) return;
+
+    char scene_path[1024];
+    const char *dot = strrchr(media_path, '.');
+    const char *slash = strrchr(media_path, '/');
+    if (dot && (!slash || dot > slash)) {
+        size_t stem_len = (size_t)(dot - media_path);
+        if (stem_len + 7 >= sizeof(scene_path)) return;
+        memcpy(scene_path, media_path, stem_len);
+        strcpy(scene_path + stem_len, ".scene");
+    } else {
+        if (strlen(media_path) + 7 >= sizeof(scene_path)) return;
+        snprintf(scene_path, sizeof(scene_path), "%s.scene", media_path);
+    }
+
+    FILE *f = fopen(scene_path, "r");
+    if (!f) return;
+
+    char line[256];
+    while (fgets(line, sizeof(line), f)) {
+        char *p = line;
+        char *hash = strchr(p, '#');
+        if (hash) *hash = '\0';
+
+        while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+        if (*p == '\0') continue;
+
+        char *eq = strchr(p, '=');
+        if (!eq) continue;
+
+        *eq = '\0';
+        char *key = p;
+        char *val = eq + 1;
+
+        char *k_end = eq - 1;
+        while (k_end >= key && (*k_end == ' ' || *k_end == '\t')) {
+            *k_end = '\0';
+            k_end--;
+        }
+
+        while (*val == ' ' || *val == '\t') val++;
+        size_t v_len = strlen(val);
+        while (v_len > 0 && (val[v_len - 1] == ' ' || val[v_len - 1] == '\t' ||
+                             val[v_len - 1] == '\r' || val[v_len - 1] == '\n')) {
+            val[v_len - 1] = '\0';
+            v_len--;
+        }
+
+        if (strcmp(key, "lane") == 0) {
+            if (strcmp(val, "0") == 0 || strcmp(val, "1") == 0 || strcmp(val, "2") == 0) {
+                setenv("ADAS_SCENE_LANE", val, 1);
+            }
+        } else if (strcmp(key, "moving") == 0) {
+            if (strcmp(val, "0") == 0 || strcmp(val, "1") == 0) {
+                setenv("ADAS_SCENE_MOVING", val, 1);
+            }
+        } else if (strcmp(key, "req") == 0) {
+            if (strcmp(val, "L") == 0 || strcmp(val, "R") == 0) {
+                setenv("ADAS_SCENE_REQ", val, 1);
+            }
+        } else if (strcmp(key, "force") == 0) {
+            if (strcmp(val, "1") == 0) {
+                setenv("ADAS_SCENE_FORCE", "1", 1);
+            }
+        } else if (strcmp(key, "ltype_l") == 0) {
+            if (strcmp(val, "dashed") == 0 || strcmp(val, "solid") == 0 || strcmp(val, "none") == 0) {
+                setenv("ADAS_SCENE_LTYPE_L", val, 1);
+            }
+        } else if (strcmp(key, "ltype_r") == 0) {
+            if (strcmp(val, "dashed") == 0 || strcmp(val, "solid") == 0 || strcmp(val, "none") == 0) {
+                setenv("ADAS_SCENE_LTYPE_R", val, 1);
+            }
+        } else if (strcmp(key, "hazard") == 0) {
+            if (strcmp(val, "1") == 0) {
+                setenv("ADAS_SCENE_HAZARD", "1", 1);
+            }
+        }
+    }
+    fclose(f);
+}
+
 static pid_t start_feed(const char *feed_bin, const char *bar1_str, const char *npu_model_path,
-                        char selected_paths[4][1024], int num_selected, int npu)
+                        char selected_paths[4][1024], int num_selected,
+                        const char *cam_dev, int npu, int full, int zoom2x, int fcam)
 {
     char video_args[4][1080];
+    char cam_arg[128];
     char nav_path[1024];
     int have_nav = 0;
     const char *argv[48];
     int argc = 0;
 
-    if (num_selected > 0 && !is_still_path(selected_paths[0])) {
-        const char *p0 = selected_paths[0];
-        const char *dot = strrchr(p0, '.');
-        const char *slash = strrchr(p0, '/');
-        if (dot && (!slash || dot > slash)) {
-            size_t stem_len = (size_t)(dot - p0);
-            if (stem_len + 5 < sizeof(nav_path)) {
-                memcpy(nav_path, p0, stem_len);
-                strcpy(nav_path + stem_len, ".nav");
-                if (access(nav_path, R_OK) == 0) {
-                    have_nav = 1;
+    if (cam_dev || fcam) {
+        apply_scene_env(NULL);  /* 摄像头/前摄源：清掉上次单图 .scene 的 ADAS_SCENE_* */
+    }
+    if (!cam_dev && !fcam) {
+        apply_scene_env((num_selected == 1 && is_still_path(selected_paths[0])) ? selected_paths[0] : NULL);
+
+        if (num_selected > 0) {
+            const char *p0 = selected_paths[0];
+            const char *dot = strrchr(p0, '.');
+            const char *slash = strrchr(p0, '/');
+            if (dot && (!slash || dot > slash)) {
+                size_t stem_len = (size_t)(dot - p0);
+                if (stem_len + 5 < sizeof(nav_path)) {
+                    memcpy(nav_path, p0, stem_len);
+                    strcpy(nav_path + stem_len, ".nav");
+                    if (access(nav_path, R_OK) == 0) {
+                        have_nav = 1;
+                    }
                 }
+            }
+            if (!have_nav) {
+                const char *base = slash ? slash + 1 : p0;
+                const char *base_dot = strrchr(base, '.');
+                size_t stem_len = base_dot ? (size_t)(base_dot - base) : strlen(base);
+                const char prefix[] = "/userdata/quad/nav/";
+                size_t prefix_len = sizeof(prefix) - 1;
+                if (stem_len > 0 && prefix_len + stem_len + 5 <= sizeof(nav_path)) {
+                    memcpy(nav_path, prefix, prefix_len);
+                    memcpy(nav_path + prefix_len, base, stem_len);
+                    strcpy(nav_path + prefix_len + stem_len, ".nav");
+                    if (access(nav_path, R_OK) == 0) {
+                        have_nav = 1;
+                    }
+                }
+            }
+            if (have_nav) {
+                fprintf(stderr, "usb_menu: nav from %s\n", nav_path);
             }
         }
     }
@@ -1209,13 +1368,32 @@ static pid_t start_feed(const char *feed_bin, const char *bar1_str, const char *
     argv[argc++] = "--bar1";
     argv[argc++] = bar1_str;
     argv[argc++] = "--dst";
-    argv[argc++] = "960x540";
-    argv[argc++] = "--slot0-rgb565";
+    if (fcam) {
+        /* FPGA 前摄只做回读检测，不推帧：dst 只用于寄存器几何，保持 960x540 */
+        argv[argc++] = "960x540";
+    } else if (full) {
+        argv[argc++] = "1920x1080";
+    } else {
+        argv[argc++] = "960x540";
+        argv[argc++] = "--slot0-rgb565";
+    }
 
-    for (int s = 0; s < num_selected; s++) {
-        snprintf(video_args[s], sizeof(video_args[s]), "%s:%d:30", selected_paths[s], s);
-        argv[argc++] = is_still_path(selected_paths[s]) ? "--still" : "--video";
-        argv[argc++] = video_args[s];
+    if (zoom2x) {
+        argv[argc++] = "--zoom2x";
+    }
+
+    if (fcam) {
+        argv[argc++] = "--fcam:30";   /* 单路满算力：读回跟摄像头帧率走，NPU 单通道独占 */
+    } else if (cam_dev) {
+        snprintf(cam_arg, sizeof(cam_arg), "%s:0:30", cam_dev);
+        argv[argc++] = "--cam";
+        argv[argc++] = cam_arg;
+    } else {
+        for (int s = 0; s < num_selected; s++) {
+            snprintf(video_args[s], sizeof(video_args[s]), "%s:%d:30", selected_paths[s], s);
+            argv[argc++] = is_still_path(selected_paths[s]) ? "--still" : "--video";
+            argv[argc++] = video_args[s];
+        }
     }
 
     if (npu && npu_model_path && npu_model_path[0] != '\0') {
@@ -1230,7 +1408,7 @@ static pid_t start_feed(const char *feed_bin, const char *bar1_str, const char *
     }
     /* 4 路 1080p 解码时 CMA 余量紧张：3 路及以上降到 8 个外部缓冲，避免分配失败 */
     argv[argc++] = "--dec-bufs";
-    argv[argc++] = (num_selected >= 3) ? "8" : "10";
+    argv[argc++] = (!cam_dev && num_selected >= 3) ? "8" : "10";
     argv[argc++] = "--frames";
     argv[argc++] = "0";
     argv[argc] = NULL;
@@ -1242,6 +1420,9 @@ static pid_t start_feed(const char *feed_bin, const char *bar1_str, const char *
     }
     if (pid == 0) {
         setpgid(0, 0);
+        /* usb_menu 被杀或崩溃时让内核给 usb_feed 发 SIGTERM，不留孤儿进程 */
+        prctl(PR_SET_PDEATHSIG, SIGTERM);
+        if (getppid() == 1) _exit(0);
         int log_fd = open("/tmp/usb_menu_feed.log", O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (log_fd >= 0) {
             dup2(log_fd, STDOUT_FILENO);
@@ -1256,30 +1437,69 @@ static pid_t start_feed(const char *feed_bin, const char *bar1_str, const char *
     return pid;
 }
 
+#define USB_MENU_ENABLE_FULLSCREEN 0
+
 static int run_playback(volatile uint32_t *bar1,
                         uint32_t fb_base, uint32_t fb_slot,
-                        const uint64_t *pas, const size_t *sizes,
+                        const int *fds, const uint64_t *pas, const size_t *sizes,
                         void **vas,
                         uint32_t *p_seq, uint32_t done_base, uint32_t *p_fid,
                         const char *feed_bin,
                         const char *bar1_str,
                         const char *npu_model_path,
                         char selected_paths[4][1024],
-                        int num_selected)
+                        int num_selected,
+                        const char *cam_dev,
+                        int is_single,
+                        int zoom_ok)
 {
-    // 1. 先推一帧纯黑到 4 个槽，避免残留 UI
-    make_black_frame(vas, sizes);
-    if (dma_push_all_slots(bar1, fb_base, fb_slot, pas, sizes, p_seq, done_base, p_fid) < 0) {
-        fprintf(stderr, "Failed to push black frame before playback\n");
+    /* cam18 legacy 单窗全屏通路会花屏且退出后显示损坏（11-02 板测），单图改走四宫格 slot0；RTL 修复前不要启用 */
+    int full = USB_MENU_ENABLE_FULLSCREEN && (!cam_dev && num_selected == 1 && is_still_path(selected_paths[0]));
+    int zoom2x = (is_single && zoom_ok) ? 1 : 0;
+    uint32_t zoombit = (is_single && zoom_ok) ? 0x80u : 0u;
+
+    // 1. 先推一帧纯黑，避免残留 UI
+    if (full) {
+        int full_fd = -1;
+        void *full_va = NULL;
+        uint64_t full_pa = 0;
+        int ok = 0;
+        if (alloc_dma_buf("full_black", 3110400, &full_fd, &full_va, &full_pa) == 0) {
+            dmabuf_cpu_begin(full_fd);
+            memset(full_va, 0, 1920 * 1080);
+            memset((uint8_t *)full_va + 1920 * 1080, 128, 1920 * 1080 / 2);
+            dmabuf_cpu_end_flush(full_fd, full_va, 3110400);
+            if (dma_push_slot(bar1, fb_base, full_pa, 3110400, p_seq, done_base, *p_fid, 0) == 0) {
+                (*p_fid)++;
+                ok = 1;
+            } else {
+                fprintf(stderr, "Failed to push full-screen black frame, falling back to quad\n");
+            }
+            munmap(full_va, 3110400);
+            close(full_fd);
+        } else {
+            fprintf(stderr, "Failed to alloc full-screen black DMA buf, falling back to quad\n");
+        }
+        if (!ok) {
+            full = 0;
+        }
+    }
+
+    if (!full) {
+        make_black_frame(fds, vas, sizes);
+        if (dma_push_all_slots(bar1, fb_base, fb_slot, pas, sizes, p_seq, done_base, p_fid) < 0) {
+            fprintf(stderr, "Failed to push black frame before playback\n");
+        }
     }
 
     // 2. 停掉旧 feed
     system("pkill -x usb_feed 2>/dev/null");
 
     // 3. 初始状态与寄存器配置
-    // 进入播放时默认：NPU 开、LANE 开、VIEW 彩色、ZEBRA 关、NIGHT AUTO
-    int npu = 1;
-    int lane = 1;
+    // 进入播放时默认：VIEW 彩色、ZEBRA 关、NIGHT AUTO；
+    // NPU/LANE：多路 U 盘播放默认开，单路显示（MODE 03）默认关，弹窗里再手动打开
+    int npu = is_single ? 0 : 1;
+    int lane = is_single ? 0 : 1;
     int view = 0;
     int zebra = 0;
     int night = 0;
@@ -1287,21 +1507,32 @@ static int run_playback(volatile uint32_t *bar1,
     int sel = 0;
     int popup_dirty = 0;
 
-    wr(bar1, 0x880u, 0x30u);
-    wr(bar1, 0x800u, (rd(bar1, 0x800u) & ~0xF00u) | (((uint32_t)night & 3u) << 10) | 0x65u); // VIEW: COLOR, NIGHT: AUTO
-    wr(bar1, 0x8C0u, rd(bar1, 0x8C0u) | 3u);                // LANE 位写 1 (bit0/bit1)
-    wr(bar1, 0xA20u, rd(bar1, 0xA20u) & ~1u);               // ZEBRA: 关 (bit0)
+    if (full) {
+        wr(bar1, 0x808u, 0x00400000u);
+        wr(bar1, 0x80Cu, 1920u);
+        wr(bar1, 0x810u, 1920u * 1080u);
+        wr(bar1, 0x800u, (rd(bar1, 0x800u) & ~0xF00u) | (((uint32_t)night & 3u) << 10) | 0x45u);
+        wr(bar1, 0x880u, 0x70u);
+        wr(bar1, 0x8C0u, rd(bar1, 0x8C0u) & ~3u);
+        wr(bar1, 0xA20u, rd(bar1, 0xA20u) & ~1u);
+    } else {
+        /* 0x880 bit6 = 下方车道指示箭头：单路显示时跟随 LANE 开关（默认关），多路播放保持常开 */
+        wr(bar1, 0x880u, (!is_single || lane) ? 0x70u : 0x30u);
+        wr(bar1, 0x800u, (rd(bar1, 0x800u) & ~0xF80u) | (((uint32_t)night & 3u) << 10) | 0x65u | zoombit); // VIEW: COLOR, NIGHT: AUTO
+        if (lane) wr(bar1, 0x8C0u, rd(bar1, 0x8C0u) | 3u);      // LANE 开：检测+绘制 (bit0/bit1)
+        else      wr(bar1, 0x8C0u, rd(bar1, 0x8C0u) & ~3u);     // LANE 关
+        wr(bar1, 0xA20u, rd(bar1, 0xA20u) & ~1u);               // ZEBRA: 关 (bit0)
+    }
 
     // 清除前 3 行 OSD 文本（避免此前残留）
     hide_playback_popup(bar1);
 
+    const char *pop_title = cam_dev ? "USB CAM   KEY0 NEXT  KEY1 OK  KEY4 HOLD CLOSE" : "USB PLAY  KEY0 NEXT  KEY1 OK  KEY4 HOLD CLOSE";
+
     // 4. 启动 feed
-    pid_t pid = start_feed(feed_bin, bar1_str, npu_model_path, selected_paths, num_selected, npu);
+    pid_t pid = start_feed(feed_bin, bar1_str, npu_model_path, selected_paths, num_selected, cam_dev, npu, full, zoom2x, 0);
     if (pid < 0) {
-        wr(bar1, 0x880u, 0x10u);
-        wr(bar1, 0x800u, 0x865u);  // 列表界面：NIGHT OFF
-        clear_text_ram(bar1);
-        clear_all_boxes(bar1);
+        restore_display_defaults(bar1);
         return 0;
     }
 
@@ -1349,7 +1580,7 @@ static int run_playback(volatile uint32_t *bar1,
                 popup = !popup;
                 if (popup) {
                     popup_dirty = 0;
-                    show_playback_popup(bar1, sel, npu, lane, view, zebra, night);
+                    show_playback_popup(bar1, pop_title, sel, npu, lane, view, zebra, night, 1);
                 } else {
                     hide_playback_popup(bar1);
                     if (popup_dirty && pid > 0) {
@@ -1361,7 +1592,7 @@ static int run_playback(volatile uint32_t *bar1,
                 // KEY0：弹窗开着时循环移动标记
                 popup_dirty = 1;
                 sel = (sel + 1) % 5;
-                show_playback_popup(bar1, sel, npu, lane, view, zebra, night);
+                show_playback_popup(bar1, pop_title, sel, npu, lane, view, zebra, night, 1);
             } else if (popup && key == 1 && type == 1) {
                 // KEY1：执行对应项动作
                 popup_dirty = 1;
@@ -1369,38 +1600,46 @@ static int run_playback(volatile uint32_t *bar1,
                     // NPU：取反 → kill 当前 feed → 重启 feed → 刷新文本
                     npu = !npu;
                     kill_pid_gracefully(pid);
-                    pid = start_feed(feed_bin, bar1_str, npu_model_path, selected_paths, num_selected, npu);
-                    show_playback_popup(bar1, sel, npu, lane, view, zebra, night);
+                    pid = start_feed(feed_bin, bar1_str, npu_model_path, selected_paths, num_selected, cam_dev, npu, full, zoom2x, 0);
+                    show_playback_popup(bar1, pop_title, sel, npu, lane, view, zebra, night, 1);
                 } else if (sel == 1) {
                     // LANE：取反 → 0x8C0 bit0/bit1 同时置/清
                     lane = !lane;
-                    uint32_t val = rd(bar1, 0x8C0u);
-                    if (lane) val |= 3u;
-                    else val &= ~3u;
-                    wr(bar1, 0x8C0u, val);
-                    show_playback_popup(bar1, sel, npu, lane, view, zebra, night);
+                    if (!full) {
+                        uint32_t val = rd(bar1, 0x8C0u);
+                        if (lane) val |= 3u;
+                        else val &= ~3u;
+                        wr(bar1, 0x8C0u, val);
+                        if (is_single) {   /* 单路显示：下方指示箭头跟随 LANE */
+                            uint32_t oc = rd(bar1, 0x880u);
+                            wr(bar1, 0x880u, lane ? (oc | 0x40u) : (oc & ~0x40u));
+                        }
+                    }
+                    show_playback_popup(bar1, pop_title, sel, npu, lane, view, zebra, night, 1);
                 } else if (sel == 2) {
                     // VIEW：(view+1)%3 → 0x800 = (0x800 & ~0x300) | (view<<8)
                     view = (view + 1) % 3;
                     uint32_t val = rd(bar1, 0x800u);
                     val = (val & ~0x300u) | (((uint32_t)view & 3u) << 8);
                     wr(bar1, 0x800u, val);
-                    show_playback_popup(bar1, sel, npu, lane, view, zebra, night);
+                    show_playback_popup(bar1, pop_title, sel, npu, lane, view, zebra, night, 1);
                 } else if (sel == 3) {
                     // ZEBRA：取反 → 0xA20 bit0
                     zebra = !zebra;
-                    uint32_t val = rd(bar1, 0xA20u);
-                    if (zebra) val |= 1u;
-                    else val &= ~1u;
-                    wr(bar1, 0xA20u, val);
-                    show_playback_popup(bar1, sel, npu, lane, view, zebra, night);
+                    if (!full) {
+                        uint32_t val = rd(bar1, 0xA20u);
+                        if (zebra) val |= 1u;
+                        else val &= ~1u;
+                        wr(bar1, 0xA20u, val);
+                    }
+                    show_playback_popup(bar1, pop_title, sel, npu, lane, view, zebra, night, 1);
                 } else if (sel == 4) {
                     // NIGHT：循环 AUTO(0) -> ON(1) -> OFF(2) -> AUTO(0)；0x800[11:10]
                     night = (night + 1) % 3;
                     uint32_t val = rd(bar1, 0x800u);
                     val = (val & ~0xC00u) | (((uint32_t)night & 3u) << 10);
                     wr(bar1, 0x800u, val);
-                    show_playback_popup(bar1, sel, npu, lane, view, zebra, night);
+                    show_playback_popup(bar1, pop_title, sel, npu, lane, view, zebra, night, 1);
                 }
             }
         }
@@ -1412,12 +1651,447 @@ static int run_playback(volatile uint32_t *bar1,
     }
 
     // 6. 恢复硬件
-    wr(bar1, 0x880u, 0x10u);
-    wr(bar1, 0x800u, 0x865u);  // 列表界面：NIGHT OFF
-    clear_text_ram(bar1);
-    clear_all_boxes(bar1);
+    restore_display_defaults(bar1);
 
     return exit_app;
+}
+
+static void run_fpga_cam(volatile uint32_t *bar1,
+                         uint32_t fb_base, uint32_t fb_slot,
+                         const int *fds, const uint64_t *pas, const size_t *sizes,
+                         void **vas,
+                         uint32_t *p_seq, uint32_t done_base, uint32_t *p_fid,
+                         int zoom_ok,
+                         const char *feed_bin, const char *bar1_str, const char *npu_model_path)
+{
+    // 1. 推一帧黑到 slot1-3（复用现有黑帧函数）
+    make_black_frame(fds, vas, sizes);
+    for (int s = 1; s < 4; s++) {
+        uint32_t dst_base = fb_base + (uint32_t)s * fb_slot;
+        if (dma_push_slot(bar1, dst_base, pas[s], sizes[s], p_seq, done_base, *p_fid, s) < 0) {
+            fprintf(stderr, "Failed to push black frame to slot %d\n", s);
+        }
+        (*p_fid)++;
+    }
+
+    // 2. 停掉旧 feed
+    system("pkill -x usb_feed 2>/dev/null");
+
+    // 3. 初始寄存器配置
+    int lane = 0;   // 单路显示默认关车道线检测，弹窗里再打开
+    int view = 0;
+    int zebra = 0;
+    int night = 0;
+    int popup = 0;
+    int sel = 1;
+    int npu_avail = (npu_model_path && npu_model_path[0] && access(npu_model_path, R_OK) == 0);
+    int npu = 0;    // 单路显示默认关 NPU（npu_avail 仍决定弹窗显示 OFF 还是 N/A）
+    uint32_t zoombit = zoom_ok ? 0x80u : 0u;
+
+    wr(bar1, 0x880u, lane ? 0x70u : 0x30u);  // bit6 下方车道指示箭头跟随 LANE（默认关）
+    wr(bar1, 0x800u, (((uint32_t)night & 3u) << 10) | 0x25u | zoombit); // CAM_OFF=0
+    wr(bar1, 0x8C0u, rd(bar1, 0x8C0u) & ~3u); // 车道线检测/绘制默认关
+    wr(bar1, 0xA20u, rd(bar1, 0xA20u) & ~1u);
+
+    // 3b. 前摄回读检测：usb_feed 从 DDR 读回前摄画面，送 NPU 与红绿灯识别
+    pid_t pid = start_feed(feed_bin, bar1_str, npu_model_path, NULL, 0, NULL, npu, 0, zoom_ok, 1);
+
+    hide_playback_popup(bar1);
+
+    // 4. 等待按键
+    uint32_t last_seq = rd(bar1, 0x844u) & 0xFFu;
+
+    while (1) {
+        usleep(30000); // 30 ms
+
+        uint32_t v = rd(bar1, 0x844u);
+        uint32_t seq = v & 0xFFu;
+        if (seq != last_seq) {
+            last_seq = seq;
+            uint32_t key = (v >> 8) & 7u;
+            uint32_t type = (v >> 12) & 3u;
+
+            if (key == 4 && type == 3) {
+                // HOLD3 (10s): 调试
+            } else if (key == 4 && type == 2) {
+                // KEY4 长按：恢复并回源选择页
+                if (popup) {
+                    hide_playback_popup(bar1);
+                    popup = 0;
+                }
+                break;
+            } else if (key == 4 && type == 1) {
+                // KEY4 短按：弹窗开关
+                popup = !popup;
+                if (popup) {
+                    sel = npu_avail ? 0 : 1;
+                    show_playback_popup(bar1, "FPGA CAM  KEY0 NEXT  KEY1 OK  KEY4 HOLD CLOSE",
+                                        sel, npu, lane, view, zebra, night, npu_avail);
+                } else {
+                    hide_playback_popup(bar1);
+                }
+            } else if (popup && key == 0 && type == 1) {
+                // KEY0：循环 0..4（无 NPU 时从 1 开始）
+                if (!npu_avail) sel = (sel >= 4) ? 1 : sel + 1;
+                else            sel = (sel >= 4) ? 0 : sel + 1;
+                show_playback_popup(bar1, "FPGA CAM  KEY0 NEXT  KEY1 OK  KEY4 HOLD CLOSE",
+                                    sel, npu, lane, view, zebra, night, npu_avail);
+            } else if (popup && key == 1 && type == 1) {
+                // KEY1：执行对应项动作
+                if (sel == 0 && npu_avail) {
+                    npu = !npu;
+                    if (pid > 0) { kill_pid_gracefully(pid); pid = -1; }
+                    pid = start_feed(feed_bin, bar1_str, npu_model_path, NULL, 0, NULL,
+                                     npu, 0, zoom_ok, 1);
+                    show_playback_popup(bar1, "FPGA CAM  KEY0 NEXT  KEY1 OK  KEY4 HOLD CLOSE",
+                                        sel, npu, lane, view, zebra, night, npu_avail);
+                } else if (sel == 1) {
+                    lane = !lane;
+                    uint32_t val = rd(bar1, 0x8C0u);
+                    if (lane) val |= 3u;
+                    else val &= ~3u;
+                    wr(bar1, 0x8C0u, val);
+                    uint32_t oc = rd(bar1, 0x880u);   // 下方指示箭头跟随 LANE
+                    wr(bar1, 0x880u, lane ? (oc | 0x40u) : (oc & ~0x40u));
+                    show_playback_popup(bar1, "FPGA CAM  KEY0 NEXT  KEY1 OK  KEY4 HOLD CLOSE",
+                                        sel, npu, lane, view, zebra, night, npu_avail);
+                } else if (sel == 2) {
+                    view = (view + 1) % 3;
+                    uint32_t val = rd(bar1, 0x800u);
+                    val = (val & ~0x300u) | (((uint32_t)view & 3u) << 8);
+                    wr(bar1, 0x800u, val);
+                    show_playback_popup(bar1, "FPGA CAM  KEY0 NEXT  KEY1 OK  KEY4 HOLD CLOSE",
+                                        sel, npu, lane, view, zebra, night, npu_avail);
+                } else if (sel == 3) {
+                    zebra = !zebra;
+                    uint32_t val = rd(bar1, 0xA20u);
+                    if (zebra) val |= 1u;
+                    else val &= ~1u;
+                    wr(bar1, 0xA20u, val);
+                    show_playback_popup(bar1, "FPGA CAM  KEY0 NEXT  KEY1 OK  KEY4 HOLD CLOSE",
+                                        sel, npu, lane, view, zebra, night, npu_avail);
+                } else if (sel == 4) {
+                    night = (night + 1) % 3;
+                    uint32_t val = rd(bar1, 0x800u);
+                    val = (val & ~0xC00u) | (((uint32_t)night & 3u) << 10);
+                    wr(bar1, 0x800u, val);
+                    show_playback_popup(bar1, "FPGA CAM  KEY0 NEXT  KEY1 OK  KEY4 HOLD CLOSE",
+                                        sel, npu, lane, view, zebra, night, npu_avail);
+                }
+            }
+        }
+    }
+
+    // 5. 退出恢复
+    if (pid > 0) {
+        kill_pid_gracefully(pid);
+        pid = -1;
+    }
+    restore_display_defaults(bar1);
+}
+
+static void render_source_select_ui(uint8_t *canvas, int cursor, int zoom_ok)
+{
+    static const char *k_src_titles[5] = {
+        "FPGA 前摄",
+        "USB 摄像头 1",
+        "USB 摄像头 2",
+        "USB 摄像头 3",
+        "U 盘单个文件"
+    };
+    static const char *k_src_subs[5] = {
+        "车道线+红绿灯+NPU",
+        "车道线+红绿灯+NPU",
+        "车道线+红绿灯+NPU",
+        "车道线+红绿灯+NPU",
+        "选 1 个视频或图片"
+    };
+
+    fill_rect(canvas, 0, 0, SCREEN_W, SCREEN_H, COLOR_BG);
+
+    // 顶部 (48, 32) 标题
+    draw_text_utf8(canvas, 48, 32, "单路显示 · 选择画面源", COLOR_WHITE, 1800);
+
+    // 顶部 (48, 76) 状态提示
+    if (zoom_ok) {
+        draw_text_utf8(canvas, 48, 76, "FPGA ZOOM2X 硬件放大支持已就绪 (0x800 bit7) · 全屏模式", COLOR_CYAN, 1800);
+    } else {
+        draw_text_utf8(canvas, 48, 76, "FPGA 位流版本 < 0x20261102 (无 ZOOM2X 支持，将显示在左上格)", COLOR_AMBER, 1800);
+    }
+
+    // 分隔线
+    fill_rect(canvas, 48, 122, 120, 4, COLOR_CYAN);
+    fill_rect(canvas, 168, 123, SCREEN_W - 48 - 168, 2, COLOR_CARD_BORDER);
+
+    // 5 个卡片
+    int card_x = 240;
+    int card_w = 1440;
+    int card_y = 160;
+    int item_h = 130;
+    int item_gap = 25;
+
+    for (int i = 0; i < 5; i++) {
+        int y = card_y + i * (item_h + item_gap);
+        int is_cur = (cursor == i);
+
+        if (is_cur) {
+            fill_rect(canvas, card_x, y, card_w, item_h, COLOR_CYAN);
+            draw_text_utf8(canvas, card_x + 50, y + 26, k_src_titles[i], COLOR_BG, card_x + card_w - 260);
+            draw_text_utf8(canvas, card_x + 50, y + 74, k_src_subs[i], COLOR_BG, card_x + card_w - 260);
+            draw_text_utf8(canvas, card_x + card_w - 280, y + 50, "> 按 KEY1 进入 <", COLOR_BG, card_x + card_w - 30);
+        } else {
+            fill_rect(canvas, card_x, y, card_w, item_h, COLOR_CARD_BG);
+            draw_rect_outline(canvas, card_x, y, card_w, item_h, 2, COLOR_CARD_BORDER);
+            draw_text_utf8(canvas, card_x + 50, y + 26, k_src_titles[i], COLOR_WHITE, card_x + card_w - 260);
+            draw_text_utf8(canvas, card_x + 50, y + 74, k_src_subs[i], COLOR_GRAY, card_x + card_w - 260);
+        }
+    }
+
+    // 底部提示
+    draw_text_utf8(canvas, 240, 980, "KEY0: 切换选项    KEY1: 确认进入    长按 KEY4: 退出程序", COLOR_GRAY, 1800);
+}
+
+static void run_file_browser(volatile uint32_t *bar1,
+                             uint32_t fb_base, uint32_t fb_slot,
+                             const int *dma_fds, const uint64_t *dma_pas, void **dma_vas,
+                             uint32_t *p_seq, uint32_t done_base, uint32_t *p_fid,
+                             const char *feed_bin, const char *bar1_str_buf, const char *npu_model_path,
+                             const char *mount_point, uint8_t *canvas,
+                             int single_mode, int zoom_ok)
+{
+    char usb_dev[64] = "";
+    int usb_mounted = (scan_and_mount(mount_point, usb_dev, sizeof(usb_dev)) == 0);
+
+    char current_path[1024];
+    strncpy(current_path, mount_point, sizeof(current_path) - 1);
+    current_path[sizeof(current_path) - 1] = '\0';
+
+    menu_item_t *items = malloc(MAX_ITEMS * sizeof(menu_item_t));
+    if (!items) {
+        fprintf(stderr, "Failed to allocate items memory\n");
+        return;
+    }
+    int total_items = 0;
+    int cursor = 0;
+    int top_idx = 0;
+
+    char selected_paths[4][1024];
+    char selected_names[4][256];
+    int num_selected = 0;
+
+    notif_type_t notif_type = NOTIF_NONE;
+    uint64_t notif_expiry = 0;
+
+    if (usb_mounted) {
+        scan_directory(current_path, mount_point, items, &total_items);
+    } else {
+        total_items = 0;
+    }
+
+    render_ui(canvas, current_path, usb_dev, usb_mounted, items, total_items, cursor, top_idx,
+              selected_paths, selected_names, num_selected, notif_type);
+    canvas_to_slots(dma_fds, canvas, dma_vas);
+    dma_push_all_slots(bar1, fb_base, fb_slot, dma_pas, k_tile_sizes, p_seq, done_base, p_fid);
+
+    uint32_t last_seq = rd(bar1, 0x844u) & 0xFFu;
+
+    while (1) {
+        usleep(30000); // 30 ms
+
+        if (notif_type != NOTIF_NONE && now_ns() >= notif_expiry) {
+            notif_type = NOTIF_NONE;
+            render_ui(canvas, current_path, usb_dev, usb_mounted, items, total_items, cursor, top_idx,
+                      selected_paths, selected_names, num_selected, notif_type);
+            canvas_to_slots(dma_fds, canvas, dma_vas);
+            dma_push_all_slots(bar1, fb_base, fb_slot, dma_pas, k_tile_sizes, p_seq, done_base, p_fid);
+        }
+
+        uint32_t v = rd(bar1, 0x844u);
+        uint32_t seq = v & 0xFFu;
+        if (seq == last_seq) {
+            continue;
+        }
+        last_seq = seq;
+
+        uint32_t key = (v >> 8) & 7u;
+        uint32_t type = (v >> 12) & 3u;
+
+        if (key == 4 && type == 3) {
+            // HOLD3 (10s)
+        } else if (key == 4 && type == 2) {
+            // 长按 KEY4：退出文件浏览器
+            break;
+        } else if (key == 4 && type == 1) {
+            // 短按 KEY4：返回上一级目录
+            if (usb_mounted && strcmp(current_path, mount_point) != 0) {
+                char *last_slash = strrchr(current_path, '/');
+                if (last_slash && last_slash != current_path) {
+                    *last_slash = '\0';
+                } else {
+                    strncpy(current_path, mount_point, sizeof(current_path) - 1);
+                }
+                if (strlen(current_path) < strlen(mount_point)) {
+                    strncpy(current_path, mount_point, sizeof(current_path) - 1);
+                }
+                scan_directory(current_path, mount_point, items, &total_items);
+                cursor = 0;
+                top_idx = 0;
+
+                render_ui(canvas, current_path, usb_dev, usb_mounted, items, total_items, cursor, top_idx,
+                          selected_paths, selected_names, num_selected, notif_type);
+                canvas_to_slots(dma_fds, canvas, dma_vas);
+                dma_push_all_slots(bar1, fb_base, fb_slot, dma_pas, k_tile_sizes, p_seq, done_base, p_fid);
+            }
+            continue;
+        }
+
+        if (type == 1 && key == 0) {
+            // 短按 KEY0：光标下移
+            if (total_items > 0) {
+                cursor = (cursor + 1) % total_items;
+                if (cursor < top_idx) {
+                    top_idx = cursor;
+                } else if (cursor >= top_idx + MAX_VISIBLE_ROWS) {
+                    top_idx = cursor - (MAX_VISIBLE_ROWS - 1);
+                }
+                render_ui(canvas, current_path, usb_dev, usb_mounted, items, total_items, cursor, top_idx,
+                          selected_paths, selected_names, num_selected, notif_type);
+                canvas_to_slots(dma_fds, canvas, dma_vas);
+                dma_push_all_slots(bar1, fb_base, fb_slot, dma_pas, k_tile_sizes, p_seq, done_base, p_fid);
+            }
+            continue;
+        }
+
+        if (type == 1 && key == 1) {
+            // 短按 KEY1
+            if (!usb_mounted) {
+                if (scan_and_mount(mount_point, usb_dev, sizeof(usb_dev)) == 0) {
+                    usb_mounted = 1;
+                    strncpy(current_path, mount_point, sizeof(current_path) - 1);
+                    scan_directory(current_path, mount_point, items, &total_items);
+                    cursor = 0;
+                    top_idx = 0;
+                }
+                render_ui(canvas, current_path, usb_dev, usb_mounted, items, total_items, cursor, top_idx,
+                          selected_paths, selected_names, num_selected, notif_type);
+                canvas_to_slots(dma_fds, canvas, dma_vas);
+                dma_push_all_slots(bar1, fb_base, fb_slot, dma_pas, k_tile_sizes, p_seq, done_base, p_fid);
+                continue;
+            }
+
+            if (cursor >= 0 && cursor < total_items) {
+                menu_item_t *cur_item = &items[cursor];
+
+                if (cur_item->type == ITEM_DIR_UP) {
+                    char *last_slash = strrchr(current_path, '/');
+                    if (last_slash && last_slash != current_path) {
+                        *last_slash = '\0';
+                    } else {
+                        strncpy(current_path, mount_point, sizeof(current_path) - 1);
+                    }
+                    if (strlen(current_path) < strlen(mount_point)) {
+                        strncpy(current_path, mount_point, sizeof(current_path) - 1);
+                    }
+                    scan_directory(current_path, mount_point, items, &total_items);
+                    cursor = 0;
+                    top_idx = 0;
+                } else if (cur_item->type == ITEM_DIR) {
+                    char next_path[1024];
+                    snprintf(next_path, sizeof(next_path), "%s/%s", current_path, cur_item->name);
+                    strncpy(current_path, next_path, sizeof(current_path) - 1);
+                    scan_directory(current_path, mount_point, items, &total_items);
+                    cursor = 0;
+                    top_idx = 0;
+                } else if (cur_item->type == ITEM_FILE) {
+                    if (single_mode) {
+                        struct stat st;
+                        if (stat(cur_item->full_path, &st) != 0) {
+                            scan_directory(current_path, mount_point, items, &total_items);
+                        } else {
+                            strncpy(selected_paths[0], cur_item->full_path, sizeof(selected_paths[0]) - 1);
+                            selected_paths[0][sizeof(selected_paths[0]) - 1] = '\0';
+                            strncpy(selected_names[0], cur_item->name, sizeof(selected_names[0]) - 1);
+                            selected_names[0][sizeof(selected_names[0]) - 1] = '\0';
+                            num_selected = 1;
+
+                            run_playback(bar1, fb_base, fb_slot, dma_fds, dma_pas, k_tile_sizes,
+                                         dma_vas, p_seq, done_base, p_fid,
+                                         feed_bin, bar1_str_buf, npu_model_path,
+                                         selected_paths, 1, NULL, 1, zoom_ok);
+                            last_seq = rd(bar1, 0x844u) & 0xFFu;
+                        }
+                    } else {
+                        int s_idx = get_selection_index(cur_item->full_path, selected_paths, num_selected);
+                        if (s_idx >= 0) {
+                            for (int k = s_idx; k < num_selected - 1; k++) {
+                                strcpy(selected_paths[k], selected_paths[k + 1]);
+                                strcpy(selected_names[k], selected_names[k + 1]);
+                            }
+                            num_selected--;
+                        } else {
+                            if (num_selected >= 4) {
+                                notif_type = NOTIF_MAX_VIDEOS;
+                                notif_expiry = now_ns() + 2ULL * 1000000000ULL;
+                            } else {
+                                struct stat st;
+                                if (stat(cur_item->full_path, &st) != 0) {
+                                    scan_directory(current_path, mount_point, items, &total_items);
+                                } else {
+                                    strncpy(selected_paths[num_selected], cur_item->full_path, sizeof(selected_paths[0]) - 1);
+                                    selected_paths[num_selected][sizeof(selected_paths[0]) - 1] = '\0';
+                                    strncpy(selected_names[num_selected], cur_item->name, sizeof(selected_names[0]) - 1);
+                                    selected_names[num_selected][sizeof(selected_names[0]) - 1] = '\0';
+                                    num_selected++;
+                                }
+                            }
+                        }
+                    }
+                } else if (cur_item->type == ITEM_START) {
+                    if (single_mode) {
+                        if (num_selected == 1) {
+                            run_playback(bar1, fb_base, fb_slot, dma_fds, dma_pas, k_tile_sizes,
+                                         dma_vas, p_seq, done_base, p_fid,
+                                         feed_bin, bar1_str_buf, npu_model_path,
+                                         selected_paths, 1, NULL, 1, zoom_ok);
+                            last_seq = rd(bar1, 0x844u) & 0xFFu;
+                        }
+                    } else {
+                        if (num_selected >= 1) {
+                            for (int s = 0; s < num_selected; ) {
+                                struct stat st;
+                                if (stat(selected_paths[s], &st) != 0) {
+                                    for (int k = s; k < num_selected - 1; k++) {
+                                        strcpy(selected_paths[k], selected_paths[k + 1]);
+                                        strcpy(selected_names[k], selected_names[k + 1]);
+                                    }
+                                    num_selected--;
+                                } else {
+                                    s++;
+                                }
+                            }
+
+                            if (num_selected >= 1) {
+                                run_playback(bar1, fb_base, fb_slot, dma_fds, dma_pas, k_tile_sizes,
+                                             dma_vas, p_seq, done_base, p_fid,
+                                             feed_bin, bar1_str_buf, npu_model_path,
+                                             selected_paths, num_selected, NULL, 0, 0);
+                                last_seq = rd(bar1, 0x844u) & 0xFFu;
+                            }
+                        }
+                    }
+                }
+
+                render_ui(canvas, current_path, usb_dev, usb_mounted, items, total_items, cursor, top_idx,
+                          selected_paths, selected_names, num_selected, notif_type);
+                canvas_to_slots(dma_fds, canvas, dma_vas);
+                dma_push_all_slots(bar1, fb_base, fb_slot, dma_pas, k_tile_sizes, p_seq, done_base, p_fid);
+            }
+            continue;
+        }
+    }
+
+    free(items);
+    restore_display_defaults(bar1);
 }
 
 int main(int argc, char **argv)
@@ -1428,11 +2102,14 @@ int main(int argc, char **argv)
     const char *npu_model_path = "/userdata/quad/b5_v6n_band.rknn";
     const char *cjk_path = "/userdata/quad/ui_cjk.bin";
     char bar1_str_buf[32] = "0xf0204000";
+    int single_mode = 0;
 
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
             print_usage(argv[0]);
             return 0;
+        } else if (!strcmp(argv[i], "--single")) {
+            single_mode = 1;
         } else if (!strcmp(argv[i], "--bar1")) {
             if (i + 1 >= argc) {
                 fprintf(stderr, "Missing argument for --bar1\n");
@@ -1496,7 +2173,7 @@ int main(int argc, char **argv)
 
     // 2. 清场与初始化显示控制
     wr(bar1, 0x880u, 0x10u);
-    wr(bar1, 0x8C0u, rd(bar1, 0x8C0u) & ~4u);
+    wr(bar1, 0x8C0u, rd(bar1, 0x8C0u) & ~7u);  /* 清 bit0-2：启动时不残留车道线检测/绘制 */
     wr(bar1, 0x850u, 0);
     clear_text_ram(bar1);
     clear_all_boxes(bar1);
@@ -1508,6 +2185,10 @@ int main(int argc, char **argv)
     wr(bar1, 0x80Cu, 960u);
     wr(bar1, 0x810u, 960u * 540u);
     wr(bar1, 0x800u, 0x865u);  // 列表界面：NIGHT OFF
+
+    uint32_t fpga_ver = rd(bar1, 0x838u);
+    int zoom_ok = (fpga_ver >= 0x20261102u) ? 1 : 0;
+    printf("usb_menu: fpga ver=0x%08x zoom_ok=%d\n", fpga_ver, zoom_ok);
 
     // 3. 分配 4 个槽的 CMA DMA 缓冲
     int dma_fds[4] = { -1, -1, -1, -1 };
@@ -1541,223 +2222,84 @@ int main(int argc, char **argv)
     uint32_t g_seq = 0;
     uint32_t fid = 1u;
 
-    // 5. U 盘挂载与目录扫描
-    char usb_dev[64] = "";
-    int usb_mounted = (scan_and_mount(mount_point, usb_dev, sizeof(usb_dev)) == 0);
-
-    char current_path[1024];
-    strncpy(current_path, mount_point, sizeof(current_path) - 1);
-    current_path[sizeof(current_path) - 1] = '\0';
-
-    menu_item_t *items = malloc(MAX_ITEMS * sizeof(menu_item_t));
-    int total_items = 0;
-    int cursor = 0;
-    int top_idx = 0;
-
-    char selected_paths[4][1024];
-    char selected_names[4][256];
-    int num_selected = 0;
-
-    notif_type_t notif_type = NOTIF_NONE;
-    uint64_t notif_expiry = 0;
-
-    if (usb_mounted) {
-        scan_directory(current_path, mount_point, items, &total_items);
-    } else {
-        total_items = 0;
-    }
-
-    // 画初始界面并推图
-    render_ui(canvas, current_path, usb_dev, usb_mounted, items, total_items, cursor, top_idx,
-              selected_paths, selected_names, num_selected, notif_type);
-    canvas_to_slots(canvas, dma_vas);
-    dma_push_all_slots(bar1, fb_base, fb_slot, dma_pas, k_tile_sizes, &g_seq, g_done_base, &fid);
-
-    // 6. 主事件循环
-    uint32_t last_seq = rd(bar1, 0x844u) & 0xFFu;
     int exit_code = 0;
 
-    while (1) {
-        usleep(30000); // 30 ms
+    if (single_mode) {
+        int src_cursor = 0;
+        render_source_select_ui(canvas, src_cursor, zoom_ok);
+        canvas_to_slots(dma_fds, canvas, dma_vas);
+        dma_push_all_slots(bar1, fb_base, fb_slot, dma_pas, k_tile_sizes, &g_seq, g_done_base, &fid);
 
-        // 处理临时提示过期
-        if (notif_type != NOTIF_NONE && now_ns() >= notif_expiry) {
-            notif_type = NOTIF_NONE;
-            render_ui(canvas, current_path, usb_dev, usb_mounted, items, total_items, cursor, top_idx,
-                      selected_paths, selected_names, num_selected, notif_type);
-            canvas_to_slots(canvas, dma_vas);
-            dma_push_all_slots(bar1, fb_base, fb_slot, dma_pas, k_tile_sizes, &g_seq, g_done_base, &fid);
-        }
+        uint32_t last_seq = rd(bar1, 0x844u) & 0xFFu;
 
-        uint32_t v = rd(bar1, 0x844u);
-        uint32_t seq = v & 0xFFu;
-        if (seq == last_seq) {
-            continue;
-        }
-        last_seq = seq;
+        while (1) {
+            usleep(30000); // 30 ms
 
-        uint32_t key = (v >> 8) & 7u;
-        uint32_t type = (v >> 12) & 3u;
+            uint32_t v = rd(bar1, 0x844u);
+            uint32_t seq = v & 0xFFu;
+            if (seq == last_seq) continue;
+            last_seq = seq;
 
-        if (key == 4 && type == 3) {
-            // HOLD3（10 s）：进入 FPGA 调试/标定，不退出浏览器
-        } else if (key == 4 && type == 2) {
-            // 长按 KEY4：退出程序
-            exit_code = 0;
-            break;
-        } else if (key == 4 && type == 1) {
-            // 短按 KEY4：返回上一级目录
-            if (usb_mounted && strcmp(current_path, mount_point) != 0) {
-                char *last_slash = strrchr(current_path, '/');
-                if (last_slash && last_slash != current_path) {
-                    *last_slash = '\0';
-                } else {
-                    strncpy(current_path, mount_point, sizeof(current_path) - 1);
-                }
-                if (strlen(current_path) < strlen(mount_point)) {
-                    strncpy(current_path, mount_point, sizeof(current_path) - 1);
-                }
-                scan_directory(current_path, mount_point, items, &total_items);
-                cursor = 0;
-                top_idx = 0;
+            uint32_t key = (v >> 8) & 7u;
+            uint32_t type = (v >> 12) & 3u;
 
-                render_ui(canvas, current_path, usb_dev, usb_mounted, items, total_items, cursor, top_idx,
-                          selected_paths, selected_names, num_selected, notif_type);
-                canvas_to_slots(canvas, dma_vas);
+            if (key == 4 && type == 3) {
+                // HOLD3 (10s): 调试保留
+            } else if (key == 4 && type == 2) {
+                // 长按 KEY4：退出程序（返回开机界面，退出码 0）
+                restore_display_defaults(bar1);
+                exit_code = 0;
+                break;
+            } else if (type == 1 && key == 0) {
+                // 短按 KEY0：光标下移（循环 0..4）
+                src_cursor = (src_cursor + 1) % 5;
+                render_source_select_ui(canvas, src_cursor, zoom_ok);
+                canvas_to_slots(dma_fds, canvas, dma_vas);
                 dma_push_all_slots(bar1, fb_base, fb_slot, dma_pas, k_tile_sizes, &g_seq, g_done_base, &fid);
-            }
-            continue;
-        }
-
-        if (type == 1 && key == 0) {
-            // 短按 KEY0：光标下移（循环，含 START）
-            if (total_items > 0) {
-                cursor = (cursor + 1) % total_items;
-                if (cursor < top_idx) {
-                    top_idx = cursor;
-                } else if (cursor >= top_idx + MAX_VISIBLE_ROWS) {
-                    top_idx = cursor - (MAX_VISIBLE_ROWS - 1);
-                }
-                render_ui(canvas, current_path, usb_dev, usb_mounted, items, total_items, cursor, top_idx,
-                          selected_paths, selected_names, num_selected, notif_type);
-                canvas_to_slots(canvas, dma_vas);
-                dma_push_all_slots(bar1, fb_base, fb_slot, dma_pas, k_tile_sizes, &g_seq, g_done_base, &fid);
-            }
-            continue;
-        }
-
-        if (type == 1 && key == 1) {
-            // 短按 KEY1
-            if (!usb_mounted) {
-                // 重新尝试挂载
-                if (scan_and_mount(mount_point, usb_dev, sizeof(usb_dev)) == 0) {
-                    usb_mounted = 1;
-                    strncpy(current_path, mount_point, sizeof(current_path) - 1);
-                    scan_directory(current_path, mount_point, items, &total_items);
-                    cursor = 0;
-                    top_idx = 0;
-                }
-                render_ui(canvas, current_path, usb_dev, usb_mounted, items, total_items, cursor, top_idx,
-                          selected_paths, selected_names, num_selected, notif_type);
-                canvas_to_slots(canvas, dma_vas);
-                dma_push_all_slots(bar1, fb_base, fb_slot, dma_pas, k_tile_sizes, &g_seq, g_done_base, &fid);
-                continue;
-            }
-
-            if (cursor >= 0 && cursor < total_items) {
-                menu_item_t *cur_item = &items[cursor];
-
-                if (cur_item->type == ITEM_DIR_UP) {
-                    char *last_slash = strrchr(current_path, '/');
-                    if (last_slash && last_slash != current_path) {
-                        *last_slash = '\0';
-                    } else {
-                        strncpy(current_path, mount_point, sizeof(current_path) - 1);
-                    }
-                    if (strlen(current_path) < strlen(mount_point)) {
-                        strncpy(current_path, mount_point, sizeof(current_path) - 1);
-                    }
-                    scan_directory(current_path, mount_point, items, &total_items);
-                    cursor = 0;
-                    top_idx = 0;
-                } else if (cur_item->type == ITEM_DIR) {
-                    char next_path[1024];
-                    snprintf(next_path, sizeof(next_path), "%s/%s", current_path, cur_item->name);
-                    strncpy(current_path, next_path, sizeof(current_path) - 1);
-                    scan_directory(current_path, mount_point, items, &total_items);
-                    cursor = 0;
-                    top_idx = 0;
-                } else if (cur_item->type == ITEM_FILE) {
-                    int s_idx = get_selection_index(cur_item->full_path, selected_paths, num_selected);
-                    if (s_idx >= 0) {
-                        // 移出已选，后续项前移
-                        for (int k = s_idx; k < num_selected - 1; k++) {
-                            strcpy(selected_paths[k], selected_paths[k + 1]);
-                            strcpy(selected_names[k], selected_names[k + 1]);
-                        }
-                        num_selected--;
-                    } else {
-                        if (num_selected >= 4) {
-                            notif_type = NOTIF_MAX_VIDEOS;
-                            notif_expiry = now_ns() + 2ULL * 1000000000ULL;
-                        } else {
-                            struct stat st;
-                            if (stat(cur_item->full_path, &st) != 0) {
-                                // 文件丢失，重新扫目录
-                                scan_directory(current_path, mount_point, items, &total_items);
-                            } else {
-                                strncpy(selected_paths[num_selected], cur_item->full_path, sizeof(selected_paths[0]) - 1);
-                                strncpy(selected_names[num_selected], cur_item->name, sizeof(selected_names[0]) - 1);
-                                num_selected++;
-                            }
-                        }
-                    }
-                } else if (cur_item->type == ITEM_START) {
-                    if (num_selected >= 1) {
-                        // 校验已选文件是否仍然存在
-                        for (int s = 0; s < num_selected; ) {
-                            struct stat st;
-                            if (stat(selected_paths[s], &st) != 0) {
-                                for (int k = s; k < num_selected - 1; k++) {
-                                    strcpy(selected_paths[k], selected_paths[k + 1]);
-                                    strcpy(selected_names[k], selected_names[k + 1]);
-                                }
-                                num_selected--;
-                            } else {
-                                s++;
-                            }
-                        }
-
-                        if (num_selected >= 1) {
-                            int exit_app = run_playback(bar1, fb_base, fb_slot, dma_pas, k_tile_sizes,
-                                                        dma_vas, &g_seq, g_done_base, &fid,
-                                                        feed_bin, bar1_str_buf, npu_model_path,
-                                                        selected_paths, num_selected);
-                            if (exit_app) {
-                                exit_code = 0;
-                                break;
-                            }
-                            last_seq = rd(bar1, 0x844u) & 0xFFu;
-                        }
-                    }
+            } else if (type == 1 && key == 1) {
+                // 短按 KEY1：确认进入对应画面源
+                if (src_cursor == 0) {
+                    run_fpga_cam(bar1, fb_base, fb_slot, dma_fds, dma_pas, k_tile_sizes, dma_vas,
+                                 &g_seq, g_done_base, &fid, zoom_ok,
+                                 feed_bin, bar1_str_buf, npu_model_path);
+                } else if (src_cursor >= 1 && src_cursor <= 3) {
+                    static const char *k_usb_cams[3] = {
+                        "/dev/video17",
+                        "/dev/video19",
+                        "/dev/video21"
+                    };
+                    run_playback(bar1, fb_base, fb_slot, dma_fds, dma_pas, k_tile_sizes,
+                                 dma_vas, &g_seq, g_done_base, &fid,
+                                 feed_bin, bar1_str_buf, npu_model_path,
+                                 NULL, 0, k_usb_cams[src_cursor - 1], 1, zoom_ok);
+                } else if (src_cursor == 4) {
+                    run_file_browser(bar1, fb_base, fb_slot, dma_fds, dma_pas, dma_vas,
+                                     &g_seq, g_done_base, &fid,
+                                     feed_bin, bar1_str_buf, npu_model_path,
+                                     mount_point, canvas, 1, zoom_ok);
                 }
 
-                render_ui(canvas, current_path, usb_dev, usb_mounted, items, total_items, cursor, top_idx,
-                          selected_paths, selected_names, num_selected, notif_type);
-                canvas_to_slots(canvas, dma_vas);
+                // 任何源返回后回到源选择页并重绘
+                restore_display_defaults(bar1);
+                render_source_select_ui(canvas, src_cursor, zoom_ok);
+                canvas_to_slots(dma_fds, canvas, dma_vas);
                 dma_push_all_slots(bar1, fb_base, fb_slot, dma_pas, k_tile_sizes, &g_seq, g_done_base, &fid);
+                last_seq = rd(bar1, 0x844u) & 0xFFu;
             }
-            continue;
         }
+    } else {
+        run_file_browser(bar1, fb_base, fb_slot, dma_fds, dma_pas, dma_vas,
+                         &g_seq, g_done_base, &fid,
+                         feed_bin, bar1_str_buf, npu_model_path,
+                         mount_point, canvas, 0, 0);
+        restore_display_defaults(bar1);
+        exit_code = 0;
     }
 
-    // 7. 退出前卸载挂载点与释放资源
-    if (usb_mounted) {
+    if (is_mounted(mount_point, NULL, 0)) {
         unmount_usb(mount_point);
     }
-
     free(canvas);
-    free(items);
     free_cjk_font(&g_cjk_font);
 
     for (int i = 0; i < 4; i++) {

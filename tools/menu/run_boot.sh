@@ -2,15 +2,19 @@
 E=/sys/bus/pci/devices/0002:21:00.0
 [ -e "$E" ] && { echo 1 > "$E/enable"; printf '\006' | dd of="$E/config" bs=1 seek=4 count=1 conv=notrunc 2>/dev/null; }
 cd /userdata/quad
+export ADAS_LANE_CLS=bucket   # cam22+: RK 端桶式线型判定；旧位流 lane_cls 自动不启动、退回 FPGA 判定
 # 等 FPGA 从 flash 加载完成并应答 BAR1（整机冷启动时通常已就绪，这里兜底 10 s）
 i=0
 while [ $i -lt 10 ]; do
     v=$(devmem 0xf0204838 32 2>/dev/null)
-    case "$v" in 0x20261029|0x20261101) break ;; esac  # cam17 | cam18
+    case "$v" in 0x20261029|0x20261101|0x20261102|0x20261103|0x20261104|0x20261105|0x20261106) break ;; esac  # cam17 | cam18 | cam19 | cam20 | cam21 | cam23
     sleep 1
     i=$((i + 1))
 done
-case "$v" in 0x20261029|0x20261101) ;; *) echo "warn: fpga version=$v after ${i}s" >> /tmp/run_boot.log ;; esac
+case "$v" in 0x20261029|0x20261101|0x20261102|0x20261103|0x20261104|0x20261105|0x20261106) ;; *) echo "warn: fpga version=$v after ${i}s" >> /tmp/run_boot.log ;; esac
+if [ "$v" = "0x20261106" ] && [ -f /userdata/quad/ov_sccb.sh ] && [ -f /userdata/quad/ov5640_tune.txt ]; then
+    sh /userdata/quad/ov_sccb.sh -f /userdata/quad/ov5640_tune.txt >> /tmp/run_boot.log 2>&1 || true
+fi
 fail_cnt=0
 while :; do
   sel=$(./mode_select --bar1 0xf0204000 --dir /userdata/quad/menu); rc=$?
@@ -32,5 +36,6 @@ while :; do
   case "$sel" in
     0) ./menu_daemon --bar1 0xf0204000 ;;
     1) ./usb_menu --bar1 0xf0204000 ;;
+    2) ./usb_menu --bar1 0xf0204000 --single ;;
   esac
 done

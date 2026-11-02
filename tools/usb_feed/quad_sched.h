@@ -51,6 +51,9 @@ void quad_band_to_screen_box(int ch, float bx0, float by0, float bx1, float by1,
 
 void quad_band_to_screen_det(int ch, const npu_det_t *band_det, npu_det_t *screen_det);
 
+void quad_set_fullscreen(int on);
+int quad_is_fullscreen(void);
+
 /* --- Box Selection --- */
 /* Filter score >= conf_thres, sort by score desc, same score by original index asc.
  * Select up to top 4. Returns number of selected boxes (0..4).

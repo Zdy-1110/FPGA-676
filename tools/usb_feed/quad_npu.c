@@ -443,7 +443,7 @@ static int wait_earliest_slot(int *out_buf, int *out_ch)
         slot->state = REQ_IDLE;
     } else {
         if (slot->state == REQ_NOMINATED && slot->req_seq == wait_seq) {
-            slot->state = REQ_CANCELLED;
+            slot->state = REQ_IDLE;
             __atomic_store_n(&g_ch_nominated[target_ch], 0, __ATOMIC_RELEASE);
         } else if (slot->state == REQ_FILLING && slot->req_seq == wait_seq) {
             fprintf(stderr, "warning: channel %d RGA fill timed out (>150ms)\n", target_ch);

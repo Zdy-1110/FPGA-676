@@ -1,5 +1,5 @@
 /*
- * mode_select: 开机二选一选择界面
+ * mode_select: 开机三选一选择界面
  *
  * 为什么需要等 DMA 静止：
  *   从「实时四路」或播放模式退出返回开机选择界面时，若旧的 feed 进程（如 usb_feed）
@@ -29,6 +29,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include "dmabuf_sync.h"
 
 #if defined(__has_include) && __has_include(<linux/dma-heap.h>)
 #include <linux/dma-heap.h>
@@ -81,11 +82,11 @@ static void sig_handler(int sig)
 static void print_usage(const char *prog)
 {
     fprintf(stderr, "Usage:\n");
-    fprintf(stderr, "  %s [--bar1 0xf0204000] [--dir /userdata/quad/menu] [--start 0|1]\n\n", prog);
+    fprintf(stderr, "  %s [--bar1 0xf0204000] [--dir /userdata/quad/menu] [--start 0|1|2]\n\n", prog);
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  --bar1 ADDR   FPGA BAR1 physical address (default: 0xf0204000)\n");
     fprintf(stderr, "  --dir PATH    Menu assets directory (default: /userdata/quad/menu)\n");
-    fprintf(stderr, "  --start 0|1   Initial selected mode (0: Camera, 1: USB video, default: 0)\n");
+    fprintf(stderr, "  --start 0|1|2 Initial selected mode (0: Quad Cam, 1: USB video, 2: Single, default: 0)\n");
     fprintf(stderr, "  -h, --help    Show this help message\n");
 }
 
@@ -190,16 +191,33 @@ static void clear_text_ram(volatile uint32_t *bar1)
     }
 }
 
+struct highlight_box {
+    uint32_t x0;
+    uint32_t y0;
+    uint32_t x1;
+    uint32_t y1;
+};
+
+/* 3 组卡片高亮框坐标（从 gen_selector 卡片矩形推导，留 8 像素边距）：
+ * 模式 0: [8, 8, 631, 1071]
+ * 模式 1: [648, 8, 1271, 1071]
+ * 模式 2: [1288, 8, 1911, 1071]
+ */
+static const struct highlight_box k_highlight_boxes[3] = {
+    { 8u, 8u, 631u, 1071u },
+    { 648u, 8u, 1271u, 1071u },
+    { 1288u, 8u, 1911u, 1071u },
+};
+
 static void draw_highlight(volatile uint32_t *bar1, int sel)
 {
-    // 黄色(3) 2px 框套住选中半屏
-    // 左: 8..951, y 8..1071
-    // 右: 968..1911, y 8..1071
+    if (sel < 0 || sel >= 3) return;
+    // 黄色(3) 2px 框套住选中卡片
     uint32_t color = 3u; // 黄色
-    uint32_t x0 = (sel == 0) ? 8u : 968u;
-    uint32_t y0 = 8u;
-    uint32_t x1 = (sel == 0) ? 951u : 1911u;
-    uint32_t y1 = 1071u;
+    uint32_t x0 = k_highlight_boxes[sel].x0;
+    uint32_t y0 = k_highlight_boxes[sel].y0;
+    uint32_t x1 = k_highlight_boxes[sel].x1;
+    uint32_t y1 = k_highlight_boxes[sel].y1;
 
     uint32_t lo = ((color & 0xFu) << 28) |
                   (((uint32_t)y0 & 0xFFFu) << 16) |
@@ -322,8 +340,8 @@ int main(int argc, char **argv)
             }
             char *endptr = NULL;
             long val = strtol(argv[++i], &endptr, 10);
-            if (*endptr != '\0' || (val != 0 && val != 1)) {
-                fprintf(stderr, "Invalid value for --start: %s (must be 0 or 1)\n", argv[i]);
+            if (*endptr != '\0' || val < 0 || val > 2) {
+                fprintf(stderr, "Invalid value for --start: %s (must be 0, 1, or 2)\n", argv[i]);
                 return 5;
             }
             current_mode = (int)val;
@@ -407,7 +425,9 @@ int main(int argc, char **argv)
             close(mem_fd);
             return 3;
         }
+        dmabuf_cpu_begin(dma_fds[i]);
         size_t nread = fread(dma_vas[i], 1, k_sel_sizes[i], fp);
+        dmabuf_cpu_end_flush(dma_fds[i], dma_vas[i], k_sel_sizes[i]);
         fclose(fp);
         if (nread != k_sel_sizes[i]) {
             fprintf(stderr, "Failed to read %zu bytes from %s (got %zu)\n",
@@ -489,8 +509,8 @@ int main(int argc, char **argv)
         uint32_t type = (v >> 12) & 3u;
 
         if (type == 1 && key == 0) {
-            // KEY0 短按切换左右
-            current_mode = 1 - current_mode;
+            // KEY0 短按切换模式 (0 -> 1 -> 2 -> 0)
+            current_mode = (current_mode + 1) % 3;
             draw_highlight(bar1, current_mode);
         } else if (type == 1 && key == 1) {
             // KEY1 短按: stdout 打印 0 或 1，清框，退出 0

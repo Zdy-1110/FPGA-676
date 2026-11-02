@@ -1,0 +1,1 @@
+# Moved to tools/ov_sccb/test/test_tune.txt

@@ -1,0 +1,2 @@
+# Syntax error test
+0x3406
