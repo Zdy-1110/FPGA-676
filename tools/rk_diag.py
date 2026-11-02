@@ -90,7 +90,7 @@ def main() -> int:
     check("链路 x2", data.get("link_width") == "2", data.get("link_width", "?"))
 
     ver = num(data.get("ver"))
-    check("固件版本 0x20261029|0x20261101", ver in (0x20261029, 0x20261101), data.get("ver", "?"))
+    check("固件版本 0x20261029|0x20261101|0x20261102|0x20261103|0x20261104|0x20261105|0x20261106", ver in (0x20261029, 0x20261101, 0x20261102, 0x20261103, 0x20261104, 0x20261105, 0x20261106), data.get("ver", "?"))
 
     disp = num(data.get("disp"))
     check("显示主控已知状态", isinstance(disp, int) and (disp & ~0xC00) in (0x25, 0x65, 0x24, 0x64), data.get("disp", "?"))

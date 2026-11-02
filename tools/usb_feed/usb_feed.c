@@ -52,6 +52,8 @@
 #include "vdec_mpp.h"
 #include "quad_npu.h"
 #include "adas.h"
+#include "fcam_rb_lib.h"
+#include "usb_night.h"
 
 #if defined(__has_include) && __has_include(<linux/dma-heap.h>)
 #include <linux/dma-heap.h>
@@ -130,6 +132,7 @@ typedef struct {
     long long frames;
     int file_once;            /* 1 = exit when file finishes, 0 = loop */
     int slot0_rgb565;         /* 1 = slot0 outputs RGB565 (960x540, stride 1920) */
+    int zoom2x;               /* 1 = 2x zoom coordinate mapping for slot 0 */
     int dec_bufs;             /* decoder external buffer count per video */
     const char *npu_model;    /* RKNN model path (NULL = disabled) */
     const char *adas_cfg;     /* ADAS config path (NULL = disabled) */
@@ -139,6 +142,8 @@ typedef struct {
     int npu_dump;             /* dump count */
     int dump_slot0_n;         /* dump slot0 frames count */
     int dump_slot0_k;         /* dump slot0 interval (default 30) */
+    int fcam_en;              /* 1 = --fcam enabled */
+    int fcam_fps;             /* fcam target fps, default 15 */
 } Options;
 
 typedef struct {
@@ -204,6 +209,14 @@ typedef struct {
     volatile int finished;
     volatile int dead;
     int rc;
+
+    /* adaptive night vision */
+    int night_enabled;
+    int night_fd;
+    int night_level;
+    int hyst_state;
+    int hyst_cnt;
+    int cap_va_warned;
 } Cam;
 
 /* device access */
@@ -1036,6 +1049,15 @@ static void cam_release(Cam *c)
     c->cap_va = NULL;
     if (c->cap_fd >= 0) { close(c->cap_fd); c->cap_fd = -1; }
 
+    if (c->night_fd >= 0) {
+        if (c->night_level != 0) {
+            night_apply(c->night_fd, 0);
+            c->night_level = 0;
+        }
+        night_close(c->night_fd);
+        c->night_fd = -1;
+    }
+
     for (i = 0; i < RGA_DST_BUFS; i++) {
         if (c->dst_handle[i] > 0) releasebuffer_handle(c->dst_handle[i]);
         c->dst_handle[i] = 0;
@@ -1321,6 +1343,49 @@ static int cam_run(Cam *c)
             c->frames_loop_count++;
             update_ch0_nav_time(c);
 
+            if (c->night_enabled) {
+                if (!c->cap_va) {
+                    if (!c->cap_va_warned) {
+                        fprintf(stderr, "cam%d: cap_va not mapped, skipping night vision\n", c->index);
+                        c->cap_va_warned = 1;
+                    }
+                } else {
+                    unsigned mean = night_luma((const unsigned char *)c->cap_va, c->src_w, c->src_h, c->src_w);
+                    unsigned hi = (c->night_level >= 1) ? NIGHT_LUMA_HI_ENH : NIGHT_LUMA_HI;
+                    night_hyst(&c->hyst_state, &c->hyst_cnt, mean, NIGHT_LUMA_LO, hi);
+
+                    uint32_t mode = 0;
+                    uint32_t fpga_on = 0;
+                    if (g_reg_map != MAP_FAILED) {
+                        mode = (rd(0x800) >> 10) & 3;
+                        fpga_on = (rd(0x820) >> 3) & 1;
+                    }
+                    int target_lvl = 0;
+                    if (mode == 1)       target_lvl = 1;
+                    else if (mode >= 2)  target_lvl = 0;
+                    else {
+                        if (fpga_on)     target_lvl = 1;
+                        else             target_lvl = c->hyst_state ? 2 : 0;
+                    }
+
+                    if (target_lvl != c->night_level) {
+                        if (c->night_fd >= 0) {
+                            if (night_apply(c->night_fd, target_lvl) == 0) {
+                                c->night_level = target_lvl;
+                            }
+                        }
+                    }
+
+                    if (c->frames_done % 30 == 0) {
+                        const char *mode_str = "auto";
+                        if (mode == 1) mode_str = "force_on";
+                        else if (mode >= 2) mode_str = "force_off";
+                        printf("night dev=%s lvl=%d luma=%u mode=%s\n",
+                               c->dev, c->night_level, mean, mode_str);
+                    }
+                }
+            }
+
             dst_idx = rga_convert(c, &t_rga);
             if (dst_idx < 0) {
                 c->err++;
@@ -1476,6 +1541,27 @@ static void *cam_thread(void *arg)
         c->finished = 1;
         return NULL;
     }
+    if (c->night_enabled) {
+        c->night_fd = night_open(c->dev);
+        if (c->night_fd >= 0) {
+            uint32_t mode = 0;
+            uint32_t fpga_on = 0;
+            if (g_reg_map != MAP_FAILED) {
+                mode = (rd(0x800) >> 10) & 3;
+                fpga_on = (rd(0x820) >> 3) & 1;
+            }
+            int init_level = 0;
+            if (mode == 1)       init_level = 1;
+            else if (mode >= 2)  init_level = 0;
+            else {
+                if (fpga_on)     init_level = 1;
+                else             init_level = c->hyst_state ? 2 : 0;
+            }
+            if (night_apply(c->night_fd, init_level) == 0) {
+                c->night_level = init_level;
+            }
+        }
+    }
     if (gst_open(c) < 0) {
         if (c->is_still) {
             fprintf(stderr, "still: decode failed for %s\n", c->dev);
@@ -1534,7 +1620,7 @@ static void *cam_thread(void *arg)
 static void print_stat(void)
 {
     uint64_t now = now_ns(), dt = now - g_last_print_ns;
-    char line[320];
+    char line[320] = "";   /* stays empty in --fcam-only mode (g_ncams == 0) */
     size_t off = 0;
     uint64_t df_total = 0, err_total = 0, late_total = 0;
     int i;
@@ -1588,6 +1674,9 @@ static void print_cam_summary(Cam *c)
            (unsigned long long)c->frames_done, avg_fps, rga_avg, ns_to_ms(c->rga_max_ns),
            dma_avg, ns_to_ms(c->dma_max_ns), (unsigned long long)c->err,
            (unsigned long long)c->late);
+    if (c->night_enabled) {
+        printf("night dev=%s lvl=%d\n", c->dev, c->night_level);
+    }
     printf("errors: read=%llu rga=%llu dma=%llu (frames read=%llu)\n",
            (unsigned long long)c->read_err, (unsigned long long)c->rga_err,
            (unsigned long long)c->dma_err, (unsigned long long)c->grabbed);
@@ -1646,6 +1735,8 @@ static void usage(const char *p)
         "  --nav <path>                 load navigation route (.nav) for autonomous lane change\n"
         "  --file-once                  play video files once and exit (default: loop)\n"
         "  --slot0-rgb565               output RGB565 (stride 1920, 960x540) for slot 0\n"
+        "  --zoom2x                     quad NPU / ADAS 2x zoom coordinate mapping for slot 0\n"
+        "  --fcam[:<fps>]               enable FPGA front camera readback for NPU/ADAS channel 0 (default 15 fps)\n"
         "  --dump-slot0 N[:K]           dump N frames from slot0 (every K, def 30) to /tmp/slot0_dump (RGB565 LE: R[15:11], G[10:5], B[4:0])\n"
         "  --dev <path>     single-camera capture node (default /dev/video17)\n"
         "  --slot <0-3>     single-camera display slot (default 2)\n"
@@ -1705,97 +1796,178 @@ static int parse_cam_spec(const char *s, Cam *c)
     return 0;
 }
 
-/* <path>:<slot>[:<fps>] (path does not contain colons) */
+/* <path>:<slot>[:<fps>] (supports colons in path by parsing right-to-left) */
+static int parse_media_spec(const char *s, char *dev, size_t dev_sz, int *out_slot, int *out_fps)
+{
+    const char *c2 = strrchr(s, ':');
+    if (!c2 || c2 == s) return -1;
+
+    /* 寻找倒数第二个冒号 c1 */
+    const char *c1 = NULL;
+    for (const char *p = c2 - 1; p >= s; p--) {
+        if (*p == ':') {
+            c1 = p;
+            break;
+        }
+    }
+
+    /* 尝试匹配 <path>:<slot>:<fps> */
+    if (c1 != NULL && c1 > s) {
+        char *end1 = NULL;
+        long slot_val = strtol(c1 + 1, &end1, 10);
+        char *end2 = NULL;
+        long fps_val = strtol(c2 + 1, &end2, 10);
+        if (end1 == c2 && slot_val >= 0 && slot_val <= 3 &&
+            end2 != c2 + 1 && *end2 == '\0' && fps_val >= 0 && fps_val <= 1000) {
+            size_t len = (size_t)(c1 - s);
+            if (len >= dev_sz) return -1;
+            memcpy(dev, s, len);
+            dev[len] = '\0';
+            *out_slot = (int)slot_val;
+            *out_fps = (int)fps_val;
+            return 0;
+        }
+    }
+
+    /* 尝试匹配 <path>:<slot> (省略 fps) */
+    char *end = NULL;
+    long slot_val = strtol(c2 + 1, &end, 10);
+    if (end != c2 + 1 && *end == '\0' && slot_val >= 0 && slot_val <= 3) {
+        size_t len = (size_t)(c2 - s);
+        if (len >= dev_sz) return -1;
+        memcpy(dev, s, len);
+        dev[len] = '\0';
+        *out_slot = (int)slot_val;
+        *out_fps = -1;
+        return 0;
+    }
+
+    return -1;
+}
+
+/* <path>:<slot>[:<fps>] */
 static int parse_file_spec(const char *s, Cam *c)
 {
     c->is_file = 1;
-    const char *sep = strchr(s, ':');
-    char *end = NULL;
-    size_t len;
-    long v, f;
-
-    if (!sep || sep == s) return -1;
-    len = (size_t)(sep - s);
-    if (len >= sizeof(c->dev)) return -1;
-    memcpy(c->dev, s, len);
-    c->dev[len] = '\0';
-
-    v = strtol(sep + 1, &end, 10);
-    if (end == sep + 1 || v < 0 || v > 3) return -1;
-    c->slot = (int)v;
-    c->fps = -1;
-    if (*end == ':') {
-        const char *fs = end + 1;
-        f = strtol(fs, &end, 10);
-        if (end == fs || *end != '\0' || f < 0 || f > 1000) return -1;
-        c->fps = (int)f;
-    } else if (*end != '\0') {
-        return -1;
-    }
-    return 0;
+    return parse_media_spec(s, c->dev, sizeof(c->dev), &c->slot, &c->fps);
 }
 
-/* <path>:<slot>[:<fps>] (path does not contain colons) */
+/* <path>:<slot>[:<fps>] */
 static int parse_video_spec(const char *s, Cam *c)
 {
     c->is_video = 1;
     c->is_file = 0;
-    const char *sep = strchr(s, ':');
-    char *end = NULL;
-    size_t len;
-    long v, f;
-
-    if (!sep || sep == s) return -1;
-    len = (size_t)(sep - s);
-    if (len >= sizeof(c->dev)) return -1;
-    memcpy(c->dev, s, len);
-    c->dev[len] = '\0';
-
-    v = strtol(sep + 1, &end, 10);
-    if (end == sep + 1 || v < 0 || v > 3) return -1;
-    c->slot = (int)v;
-    c->fps = -1;
-    if (*end == ':') {
-        const char *fs = end + 1;
-        f = strtol(fs, &end, 10);
-        if (end == fs || *end != '\0' || f < 0 || f > 1000) return -1;
-        c->fps = (int)f;
-    } else if (*end != '\0') {
-        return -1;
-    }
-    return 0;
+    return parse_media_spec(s, c->dev, sizeof(c->dev), &c->slot, &c->fps);
 }
 
-/* <path>:<slot>[:<fps>] (path does not contain colons) */
+/* <path>:<slot>[:<fps>] */
 static int parse_still_spec(const char *s, Cam *c)
 {
     c->is_still = 1;
     c->is_video = 0;
     c->is_file = 0;
-    const char *sep = strchr(s, ':');
-    char *end = NULL;
-    size_t len;
-    long v, f;
+    return parse_media_spec(s, c->dev, sizeof(c->dev), &c->slot, &c->fps);
+}
 
-    if (!sep || sep == s) return -1;
-    len = (size_t)(sep - s);
-    if (len >= sizeof(c->dev)) return -1;
-    memcpy(c->dev, s, len);
-    c->dev[len] = '\0';
+static pthread_t g_fcam_tid;
+static int g_fcam_started = 0;
+static int g_fcam_running = 0;
+static FcamRb g_fcam;
 
-    v = strtol(sep + 1, &end, 10);
-    if (end == sep + 1 || v < 0 || v > 3) return -1;
-    c->slot = (int)v;
-    c->fps = -1;
-    if (*end == ':') {
-        const char *fs = end + 1;
-        f = strtol(fs, &end, 10);
-        if (end == fs || *end != '\0' || f < 0 || f > 1000) return -1;
-        c->fps = (int)f;
-    } else if (*end != '\0') {
-        return -1;
+static void *fcam_thread(void *arg)
+{
+    (void)arg;
+    int target_fps = g_opt.fcam_fps > 0 ? g_opt.fcam_fps : 15;
+    uint64_t period_ns = 1000000000ULL / (uint64_t)target_fps;
+    uint64_t last_stat_ns = now_ns();
+    uint64_t sec_frames = 0, sec_rb_us = 0;
+    int sec_skip = 0, err_streak = 0;
+    uint64_t fcam_frame_seq = 0;
+
+    printf("fcam: worker thread started (%d fps)\n", target_fps);
+    g_fcam_running = 1;
+
+    while (!g_stop) {
+        uint64_t t_start = now_ns();
+        if (err_streak >= 5) {
+            static int warned = 0;
+            if (!warned) {
+                warned = 1;
+                fprintf(stderr, "\n[fcam] WARNING: 5 consecutive timeouts, readback degraded/paused!\n");
+            }
+            sleep(1);
+            err_streak = 0;   /* back off 1 s, then retry instead of stopping for good */
+            continue;
+        }
+
+        int buf_idx = 0;
+        uint32_t fid = 0;
+        uint64_t dur_us = 0;
+        int ret = fcam_rb_capture(&g_fcam, &buf_idx, &fid, &dur_us);
+
+        if (ret == 1) {
+            err_streak = 0;
+            fcam_frame_seq++;
+            sec_frames++;
+            sec_rb_us += dur_us;
+
+            if (g_opt.npu_model) {
+                QnpuSrc nsrc;
+                memset(&nsrc, 0, sizeof(nsrc));
+                nsrc.handle = g_fcam.rga_handle;
+                nsrc.fd = g_fcam.dma_fd;
+                nsrc.width = FCAM_FRAME_W;
+                nsrc.height = FCAM_FRAME_H;
+                nsrc.wstride = FCAM_FRAME_W;
+                nsrc.hstride = FCAM_FRAME_H;
+                nsrc.format = RK_FORMAT_RGB_565;
+                nsrc.frame_id = fcam_frame_seq;
+                qnpu_offer(0, &nsrc);
+            }
+
+            if (g_opt.adas_cfg) {
+                QnpuSrc asrc;
+                memset(&asrc, 0, sizeof(asrc));
+                asrc.handle = g_fcam.rga_handle;
+                asrc.fd = g_fcam.dma_fd;
+                asrc.width = FCAM_FRAME_W;
+                asrc.height = FCAM_FRAME_H;
+                asrc.wstride = FCAM_FRAME_W;
+                asrc.hstride = FCAM_FRAME_H;
+                asrc.format = RK_FORMAT_RGB_565;
+                asrc.frame_id = fcam_frame_seq;
+                adas_offer(0, &asrc);
+            }
+
+            fcam_rb_sync_end(&g_fcam);
+        } else if (ret == 0) {
+            sec_skip++;
+        } else {
+            err_streak++;
+            fprintf(stderr, "[fcam] readback error (%d), streak=%d\n", ret, err_streak);
+        }
+
+        uint64_t now = now_ns();
+        if (now - last_stat_ns >= 1000000000ULL) {
+            double dt = (double)(now - last_stat_ns) / 1e9;
+            double rb_fps = (double)sec_frames / dt;
+            double avg_ms = (sec_frames > 0) ? ((double)sec_rb_us / 1000.0 / (double)sec_frames) : 0.0;
+            printf("fcam: rb=%.1ffps avg=%.2fms skip=%d\n", rb_fps, avg_ms, sec_skip);
+            sec_frames = 0;
+            sec_rb_us = 0;
+            sec_skip = 0;
+            last_stat_ns = now;
+        }
+
+        uint64_t t_end = now_ns();
+        uint64_t elapsed = t_end - t_start;
+        if (elapsed < period_ns) {
+            usleep((useconds_t)((period_ns - elapsed) / 1000ULL));
+        }
     }
-    return 0;
+
+    g_fcam_running = 0;
+    return NULL;
 }
 
 int main(int argc, char **argv)
@@ -1924,6 +2096,19 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--npu-dump") && i + 1 < argc) g_opt.npu_dump = (int)strtol(argv[++i], NULL, 0);
         else if (!strcmp(a, "--file-once")) g_opt.file_once = 1;
         else if (!strcmp(a, "--slot0-rgb565")) g_opt.slot0_rgb565 = 1;
+        else if (!strcmp(a, "--zoom2x")) g_opt.zoom2x = 1;
+        else if (!strcmp(a, "--fcam")) {
+            g_opt.fcam_en = 1;
+            g_opt.fcam_fps = 15;
+            if (i + 1 < argc && argv[i + 1][0] != '-' && atoi(argv[i + 1]) > 0) {
+                g_opt.fcam_fps = atoi(argv[++i]);
+            }
+        }
+        else if (!strncmp(a, "--fcam:", 7)) {
+            g_opt.fcam_en = 1;
+            int f = atoi(&a[7]);
+            g_opt.fcam_fps = (f > 0) ? f : 15;
+        }
         else if (!strcmp(a, "--dump-slot0") && i + 1 < argc) {
             char *end = NULL;
             long n = strtol(argv[++i], &end, 10);
@@ -1974,12 +2159,22 @@ int main(int argc, char **argv)
     }
 
     /* single-camera compatibility: --dev/--slot when no --cam or --file was given */
-    if (g_ncams == 0) {
+    if (g_ncams == 0 && !g_opt.fcam_en) {
         snprintf(g_cams[0].dev, sizeof(g_cams[0].dev), "%s", g_opt.dev);
         g_cams[0].slot = g_opt.slot;
         g_cams[0].fps = -1;
         g_cams[0].is_file = 0;
         g_ncams = 1;
+    }
+
+    if (g_opt.fcam_en) {
+        for (i = 0; i < g_ncams; i++) {
+            if (g_cams[i].slot == 0) {
+                fprintf(stderr, "error: --fcam occupies channel 0 (slot 0); channel %d (%s) cannot use slot 0\n",
+                        i, g_cams[i].dev);
+                return 2;
+            }
+        }
     }
 
     /* check if any channel uses slot 0 when --slot0-rgb565 is requested */
@@ -1998,6 +2193,18 @@ int main(int argc, char **argv)
     for (i = 0; i < g_ncams; i++) {
         Cam *c = &g_cams[i];
         int k;
+
+        c->night_fd = -1;
+        c->night_level = 0;
+        c->hyst_state = 0;
+        c->hyst_cnt = 0;
+        c->cap_va_warned = 0;
+        /* 仅对 USB 摄像头通道启用：没有 is_file / is_video / is_still */
+        if (!c->is_file && !c->is_video && !c->is_still) {
+            c->night_enabled = 1;
+        } else {
+            c->night_enabled = 0;
+        }
 
         if (c->fps < 0) c->fps = g_opt.fps;
         c->frames = (int)(g_opt.frames > 0x7fffffffLL ? 0x7fffffffLL : g_opt.frames);
@@ -2169,6 +2376,14 @@ int main(int argc, char **argv)
                g_cams[i].fps);
     }
 
+    if (g_opt.zoom2x) {
+        quad_set_fullscreen(1);
+        printf("npu: zoom2x box mapping\n");
+    } else if (g_opt.dst_w == 1920 && g_opt.dst_h == 1080 && g_ncams == 1 && !g_opt.slot0_rgb565) {
+        quad_set_fullscreen(1);
+        printf("npu: fullscreen box mapping (x2, y+360)\n");
+    }
+
     /* Initialize NPU if requested */
     if (g_opt.npu_model) {
         QnpuCfg ncfg;
@@ -2185,6 +2400,9 @@ int main(int argc, char **argv)
             fprintf(stderr, "qnpu_init failed for model %s\n", g_opt.npu_model);
             rc = 1;
             goto out;
+        }
+        if (g_opt.fcam_en) {
+            qnpu_register(0, FCAM_FRAME_W, FCAM_FRAME_H);
         }
         for (i = 0; i < g_ncams; i++) {
             if (!g_cams[i].is_video) {
@@ -2224,6 +2442,27 @@ int main(int argc, char **argv)
             }
             g_cams[i].started = 1;
         }
+
+        if (g_opt.fcam_en) {
+            if (fcam_rb_init(&g_fcam, g_reg) != 0) {
+                fprintf(stderr, "fcam_rb_init failed\n");
+                rc = 1;
+                pthread_sigmask(SIG_SETMASK, &oldset, NULL);
+                goto out;
+            }
+            /* set before the thread starts, or the stat loop below sees alive=0 and exits at once */
+            g_fcam_running = 1;
+            if (pthread_create(&g_fcam_tid, NULL, fcam_thread, NULL) != 0) {
+                g_fcam_running = 0;
+                perror("pthread_create fcam_thread");
+                fcam_rb_close(&g_fcam);
+                rc = 1;
+                pthread_sigmask(SIG_SETMASK, &oldset, NULL);
+                goto out;
+            }
+            g_fcam_started = 1;
+        }
+
         pthread_sigmask(SIG_SETMASK, &oldset, NULL);
     }
 
@@ -2234,6 +2473,7 @@ int main(int argc, char **argv)
         int alive = 0;
         struct timespec ts = { 0, 200 * 1000 * 1000 };
         for (i = 0; i < g_ncams; i++) if (!g_cams[i].finished) alive++;
+        if (g_opt.fcam_en && g_fcam_running) alive++;
         if (!alive) break;
         nanosleep(&ts, NULL);
         if (now_ns() - g_last_print_ns >= 1000000000ULL) print_stat();
@@ -2245,6 +2485,12 @@ int main(int argc, char **argv)
             pid_t pid = g_cams[i].pid;
             if (g_cams[i].started && pid > 0) kill(pid, SIGTERM);
         }
+    }
+
+    if (g_fcam_started) {
+        pthread_join(g_fcam_tid, NULL);
+        fcam_rb_close(&g_fcam);
+        g_fcam_started = 0;
     }
 
     for (i = 0; i < g_ncams; i++) {
@@ -2265,6 +2511,11 @@ int main(int argc, char **argv)
     if (g_stop) rc = 0;
 
 out:
+    if (g_fcam_started) {
+        pthread_join(g_fcam_tid, NULL);
+        fcam_rb_close(&g_fcam);
+        g_fcam_started = 0;
+    }
     if (g_opt.adas_cfg) {
         adas_stop();
         g_opt.adas_cfg = NULL;

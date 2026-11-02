@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 gen_selector.py
-ADAS 演示机 - 开机二选一界面素材生成工具
-生成 1920x1080 全屏二选一素材，并裁切导出四个象限：
+ADAS 演示机 - 开机三选一界面素材生成工具
+生成 1920x1080 全屏三选一素材，并裁切导出四个象限：
 - sel0.rgb565 (左上 960x540, RGB565 小端, 1,036,800 B)
 - sel1.nv12   (右上 960x540, NV12 BT.601 limited, 777,600 B)
 - sel2.nv12   (左下 960x540, NV12 BT.601 limited, 777,600 B)
@@ -25,8 +25,10 @@ QUAD_HEIGHT = 540
 BG_COLOR = "#0E1620"          # 深色底 (14, 22, 32)
 CARD_BG = "#131B27"           # 卡片微亮底色 (19, 27, 39)
 CARD_BORDER = "#1E293B"       # 卡片边框 (30, 41, 59)
-DIVIDER_COLOR = "#2A374A"     # 中央分隔线 (42, 55, 74)
-CYAN_COLOR = "#22D3EE"        # 青色强调 (34, 211, 238)
+DIVIDER_COLOR = "#2A374A"     # 分隔线 (42, 55, 74)
+YELLOW_COLOR = "#FACC15"      # 黄色强调 (MODE 01)
+CYAN_COLOR = "#22D3EE"        # 青色强调 (MODE 02)
+GREEN_COLOR = "#34D399"       # 绿色强调 (MODE 03)
 TITLE_COLOR = "#FFFFFF"       # 白色主标题
 SUBTITLE_COLOR = "#94A3B8"    # 灰色副标题 (148, 163, 184)
 FOOTER_KEY_COLOR = "#22D3EE"  # 按键青色
@@ -45,18 +47,20 @@ def rgb_to_rgb565(rgb_array):
     r = rgb_array[..., 0].astype(np.uint16)
     g = rgb_array[..., 1].astype(np.uint16)
     b = rgb_array[..., 2].astype(np.uint16)
-    val = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
+    # FPGA slot0 reader RB_SWAP=1：软件打包 B 在高位
+    val = ((b >> 3) << 11) | ((g >> 2) << 5) | (r >> 3)
     return val.astype("<u2").tobytes(), val
 
 
 def decode_rgb565(val_u16):
     """解码 RGB565 到 RGB888 (中点还原保证最大量化误差 <= 4)"""
-    r5 = (val_u16 >> 11) & 0x1F
+    # FPGA slot0 reader RB_SWAP=1：软件打包 B 在高位
+    b5 = (val_u16 >> 11) & 0x1F
     g6 = (val_u16 >> 5) & 0x3F
-    b5 = val_u16 & 0x1F
-    r = (r5 << 3) + 3
-    g = (g6 << 2) + 1
+    r5 = val_u16 & 0x1F
     b = (b5 << 3) + 3
+    g = (g6 << 2) + 1
+    r = (r5 << 3) + 3
     return np.array([r, g, b], dtype=np.uint8)
 
 
@@ -122,109 +126,89 @@ def get_file_md5(filepath):
 
 
 def render_full_screen():
-    """绘制完整的 1920x1080 二选一界面"""
+    """绘制完整的 1920x1080 三选一界面"""
     img = Image.new("RGB", (FULL_WIDTH, FULL_HEIGHT), BG_COLOR)
     draw = ImageDraw.Draw(img)
 
-    font_title = ImageFont.truetype(FONT_BOLD_PATH, 80)
-    font_sub = ImageFont.truetype(FONT_REGULAR_PATH, 32)
+    font_title = ImageFont.truetype(FONT_BOLD_PATH, 72)
+    font_sub = ImageFont.truetype(FONT_REGULAR_PATH, 28)
     font_bot = ImageFont.truetype(FONT_REGULAR_PATH, 24)
     font_badge = ImageFont.truetype(FONT_BOLD_PATH, 22)
 
-    # 1. 左右卡片内衬背景 (留出外围黄色高亮框的空间，高亮在 8..951 与 968..1911)
-    card_margin_x = 40
+    cards = [
+        {
+            "badge": "MODE 01",
+            "color": YELLOW_COLOR,
+            "title": "四路摄像头",
+            "sub": "3×USB + 1×FPGA 实时画面",
+            "tags": ["4路实时输入", "低延迟显示", "ADAS 算法联动"],
+        },
+        {
+            "badge": "MODE 02",
+            "color": CYAN_COLOR,
+            "title": "U盘视频流",
+            "sub": "选择 1~4 个视频分屏播放",
+            "tags": ["U盘即插即读", "1~4 路视频自适应", "多格式流畅回放"],
+        },
+        {
+            "badge": "MODE 03",
+            "color": GREEN_COLOR,
+            "title": "单路显示",
+            "sub": "任选一路满屏检测",
+            "tags": ["FPGA 前摄", "USB 摄像头 1–3", "U 盘单个文件"],
+        },
+    ]
+
+    # 1. 三张卡片内衬背景与内容
+    # 对应 OSD 高亮框留 8 像素边距:
+    # 模式 0: [8, 8, 631, 1071]
+    # 模式 1: [648, 8, 1271, 1071]
+    # 模式 2: [1288, 8, 1911, 1071]
+    card_margin_x = 24
     card_margin_y = 48
-    card_w = 960 - 2 * card_margin_x
     card_h = 1080 - 2 * card_margin_y - 60  # 底部留空间给说明文字
 
-    # 左卡内衬
-    lx0 = card_margin_x
-    ly0 = card_margin_y
-    lx1 = 960 - card_margin_x
-    ly1 = ly0 + card_h
-    draw.rectangle([lx0, ly0, lx1, ly1], fill=CARD_BG, outline=CARD_BORDER, width=2)
+    for i, c in enumerate(cards):
+        cx = i * 640 + 320
+        x0 = i * 640 + card_margin_x
+        y0 = card_margin_y
+        x1 = (i + 1) * 640 - card_margin_x
+        y1 = y0 + card_h
+        draw.rectangle([x0, y0, x1, y1], fill=CARD_BG, outline=CARD_BORDER, width=2)
 
-    # 右卡内衬
-    rx0 = 960 + card_margin_x
-    ry0 = card_margin_y
-    rx1 = 1920 - card_margin_x
-    ry1 = ry0 + card_h
-    draw.rectangle([rx0, ry0, rx1, ry1], fill=CARD_BG, outline=CARD_BORDER, width=2)
+        # 强调装饰条
+        draw.rectangle([cx - 50, 200, cx + 50, 206], fill=c["color"])
 
-    # 2. 中央分隔线
-    div_x = 960
-    draw.line([(div_x, 60), (div_x, 960)], fill=DIVIDER_COLOR, width=2)
+        # 模式标号
+        b_bb = draw.textbbox((0, 0), c["badge"], font=font_badge)
+        b_w = b_bb[2] - b_bb[0]
+        draw.text((cx - b_w // 2, 228), c["badge"], font=font_badge, fill=c["color"])
 
-    # 3. 左半部分内容 (中心 x = 480)
-    # 青色强调装饰条
-    draw.rectangle([480 - 60, 200, 480 + 60, 206], fill=CYAN_COLOR)
+        # 标题 (72px)
+        t_bb = draw.textbbox((0, 0), c["title"], font=font_title)
+        t_w = t_bb[2] - t_bb[0]
+        draw.text((cx - t_w // 2, 330), c["title"], font=font_title, fill=TITLE_COLOR)
 
-    # 模式标号
-    badge_left = "MODE 01"
-    b_bb = draw.textbbox((0, 0), badge_left, font=font_badge)
-    b_w = b_bb[2] - b_bb[0]
-    draw.text((480 - b_w // 2, 228), badge_left, font=font_badge, fill=CYAN_COLOR)
+        # 副标题 (28px)
+        s_bb = draw.textbbox((0, 0), c["sub"], font=font_sub)
+        s_w = s_bb[2] - s_bb[0]
+        draw.text((cx - s_w // 2, 455), c["sub"], font=font_sub, fill=SUBTITLE_COLOR)
 
-    # 标题:「四路摄像头」 80px
-    t_left = "四路摄像头"
-    t_bb = draw.textbbox((0, 0), t_left, font=font_title)
-    t_w = t_bb[2] - t_bb[0]
-    draw.text((480 - t_w // 2, 330), t_left, font=font_title, fill=TITLE_COLOR)
+        # 下半部分各卡片特性说明 (y > 540)
+        tag_y = 660
+        for j, tag in enumerate(c["tags"]):
+            tag_bb = draw.textbbox((0, 0), tag, font=font_sub)
+            tw = tag_bb[2] - tag_bb[0]
+            tx = cx - tw // 2
+            ty = tag_y + j * 65
+            draw.ellipse([tx - 24, ty + 9, tx - 14, ty + 19], fill=c["color"])
+            draw.text((tx, ty), tag, font=font_sub, fill=SUBTITLE_COLOR)
 
-    # 副标题:「3×USB + 1×FPGA 实时画面」 32px
-    s_left = "3×USB + 1×FPGA 实时画面"
-    s_bb = draw.textbbox((0, 0), s_left, font=font_sub)
-    s_w = s_bb[2] - s_bb[0]
-    draw.text((480 - s_w // 2, 455), s_left, font=font_sub, fill=SUBTITLE_COLOR)
+    # 2. 卡片分割线 (x = 640, 1280)
+    for div_x in (640, 1280):
+        draw.line([(div_x, 60), (div_x, 960)], fill=DIVIDER_COLOR, width=2)
 
-    # 4. 右半部分内容 (中心 x = 1440)
-    # 青色强调装饰条
-    draw.rectangle([1440 - 60, 200, 1440 + 60, 206], fill=CYAN_COLOR)
-
-    # 模式标号
-    badge_right = "MODE 02"
-    b_bb = draw.textbbox((0, 0), badge_right, font=font_badge)
-    b_w = b_bb[2] - b_bb[0]
-    draw.text((1440 - b_w // 2, 228), badge_right, font=font_badge, fill=CYAN_COLOR)
-
-    # 标题:「U盘视频流」 80px
-    t_right = "U盘视频流"
-    t_bb = draw.textbbox((0, 0), t_right, font=font_title)
-    t_w = t_bb[2] - t_bb[0]
-    draw.text((1440 - t_w // 2, 330), t_right, font=font_title, fill=TITLE_COLOR)
-
-    # 副标题:「选择 1~4 个视频分屏播放」 32px
-    s_right = "选择 1~4 个视频分屏播放"
-    s_bb = draw.textbbox((0, 0), s_right, font=font_sub)
-    s_w = s_bb[2] - s_bb[0]
-    draw.text((1440 - s_w // 2, 455), s_right, font=font_sub, fill=SUBTITLE_COLOR)
-
-    # 5. 下半部分各卡片特性说明 (y > 540)
-    # 左卡特性标签
-    left_tags = ["4路实时输入", "低延迟显示", "ADAS 算法联动"]
-    tag_y = 660
-    for i, tag in enumerate(left_tags):
-        tag_bb = draw.textbbox((0, 0), tag, font=font_sub)
-        tw = tag_bb[2] - tag_bb[0]
-        tx = 480 - tw // 2
-        ty = tag_y + i * 65
-        # 小圆点装饰
-        draw.ellipse([tx - 24, ty + 10, tx - 14, ty + 20], fill=CYAN_COLOR)
-        draw.text((tx, ty), tag, font=font_sub, fill=SUBTITLE_COLOR)
-
-    # 右卡特性标签
-    right_tags = ["U盘即插即读", "1~4 路视频自适应", "多格式流畅回放"]
-    for i, tag in enumerate(right_tags):
-        tag_bb = draw.textbbox((0, 0), tag, font=font_sub)
-        tw = tag_bb[2] - tag_bb[0]
-        tx = 1440 - tw // 2
-        ty = tag_y + i * 65
-        # 小圆点装饰
-        draw.ellipse([tx - 24, ty + 10, tx - 14, ty + 20], fill=CYAN_COLOR)
-        draw.text((tx, ty), tag, font=font_sub, fill=SUBTITLE_COLOR)
-
-    # 6. 底部小字「KEY0 切换    KEY1 进入」 24px，居中
-    # 计算各段宽度
+    # 3. 底部小字「KEY0 切换    KEY1 进入」 24px，居中
     seg1 = "KEY0"
     seg2 = " 切换       "
     seg3 = "KEY1"
@@ -248,7 +232,7 @@ def render_full_screen():
 
 def main():
     print("=" * 60)
-    print("ADAS 演示机 - 开机二选一界面素材生成")
+    print("ADAS 演示机 - 开机三选一界面素材生成")
     print(f"输出目录: {OUTPUT_DIR}")
     print("=" * 60)
 
@@ -332,7 +316,7 @@ def main():
     w_y0, w_x0 = w_pts0[len(w_pts0) // 2]
     samples_q0 = [
         (50, 50, "背景区"),
-        (203, 480, "青色装饰条"),
+        (203, 320, "黄色装饰条"),
         (int(w_y0), int(w_x0), "白色主标题"),
     ]
     for py, px, desc in samples_q0:
@@ -351,18 +335,18 @@ def main():
             w_y1, w_x1 = w_pts1[len(w_pts1) // 2]
             samples = [
                 (50, 50, "背景区"),
-                (203, 480, "青色装饰条"),
+                (203, 640, "绿色装饰条"),
                 (int(w_y1), int(w_x1), "白色主标题"),
             ]
         elif q_idx == 2:
             samples = [
                 (50, 50, "背景区"),
-                (120, 480, "特性文字"),
+                (120, 320, "特性文字"),
             ]
         else:
             samples = [
                 (50, 50, "背景区"),
-                (120, 480, "特性文字"),
+                (120, 640, "特性文字"),
             ]
 
         for py, px, desc in samples:

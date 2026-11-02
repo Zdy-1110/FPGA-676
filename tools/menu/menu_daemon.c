@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include "dmabuf_sync.h"
 
 #if defined(__has_include) && __has_include(<linux/dma-heap.h>)
 #include <linux/dma-heap.h>
@@ -424,8 +425,9 @@ static int ensure_zero_dma_buf(void)
         fprintf(stderr, "[menu_daemon] alloc_dma_buf failed for zero buffer\n");
         return -1;
     }
-    (void)g_zero_fd;
+    dmabuf_cpu_begin(g_zero_fd);
     memset(g_zero_va, 0, max_bytes);
+    dmabuf_cpu_end_flush(g_zero_fd, g_zero_va, max_bytes);
     return 0;
 }
 
@@ -441,12 +443,14 @@ static void clear_slot_black(volatile uint32_t *bar1, int slot)
         return;
     }
     size_t bytes = (slot == 0) ? SLOT0_BYTES : SLOT123_BYTES;
+    dmabuf_cpu_begin(g_zero_fd);
     if (slot == 0) {
         memset(g_zero_va, 0x00, SLOT0_BYTES);
     } else {
         memset(g_zero_va, 0x00, NV12_Y_BYTES);
         memset((uint8_t *)g_zero_va + NV12_Y_BYTES, 0x80, NV12_UV_BYTES);
     }
+    dmabuf_cpu_end_flush(g_zero_fd, g_zero_va, bytes);
     if (dma_push_slot(bar1, g_zero_pa, slot, bytes) < 0) {
         fprintf(stderr, "[menu_daemon] clear_slot_black(%d) failed\n", slot);
     }

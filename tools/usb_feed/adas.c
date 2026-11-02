@@ -33,7 +33,9 @@
 #include "RgaApi.h"
 #include "tl_det.h"
 #include "adas.h"
+#include "adas_dec.h"
 #include "nav.h"
+#include "lane_cls.h"
 
 #if defined(__has_include) && __has_include(<linux/dma-heap.h>)
 #include <linux/dma-heap.h>
@@ -74,10 +76,19 @@ static double g_adas_fps = 0.0;
 static int g_adas_processed_frames = 0;
 static int g_last_sig[3] = { 0, 0, 0 };
 static int g_last_dec = 0;
+static int g_eval = 0;
 
 static int g_lane_base = -1;
 static int g_moving_base = -1;
 static volatile sig_atomic_t g_rebaseline = 0;
+
+static char g_scene_req = 0;
+static int g_scene_force = 0;
+static int g_scene_ltype_l = -1;
+static int g_scene_ltype_r = -1;
+static int g_scene_hazard = 0;
+static int g_scene_lane = -1;
+static int g_scene_moving = -1;
 
 static pthread_mutex_t g_nav_mutex = PTHREAD_MUTEX_INITIALIZER;
 static nav_table_t g_nav_table;
@@ -298,6 +309,9 @@ static void *adas_thread(void *arg)
                 rreq |= 1;
             }
 
+            if (g_scene_req == 'L') lreq = 1;
+            if (g_scene_req == 'R') rreq = 1;
+
             int lane_eff;
             int moving_eff;
 
@@ -320,6 +334,9 @@ static void *adas_thread(void *arg)
                 moving_eff = raw_moving ^ g_moving_base;
             }
 
+            if (g_scene_lane >= 0) lane_eff = g_scene_lane;
+            if (g_scene_moving >= 0) moving_eff = g_scene_moving;
+
             tl_filter_update(&g_tl_filter, raw3, !moving_eff, g_last_sig);
 
             uint32_t ls = g_bar1[0x8D0u / 4];
@@ -327,6 +344,32 @@ static void *adas_thread(void *arg)
             int lvalid = ls & 1, lsolid = (ls >> 1) & 1;
             int rvalid = rs & 1, rsolid = (rs >> 1) & 1;
             int force = (g_bar1[0x8E8u / 4] >> 21) & 1;
+
+            int rk_lv, rk_ls, rk_rv, rk_rs;
+            if (lane_cls_get(&rk_lv, &rk_ls, &rk_rv, &rk_rs)) {
+                lvalid = rk_lv;
+                lsolid = rk_ls;
+                rvalid = rk_rv;
+                rsolid = rk_rs;
+            }
+
+            if (g_scene_ltype_l == 2) {
+                lvalid = 0;
+                lsolid = 0;
+            } else if (g_scene_ltype_l >= 0) {
+                lvalid = 1;
+                lsolid = (g_scene_ltype_l == 1);
+            }
+            if (g_scene_ltype_r == 2) {
+                rvalid = 0;
+                rsolid = 0;
+            } else if (g_scene_ltype_r >= 0) {
+                rvalid = 1;
+                rsolid = (g_scene_ltype_r == 1);
+            }
+            if (g_scene_force) {
+                force = 1;
+            }
 
             npu_det_t ch0_boxes[4];
             int n_boxes = qnpu_get_boxes(0, ch0_boxes, 4);
@@ -338,31 +381,24 @@ static void *adas_thread(void *arg)
                 if (b->cls == 8 && b->score >= 0.50f) {
                     limit_sign = 1;
                 }
-                int is_static_hazard = (b->cls == 0 || b->cls == 1 || b->cls == 6 || b->cls == 7);
-                int is_veh_hazard = (b->cls == 2 || b->cls == 3 || b->cls == 4) && (moving_eff == 1);
-                if (is_static_hazard || is_veh_hazard) {
-                    if (b->score >= 0.30f && b->y1 >= 0.75f * 540.0f) {
-                        float cx = (b->x0 + b->x1) * 0.5f;
-                        if (cx >= 0.30f * 960.0f && cx <= 0.70f * 960.0f) {
-                            hazard = 1;
-                        }
-                    }
+                float scale = quad_is_fullscreen() ? 0.5f : 1.0f;
+                if (adas_box_hazard(b->cls, b->score,
+                                    b->x0 * scale, b->y0 * scale,
+                                    b->x1 * scale, b->y1 * scale,
+                                    moving_eff)) {
+                    hazard = 1;
                 }
+            }
+
+            if (g_scene_hazard) {
+                hazard = 1;
             }
 
             uint32_t dec = 0;
             if (hazard) {
                 dec = (3u << (2 * lane_eff)) | (1u << 8);
             } else {
-                int sig = (lane_eff >= 0 && lane_eff < 3) ? g_last_sig[lane_eff] : 0;
-                if (sig == 1 || sig == 2) {
-                    dec |= (3u << (2 * lane_eff));
-                    if (moving_eff) dec |= (1u << 8);
-                } else if (sig == 3) {
-                    dec |= (2u << (2 * lane_eff));
-                } else {
-                    dec |= (2u << (2 * 1));
-                }
+                dec = adas_lane_signal_dec(lane_eff, g_last_sig, moving_eff);
 
                 if (lreq && lvalid) {
                     if (!lsolid) dec = (dec & ~0x3u) | 2u;
@@ -377,6 +413,19 @@ static void *adas_thread(void *arg)
             g_bar1[0x8C0u / 4] &= ~4u;
             g_bar1[0x850u / 4] = dec;
             g_last_dec = dec;
+
+            if (g_eval) {
+                double ch0_t;
+                pthread_mutex_lock(&g_nav_mutex);
+                ch0_t = g_ch0_time;
+                pthread_mutex_unlock(&g_nav_mutex);
+                fprintf(stderr,
+                        "eval t=%.2f sig=%d/%d/%d ll=%d,%d rl=%d,%d lane=%d mov=%d dec=0x%03x\n",
+                        ch0_t,
+                        g_last_sig[0], g_last_sig[1], g_last_sig[2],
+                        lvalid, lsolid, rvalid, rsolid,
+                        lane_eff, moving_eff, dec);
+            }
 
             char ln_ch = (lane_eff == 0) ? 'L' : ((lane_eff == 2) ? 'R' : 'S');
             char nav_disp = (nav_ch == 'L' || nav_ch == 'R' || nav_ch == 'U') ? nav_ch : '-';
@@ -408,6 +457,7 @@ int adas_init(volatile uint32_t *bar1, const char *cfg_path)
 {
     (void)cfg_path;
     g_bar1 = bar1;
+    lane_cls_start(bar1);
     tl_params_default(&g_tl_params);
     g_tl_params.roi_y_max_frac = 1.0;
     tl_filter_init(&g_tl_filter, &g_tl_params, 10.0);
@@ -429,6 +479,66 @@ int adas_init(volatile uint32_t *bar1, const char *cfg_path)
         }
     }
 
+    g_scene_lane = -1;
+    const char *env_sc_lane = getenv("ADAS_SCENE_LANE");
+    if (env_sc_lane && *env_sc_lane) {
+        int v = atoi(env_sc_lane);
+        if (v >= 0 && v <= 2) {
+            g_scene_lane = v;
+        }
+    }
+
+    g_scene_moving = -1;
+    const char *env_sc_mov = getenv("ADAS_SCENE_MOVING");
+    if (env_sc_mov && *env_sc_mov) {
+        int v = atoi(env_sc_mov);
+        if (v >= 0 && v <= 1) {
+            g_scene_moving = v;
+        }
+    }
+
+    g_scene_req = 0;
+    const char *env_req = getenv("ADAS_SCENE_REQ");
+    if (env_req && (env_req[0] == 'L' || env_req[0] == 'R')) {
+        g_scene_req = env_req[0];
+    }
+
+    g_scene_force = 0;
+    const char *env_force = getenv("ADAS_SCENE_FORCE");
+    if (env_force && strcmp(env_force, "1") == 0) {
+        g_scene_force = 1;
+    }
+
+    g_scene_ltype_l = -1;
+    const char *env_lt_l = getenv("ADAS_SCENE_LTYPE_L");
+    if (env_lt_l) {
+        if (strcmp(env_lt_l, "dashed") == 0) g_scene_ltype_l = 0;
+        else if (strcmp(env_lt_l, "solid") == 0) g_scene_ltype_l = 1;
+        else if (strcmp(env_lt_l, "none") == 0) g_scene_ltype_l = 2;
+        else g_scene_ltype_l = -1;
+    }
+
+    g_scene_ltype_r = -1;
+    const char *env_lt_r = getenv("ADAS_SCENE_LTYPE_R");
+    if (env_lt_r) {
+        if (strcmp(env_lt_r, "dashed") == 0) g_scene_ltype_r = 0;
+        else if (strcmp(env_lt_r, "solid") == 0) g_scene_ltype_r = 1;
+        else if (strcmp(env_lt_r, "none") == 0) g_scene_ltype_r = 2;
+        else g_scene_ltype_r = -1;
+    }
+
+    g_scene_hazard = 0;
+    const char *env_haz = getenv("ADAS_SCENE_HAZARD");
+    if (env_haz && strcmp(env_haz, "1") == 0) {
+        g_scene_hazard = 1;
+    }
+
+    g_eval = 0;
+    const char *env_eval = getenv("ADAS_EVAL");
+    if (env_eval && strcmp(env_eval, "1") == 0) {
+        g_eval = 1;
+    }
+
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = adas_sigusr1_handler;
@@ -438,6 +548,7 @@ int adas_init(volatile uint32_t *bar1, const char *cfg_path)
 
     if (alloc_dma_bgr_buf() != 0) {
         fprintf(stderr, "ADAS: CMA buffer allocation failed, ADAS disabled\n");
+        lane_cls_stop();
         return -1;
     }
 
@@ -445,6 +556,7 @@ int adas_init(volatile uint32_t *bar1, const char *cfg_path)
     g_enabled = 1;
     if (pthread_create(&g_thread, NULL, adas_thread, NULL) != 0) {
         perror("ADAS: pthread_create failed");
+        lane_cls_stop();
         free_dma_bgr_buf();
         g_running = 0;
         g_enabled = 0;
@@ -456,6 +568,7 @@ int adas_init(volatile uint32_t *bar1, const char *cfg_path)
 void adas_stop(void)
 {
     if (!g_running) return;
+    lane_cls_stop();
     g_running = 0;
     g_enabled = 0;
     pthread_mutex_lock(&g_mutex);

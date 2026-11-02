@@ -120,24 +120,26 @@ def render_card(info, font_title, font_sub, font_badge, font_bot):
 def rgb_to_rgb565(rgb_array):
     """
     转换为 RGB565 小端 (uint16)
-    公式: (r >> 3) << 11 | (g >> 2) << 5 | (b >> 3)
+    公式: (b >> 3) << 11 | (g >> 2) << 5 | (r >> 3)
     """
     r = rgb_array[..., 0].astype(np.uint16)
     g = rgb_array[..., 1].astype(np.uint16)
     b = rgb_array[..., 2].astype(np.uint16)
-    val = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
+    # FPGA slot0 reader RB_SWAP=1：软件打包 B 在高位
+    val = ((b >> 3) << 11) | ((g >> 2) << 5) | (r >> 3)
     # <u2 表示 16位无符号小端
     return val.astype("<u2").tobytes(), val
 
 
 def decode_rgb565(val_u16):
     """解码 RGB565 到 RGB888 (中点还原保证最大量化误差 <= 4)"""
-    r5 = (val_u16 >> 11) & 0x1F
+    # FPGA slot0 reader RB_SWAP=1：软件打包 B 在高位
+    b5 = (val_u16 >> 11) & 0x1F
     g6 = (val_u16 >> 5) & 0x3F
-    b5 = val_u16 & 0x1F
-    r = (r5 << 3) + 3
-    g = (g6 << 2) + 1
+    r5 = val_u16 & 0x1F
     b = (b5 << 3) + 3
+    g = (g6 << 2) + 1
+    r = (r5 << 3) + 3
     return np.array([r, g, b], dtype=np.uint8)
 
 

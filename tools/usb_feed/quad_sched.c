@@ -69,9 +69,34 @@ static inline int32_t clamp_i32(int32_t v, int32_t min_v, int32_t max_v)
     return v;
 }
 
+static int g_quad_fullscreen = 0;
+
+void quad_set_fullscreen(int on)
+{
+    g_quad_fullscreen = on ? 1 : 0;
+}
+
+int quad_is_fullscreen(void)
+{
+    return g_quad_fullscreen;
+}
+
 void quad_band_to_screen_box(int ch, float bx0, float by0, float bx1, float by1,
                              int32_t *sx0, int32_t *sy0, int32_t *sx1, int32_t *sy1)
 {
+    if (g_quad_fullscreen) {
+        int32_t x0 = (int32_t)roundf(bx0 * 2.0f);
+        int32_t y0 = (int32_t)roundf(by0 * 2.0f + 360.0f);
+        int32_t x1 = (int32_t)roundf(bx1 * 2.0f);
+        int32_t y1 = (int32_t)roundf(by1 * 2.0f + 360.0f);
+
+        if (sx0) *sx0 = clamp_i32(x0, 0, 1919);
+        if (sy0) *sy0 = clamp_i32(y0, 0, 1079);
+        if (sx1) *sx1 = clamp_i32(x1, 0, 1919);
+        if (sy1) *sy1 = clamp_i32(y1, 0, 1079);
+        return;
+    }
+
     int ox = 0, oy = 0;
     quad_slot_origin(ch, &ox, &oy);
 
