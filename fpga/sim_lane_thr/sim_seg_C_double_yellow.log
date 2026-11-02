@@ -1,0 +1,93 @@
+Reading pref.tcl
+
+# 2025.3
+
+# ** Note: (vsim-220) 'D:/Questa/questa_fse/win64/../modelsim.ini' is used as the ini file.
+# vsim -c -t 1ps work.tb_lane_thr "+SEG=seg_C_double_yellow" -do "run -all; quit -f" 
+# Start time: 21:35:59 on Nov 02,2026
+# ** Note: (vsim-8009) Loading existing optimized design _opt1
+# //  Questa Altera Starter FPGA Edition-64
+# //  Version 2025.3 win64 Sep 15 2025
+# //
+# // Unpublished work. Copyright 2025 Siemens
+# //
+# // This material contains trade secrets or otherwise confidential information
+# // owned by Siemens Industry Software Inc. or its affiliates (collectively,
+# // "SISW"), or its licensors. Access to and use of this information is strictly
+# // limited as set forth in the Customer's applicable agreements with SISW.
+# //
+# // This material may not be copied, distributed, or otherwise disclosed outside
+# // of the Customer's facilities without the express written permission of SISW,
+# // and may not be used in any way not expressly authorized by SISW.
+# //
+# Loading sv_std.std
+# Loading work.tb_lane_thr(fast)
+# run -all
+#   [4509790000] Frame 0/60 done: row_err=0 fld_err=0
+#   [9019483000] Frame 1/60 done: row_err=0 fld_err=0
+#   [13529175000] Frame 2/60 done: row_err=0 fld_err=0
+#   [18038867000] Frame 3/60 done: row_err=0 fld_err=0
+#   [22548560000] Frame 4/60 done: row_err=0 fld_err=0
+#   [27058252000] Frame 5/60 done: row_err=0 fld_err=0
+#   [31567945000] Frame 6/60 done: row_err=0 fld_err=0
+#   [36077637000] Frame 7/60 done: row_err=0 fld_err=0
+#   [40587330000] Frame 8/60 done: row_err=0 fld_err=0
+#   [45097022000] Frame 9/60 done: row_err=0 fld_err=0
+#   [49606715000] Frame 10/60 done: row_err=0 fld_err=0
+#   [54116407000] Frame 11/60 done: row_err=0 fld_err=0
+#   [58626100000] Frame 12/60 done: row_err=0 fld_err=0
+#   [63135792000] Frame 13/60 done: row_err=0 fld_err=0
+#   [67645485000] Frame 14/60 done: row_err=0 fld_err=0
+#   [72155177000] Frame 15/60 done: row_err=0 fld_err=0
+#   [76664869000] Frame 16/60 done: row_err=0 fld_err=0
+#   [81174562000] Frame 17/60 done: row_err=0 fld_err=0
+#   [85684254000] Frame 18/60 done: row_err=0 fld_err=0
+#   [90193947000] Frame 19/60 done: row_err=0 fld_err=0
+#   [94703639000] Frame 20/60 done: row_err=0 fld_err=0
+#   [99213332000] Frame 21/60 done: row_err=0 fld_err=0
+#   [103723024000] Frame 22/60 done: row_err=0 fld_err=0
+#   [108232717000] Frame 23/60 done: row_err=0 fld_err=0
+#   [112742409000] Frame 24/60 done: row_err=0 fld_err=0
+#   [117252102000] Frame 25/60 done: row_err=0 fld_err=0
+#   [121761794000] Frame 26/60 done: row_err=0 fld_err=0
+#   [126271487000] Frame 27/60 done: row_err=0 fld_err=0
+#   [130781179000] Frame 28/60 done: row_err=0 fld_err=0
+#   [135290871000] Frame 29/60 done: row_err=0 fld_err=0
+#   [139800564000] Frame 30/60 done: row_err=0 fld_err=0
+#   [144310256000] Frame 31/60 done: row_err=0 fld_err=0
+#   [148819949000] Frame 32/60 done: row_err=0 fld_err=0
+#   [153329641000] Frame 33/60 done: row_err=0 fld_err=0
+#   [157839334000] Frame 34/60 done: row_err=0 fld_err=0
+#   [162349026000] Frame 35/60 done: row_err=0 fld_err=0
+#   [166858719000] Frame 36/60 done: row_err=0 fld_err=0
+#   [171368411000] Frame 37/60 done: row_err=0 fld_err=0
+#   [175878104000] Frame 38/60 done: row_err=0 fld_err=0
+#   [180387796000] Frame 39/60 done: row_err=0 fld_err=0
+#   [184897489000] Frame 40/60 done: row_err=0 fld_err=0
+#   [189407181000] Frame 41/60 done: row_err=0 fld_err=0
+#   [193916873000] Frame 42/60 done: row_err=0 fld_err=0
+#   [198426566000] Frame 43/60 done: row_err=0 fld_err=0
+#   [202936258000] Frame 44/60 done: row_err=0 fld_err=0
+#   [207445951000] Frame 45/60 done: row_err=0 fld_err=0
+#   [211955643000] Frame 46/60 done: row_err=0 fld_err=0
+#   [216465336000] Frame 47/60 done: row_err=0 fld_err=0
+#   [220975028000] Frame 48/60 done: row_err=0 fld_err=0
+#   [225484721000] Frame 49/60 done: row_err=0 fld_err=0
+#   [229994413000] Frame 50/60 done: row_err=0 fld_err=0
+#   [234504106000] Frame 51/60 done: row_err=0 fld_err=0
+#   [239013798000] Frame 52/60 done: row_err=0 fld_err=0
+#   [243523490000] Frame 53/60 done: row_err=0 fld_err=0
+#   [248033183000] Frame 54/60 done: row_err=0 fld_err=0
+#   [252542875000] Frame 55/60 done: row_err=0 fld_err=0
+#   [257052568000] Frame 56/60 done: row_err=0 fld_err=0
+#   [261562260000] Frame 57/60 done: row_err=0 fld_err=0
+#   [266071953000] Frame 58/60 done: row_err=0 fld_err=0
+#   [270581645000] Frame 59/60 done: row_err=0 fld_err=0
+# SEG seg_C_double_yellow: row_mismatch=0 frame_field_mismatch=0
+#   STATISTICS [seg_C_double_yellow N=60 THR=61]:
+#     L_frame_type: solid=2, dashed=7, dbl=51 | L_voted: solid=0, dashed=13, dbl=47
+#     R_frame_type: solid=24, dashed=15, dbl=21 | R_voted: solid=18, dashed=0, dbl=42
+# ** Note: $finish    : tb_lane_thr.sv(326)
+#    Time: 270581645243 ps  Iteration: 1  Instance: /tb_lane_thr
+# End time: 21:48:53 on Nov 02,2026, Elapsed time: 0:12:54
+# Errors: 0, Warnings: 0

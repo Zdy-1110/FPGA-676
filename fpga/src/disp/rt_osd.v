@@ -26,6 +26,7 @@ module rt_osd #(
     input       [11:0]  y_act         ,
 
     // enable + registers (pixel domain, latched by rt_osd_ctl)
+    input               zoom          ,   // ZOOM2X mode
     input               osd_en        ,   // DISP_CTRL[2]
     input       [31:0]  dec           ,   // DECISION
     input       [31:0]  osdctrl       ,   // OSD_CTRL
@@ -119,7 +120,8 @@ module rt_osd #(
     wire [11:0] ax0 = (xa>=12'd1032) ? 12'd1032 : ((xa>=12'd912) ? 12'd912 : 12'd792);
     wire [1:0]  akk = (xa>=12'd1032) ? 2'd2 : ((xa>=12'd912) ? 2'd1 : 2'd0);
     wire        in_arrow = (ya>=12'd960) && (ya<12'd1056) &&
-                           (xa>=12'd792) && (xa<12'd1128);
+                           (xa>=12'd792) && (xa<12'd1128) &&
+                           ((xa - ax0) < 12'd96);
     wire [4:0]  aix  = (xa-ax0) >> 2;             // 0..23
     wire [4:0]  arow = (ya-12'd960) >> 2;         // 0..23
     wire [1:0]  asel = akk;
@@ -263,13 +265,35 @@ module rt_osd #(
         end
     end
 
+    reg zoom_r;
+    always @(posedge pix_clk or negedge rst_n) begin
+        if (!rst_n) zoom_r <= 1'b0;
+        else        zoom_r <= zoom;
+    end
+
+    wire [11:0] y_chk = zoom_r ? (y1 >> 1) : y1;
+    wire [11:0] x_chk = zoom_r ? (x1 >> 1) : x1;
+    wire signed [13:0] x_chk_s = $signed({2'b00, x_chk});
+
     reg [31:0] lane_l_accum, lane_r_accum;
-    wire [31:0] l_next = (y1 == ll_ytop_r) ? ll_xtop_r :
-                         ((y1 > ll_ytop_r && y1 <= ll_ybot_r) ? (lane_l_accum + ll_dx_r) : 32'd0);
+    wire [31:0] l_next = zoom_r ? (
+                             y1[0] ? lane_l_accum :
+                             (y_chk == ll_ytop_r) ? ll_xtop_r :
+                             ((y_chk > ll_ytop_r && y_chk <= ll_ybot_r) ? (lane_l_accum + ll_dx_r) : 32'd0)
+                         ) : (
+                             (y1 == ll_ytop_r) ? ll_xtop_r :
+                             ((y1 > ll_ytop_r && y1 <= ll_ybot_r) ? (lane_l_accum + ll_dx_r) : 32'd0)
+                         );
     wire [31:0] l_now  = newline ? l_next : lane_l_accum;
 
-    wire [31:0] r_next = (y1 == lr_ytop_r) ? lr_xtop_r :
-                         ((y1 > lr_ytop_r && y1 <= lr_ybot_r) ? (lane_r_accum + lr_dx_r) : 32'd0);
+    wire [31:0] r_next = zoom_r ? (
+                             y1[0] ? lane_r_accum :
+                             (y_chk == lr_ytop_r) ? lr_xtop_r :
+                             ((y_chk > lr_ytop_r && y_chk <= lr_ybot_r) ? (lane_r_accum + lr_dx_r) : 32'd0)
+                         ) : (
+                             (y1 == lr_ytop_r) ? lr_xtop_r :
+                             ((y1 > lr_ytop_r && y1 <= lr_ybot_r) ? (lane_r_accum + lr_dx_r) : 32'd0)
+                         );
     wire [31:0] r_now  = newline ? r_next : lane_r_accum;
 
     always @(posedge pix_clk or negedge rst_n) begin
@@ -286,16 +310,18 @@ module rt_osd #(
 
     wire signed [13:0] l_x_int = $signed(l_now[29:16]);
     wire signed [13:0] r_x_int = $signed(r_now[29:16]);
-    wire signed [13:0] x1_s    = $signed({2'b00, x1});
 
-    // Valid only in x<960 and y<540, line width 3 pixels (-1, 0, +1)
-    wire l_line_range = (y1 >= ll_ytop_r) && (y1 <= ll_ybot_r) && (x1 < 12'd960) && (y1 < 12'd540);
+    // Valid only in x<960 and y<540 when zoom=0, or full screen when zoom=1.
+    // Line width is 3 source pixels (-1, 0, +1), which scales to 6 visible display pixels under zoom2x.
+    wire l_line_range = de1 && (zoom_r ? ((y_chk >= ll_ytop_r) && (y_chk <= ll_ybot_r) && (x1 < H_ACT) && (y1 < V_ACT))
+                                       : ((y1 >= ll_ytop_r) && (y1 <= ll_ybot_r) && (x1 < 12'd960) && (y1 < 12'd540)));
     wire l_line_hit   = lane_draw_en_r && ll_valid_r && l_line_range &&
-                        ((x1_s - l_x_int) >= -14'sd1) && ((x1_s - l_x_int) <= 14'sd1);
+                        ((x_chk_s - l_x_int) >= -14'sd1) && ((x_chk_s - l_x_int) <= 14'sd1);
 
-    wire r_line_range = (y1 >= lr_ytop_r) && (y1 <= lr_ybot_r) && (x1 < 12'd960) && (y1 < 12'd540);
+    wire r_line_range = de1 && (zoom_r ? ((y_chk >= lr_ytop_r) && (y_chk <= lr_ybot_r) && (x1 < H_ACT) && (y1 < V_ACT))
+                                       : ((y1 >= lr_ytop_r) && (y1 <= lr_ybot_r) && (x1 < 12'd960) && (y1 < 12'd540)));
     wire r_line_hit   = lane_draw_en_r && lr_valid_r && r_line_range &&
-                        ((x1_s - r_x_int) >= -14'sd1) && ((x1_s - r_x_int) <= 14'sd1);
+                        ((x_chk_s - r_x_int) >= -14'sd1) && ((x_chk_s - r_x_int) <= 14'sd1);
 
 
     //------------------------------------------------------------------

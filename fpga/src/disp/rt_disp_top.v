@@ -84,9 +84,9 @@ module rt_disp_top #(
     output wire         stats_tgl         ,
 
     // 20261028 lane detection & decision registers (from/to rt_ext_regs)
-    input       [159:0] lane_cfg_bus      ,
+    input       [191:0] lane_cfg_bus      ,
     input               lane_cfg_tgl      ,
-    output wire [223:0] lane_stat_bus     ,
+    output wire [255:0] lane_stat_bus     ,
     output wire [223:0] lane_dbg_bus      ,
     output wire         lane_stat_tgl     ,
 
@@ -196,7 +196,7 @@ module rt_disp_top #(
     wire        rd_de, rd_hs, rd_vs;
     wire        vid_active;
 
-    wire        quad_en = cfg_ctrl[5];          // 0x800 bit5 = QUAD_EN
+    wire        quad_en = cfg_ctrl[5] | cfg_ctrl[7];          // 0x800 bit5 = QUAD_EN, bit7 = ZOOM2X
 
     wire        lg_stat_tgl;
     wire [159:0]lg_stat_bus;
@@ -320,7 +320,7 @@ module rt_disp_top #(
     wire [159:0]q0_sbus, q1_sbus, q2_sbus, q3_sbus;
     wire [27:0] q0_araddr, q1_araddr, q2_araddr, q3_araddr;
     wire [3:0]  q0_arlen, q1_arlen, q2_arlen, q3_arlen;
-    wire        q0_de, q0_hs, q0_vs, q0_vid, q0_stgl;
+    wire        q0_de, q0_hs, q0_vs, q0_vid, q0_stgl, q0_zoom;
     wire        q1_de, q1_hs, q1_vs, q1_vid, q1_stgl;
     wire        q2_de, q2_hs, q2_vs, q2_vid, q2_stgl;
     wire        q3_de, q3_hs, q3_vs, q3_vid, q3_stgl;
@@ -388,6 +388,7 @@ module rt_disp_top #(
         .stat_tgl      (q0_stgl     ),
         .stat_bus      (q0_sbus     ),
         .video_active_o(q0_vid      ),
+        .zoom_o        (q0_zoom     ),
         .vs            (vs_reg      ),
         .hs            (hs_reg      ),
         .de            (de_v        ),
@@ -427,6 +428,30 @@ module rt_disp_top #(
     wire [7:0] stats_thr_pix = stats_ctrl_s2[8:1];
 
     //------------------------------------------------------------------
+    // 20261102 zoom : analysis stream extraction (960x540 continuous)
+    //------------------------------------------------------------------
+    wire [7:0]  q0_ana_r, q0_ana_g, q0_ana_b;
+    wire        q0_ana_de, q0_ana_hs, q0_ana_vs;
+
+    rt_zoom_ana u_zoom_ana (
+        .pix_clk   (pix_clk   ),
+        .pix_rst_n (rstn_out  ),
+        .zoom      (q0_zoom   ),
+        .r_in      (q0_r      ),
+        .g_in      (q0_g      ),
+        .b_in      (q0_b      ),
+        .de_in     (q0_de     ),
+        .hs_in     (q0_hs     ),
+        .vs_in     (q0_vs     ),
+        .r_out     (q0_ana_r  ),
+        .g_out     (q0_ana_g  ),
+        .b_out     (q0_ana_b  ),
+        .de_out    (q0_ana_de ),
+        .hs_out    (q0_ana_hs ),
+        .vs_out    (q0_ana_vs )
+    );
+
+    //------------------------------------------------------------------
     // 20261101 night enhancement : point (a) gamma & brightness stats
     //------------------------------------------------------------------
     wire        q0_ng_de, q0_ng_hs, q0_ng_vs;
@@ -445,12 +470,12 @@ module rt_disp_top #(
         .rst_n            (rstn_out        ),
         .mode             (cfg_ctrl[11:10] ),
         .stat_valid       (q0_vid          ),
-        .de_in            (q0_de           ),
-        .hs_in            (q0_hs           ),
-        .vs_in            (q0_vs           ),
-        .r_in             (q0_r            ),
-        .g_in             (q0_g            ),
-        .b_in             (q0_b            ),
+        .de_in            (q0_ana_de       ),
+        .hs_in            (q0_ana_hs       ),
+        .vs_in            (q0_ana_vs       ),
+        .r_in             (q0_ana_r        ),
+        .g_in             (q0_ana_g        ),
+        .b_in             (q0_ana_b        ),
         .de_out           (q0_ng_de        ),
         .hs_out           (q0_ng_hs        ),
         .vs_out           (q0_ng_vs        ),
@@ -465,11 +490,11 @@ module rt_disp_top #(
     rt_disp_stats u_disp_stats (
         .pix_clk    (pix_clk      ),
         .rst_n      (rstn_out     ),
-        .de         (q0_de        ),
-        .vs         (q0_vs        ),
-        .r          (q0_r         ),
-        .g          (q0_g         ),
-        .b          (q0_b         ),
+        .de         (q0_ana_de    ),
+        .vs         (q0_ana_vs    ),
+        .r          (q0_ana_r     ),
+        .g          (q0_ana_g     ),
+        .b          (q0_ana_b     ),
         .enable     (stats_en_pix ),
         .thr        (stats_thr_pix),
         .stats_bus  (stats_bus    ),
@@ -481,7 +506,7 @@ module rt_disp_top #(
     //------------------------------------------------------------------
     reg lc_s1, lc_s2, lc_s2d;
     reg [1:0] lc_wait_cnt;
-    reg [159:0] lane_cfg_pix;
+    reg [191:0] lane_cfg_pix;
 
     always @(posedge pix_clk or negedge rstn_out) begin
         if (!rstn_out) begin
@@ -489,7 +514,7 @@ module rt_disp_top #(
             lc_s2        <= 1'b0;
             lc_s2d       <= 1'b0;
             lc_wait_cnt  <= 2'd0;
-            lane_cfg_pix <= { {6'd0, 10'd480, 6'd0, 10'd360}, {8'd60, 8'd14, 8'd120, 8'd18}, {6'd0, 10'd500, 6'd0, 10'd260}, {6'd0, 10'd480, 6'd0, 10'd480}, 32'h0000_0003 };
+            lane_cfg_pix <= { {16'd61, 16'd61}, {6'd0, 10'd480, 6'd0, 10'd360}, {8'd60, 8'd14, 8'd120, 8'd18}, {6'd0, 10'd500, 6'd0, 10'd260}, {6'd0, 10'd480, 6'd0, 10'd480}, 32'h0000_0003 };
         end else begin
             lc_s1  <= lane_cfg_tgl;
             lc_s2  <= lc_s1;
@@ -517,6 +542,9 @@ module rt_disp_top #(
     wire [7:0]  lane_dep_margin_pix = lane_cfg_pix[127:120];
     wire [9:0]  lane_dbg_row_pix    = lane_cfg_pix[137:128];
     wire [9:0]  lane_dbg_x_pix      = lane_cfg_pix[153:144];
+    wire [7:0]  lane_solid_rows_pix = lane_cfg_pix[167:160];
+    wire [7:0]  lane_dbl_rows_pix   = lane_cfg_pix[183:176];
+    wire [3:0]  lane_gap_tol_pix    = lane_cfg_pix[171:168];   // 20261104: 0x8F0[11:8] gap tolerance
     wire [223:0] lane_dbg_bus_w;
     assign lane_dbg_bus = lane_dbg_bus_w;
 
@@ -531,6 +559,9 @@ module rt_disp_top #(
     wire [31:0] lane_r_xtop_q16_w, lane_r_dx_q16_w;
     wire [15:0] lane_r_x_bot_w;
     wire [7:0]  lane_r_n_w;
+
+    wire [7:0]  lane_max_consec_l_w, lane_max_consec_r_w;
+    wire [7:0]  lane_dbl_cnt_l_w, lane_dbl_cnt_r_w;
 
     wire        lane_depart_w, lane_frame_done_w;
     wire [7:0]  lane_frame_cnt_w;
@@ -553,6 +584,9 @@ module rt_disp_top #(
         .cfg_white_g_min   (lane_w_gmin_pix   ),
         .cfg_yellow_delta  (lane_y_delta_pix  ),
         .cfg_depart_margin (lane_dep_margin_pix),
+        .cfg_solid_rows    (lane_solid_rows_pix),
+        .cfg_dbl_rows      (lane_dbl_rows_pix ),
+        .cfg_gap_tol       (lane_gap_tol_pix  ),
         .out_l_valid       (lane_l_valid_w    ),
         .out_l_solid       (lane_l_solid_w    ),
         .out_l_double      (lane_l_double_w   ),
@@ -574,6 +608,10 @@ module rt_disp_top #(
         .out_depart        (lane_depart_w     ),
         .out_frame_done    (lane_frame_done_w ),
         .out_frame_cnt     (lane_frame_cnt_w  ),
+        .out_max_consec_l  (lane_max_consec_l_w),
+        .out_max_consec_r  (lane_max_consec_r_w),
+        .out_dbl_cnt_l     (lane_dbl_cnt_l_w  ),
+        .out_dbl_cnt_r     (lane_dbl_cnt_r_w  ),
         .dbg_row           (lane_dbg_row_pix  ),
         .dbg_x             (lane_dbg_x_pix    ),
         .dbg_bus           (lane_dbg_bus_w    )
@@ -589,6 +627,8 @@ module rt_disp_top #(
     assign lane_stat_tgl = lane_stat_tgl_r;
 
     assign lane_stat_bus = {
+        // 0x8F4: [31:24] max_consec_r, [23:16] max_consec_l, [15:8] double_cnt_r, [7:0] double_cnt_l
+        lane_max_consec_r_w[7:0], lane_max_consec_l_w[7:0], lane_dbl_cnt_r_w[7:0], lane_dbl_cnt_l_w[7:0],
         // 0x8E8: [31:24] frame_cnt, [21] force, [20] req_r, [19] req_l, [18] depart, [17:16] dec, [15:8] r_n, [7:0] l_n
         lane_frame_cnt_w[7:0], 2'd0, lane_eff_force_w, lane_eff_req_r_w, lane_eff_req_l_w,
         lane_depart_w, lane_dec_state_w[1:0], lane_r_n_w[7:0], lane_l_n_w[7:0],
@@ -954,14 +994,37 @@ module rt_disp_top #(
 
     //------------------------------------------------------------------
     // 2x2 composite : the four windows never overlap, so the pixel buses of
-    // the same clock edge are simply OR-ed back into one stream
+    // the same clock edge are simply OR-ed back into one stream.
+    // In ZOOM2X mode (q0_zoom=1), slot0 expands to 1920x1080; q1..q3 are masked to 0.
     //------------------------------------------------------------------
-    wire [7:0] qz_r = q0_eff_r | q1_r | q2_r | q3_r;
-    wire [7:0] qz_g = q0_eff_g | q1_g | q2_g | q3_g;
-    wire [7:0] qz_b = q0_eff_b | q1_b | q2_b | q3_b;
-    wire       qz_de = q0_de | q1_de | q2_de | q3_de;
-    wire       qz_hs = q0_hs | q1_hs | q2_hs | q3_hs;
-    wire       qz_vs = q0_vs | q1_vs | q2_vs | q3_vs;
+    wire q_mask = !q0_zoom;
+    wire [7:0] q1_eff_r  = {8{q_mask}} & q1_r;
+    wire [7:0] q1_eff_g  = {8{q_mask}} & q1_g;
+    wire [7:0] q1_eff_b  = {8{q_mask}} & q1_b;
+    wire       q1_eff_de = q_mask & q1_de;
+    wire       q1_eff_hs = q_mask & q1_hs;
+    wire       q1_eff_vs = q_mask & q1_vs;
+
+    wire [7:0] q2_eff_r  = {8{q_mask}} & q2_r;
+    wire [7:0] q2_eff_g  = {8{q_mask}} & q2_g;
+    wire [7:0] q2_eff_b  = {8{q_mask}} & q2_b;
+    wire       q2_eff_de = q_mask & q2_de;
+    wire       q2_eff_hs = q_mask & q2_hs;
+    wire       q2_eff_vs = q_mask & q2_vs;
+
+    wire [7:0] q3_eff_r  = {8{q_mask}} & q3_r;
+    wire [7:0] q3_eff_g  = {8{q_mask}} & q3_g;
+    wire [7:0] q3_eff_b  = {8{q_mask}} & q3_b;
+    wire       q3_eff_de = q_mask & q3_de;
+    wire       q3_eff_hs = q_mask & q3_hs;
+    wire       q3_eff_vs = q_mask & q3_vs;
+
+    wire [7:0] qz_r = q0_eff_r | q1_eff_r | q2_eff_r | q3_eff_r;
+    wire [7:0] qz_g = q0_eff_g | q1_eff_g | q2_eff_g | q3_eff_g;
+    wire [7:0] qz_b = q0_eff_b | q1_eff_b | q2_eff_b | q3_eff_b;
+    wire       qz_de = q0_de | q1_eff_de | q2_eff_de | q3_eff_de;
+    wire       qz_hs = q0_hs | q1_eff_hs | q2_eff_hs | q3_eff_hs;
+    wire       qz_vs = q0_vs | q1_eff_vs | q2_eff_vs | q3_eff_vs;
 
     wire [7:0] pre_r  = qmode ? qz_r  : rd_r;
     wire [7:0] pre_g  = qmode ? qz_g  : rd_g;
@@ -1125,6 +1188,7 @@ module rt_disp_top #(
         .vs_in       (src_vs      ),
         .x_act       (act_x_d1    ),
         .y_act       (act_y_d1    ),
+        .zoom        (q0_zoom     ),
         .osd_en      (cfg_ctrl[2] ),
         .dec         (dec_w       ),
         .osdctrl     (osdctrl_w   ),

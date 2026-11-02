@@ -1,0 +1,53 @@
+Reading pref.tcl
+
+# 2025.3
+
+# ** Note: (vsim-220) 'D:/Questa/questa_fse/win64/../modelsim.ini' is used as the ini file.
+# vsim -c -t 1ps work.tb_zoom -do "run -all; quit -f" 
+# Start time: 20:03:37 on Nov 02,2026
+# ** Note: (vsim-8009) Loading existing optimized design _opt4
+# //  Questa Altera Starter FPGA Edition-64
+# //  Version 2025.3 win64 Sep 15 2025
+# //
+# // Unpublished work. Copyright 2025 Siemens
+# //
+# // This material contains trade secrets or otherwise confidential information
+# // owned by Siemens Industry Software Inc. or its affiliates (collectively,
+# // "SISW"), or its licensors. Access to and use of this information is strictly
+# // limited as set forth in the Customer's applicable agreements with SISW.
+# //
+# // This material may not be copied, distributed, or otherwise disclosed outside
+# // of the Customer's facilities without the express written permission of SISW,
+# // and may not be used in any way not expressly authorized by SISW.
+# //
+# Loading sv_std.std
+# Loading work.tb_zoom(fast)
+# run -all
+# ============================================================
+# Starting ZOOM2X Verification Testbench (Questa FSE)
+# ============================================================
+# [TB] Active Frame 1 started at time 39108000 (dut_zoom=0)
+# [INFO] Frame 1 (Warmup) running...
+# [TB] Active Frame 2 started at time 14112844000 (dut_zoom=0)
+# [INFO] Frame 2 (zoom=0 check) running...
+# [INFO] Mid-frame 2 trigger: setting cfg_ctrl[7]=1 at (X=100, Y=500)
+# [TB] Active Frame 3 started at time 28186581000 (dut_zoom=1)
+# [INFO] Frame 3 (zoom=1 check) running...
+# [INFO] dut_zoom cleanly switched to 1 at frame boundary.
+# [TB] Active Frame 4 started at time 42260318000 (dut_zoom=1)
+# [INFO] Frame 3 finished.
+# 
+# ============================================================
+# ZOOM2X TEST RESULTS SUMMARY
+# ============================================================
+# (a) zoom=0 DUT vs REF match count: 4172185 cycles, mismatches: 0
+# (b) zoom=1 display stream pixels checked: 2073600, errors: 0 (active=2073600)
+# (c) Analysis stream: 540 lines (exp 540), 518400 pixels (exp 518400), content errors: 0
+# (d) Mid-frame toggle: 1111580 active cycles checked, errors: 0
+# (e) OSD Lane hits: zoom0=1806 (err=0), zoom1=3612 (err=0)
+# (f) OSD Arrow gaps checked: 13824 pixels, false in_arrow errors: 0
+# ========================================
+# ZOOM_TB PASS
+# ========================================
+# End time: 20:05:47 on Nov 02,2026, Elapsed time: 0:02:10
+# Errors: 0, Warnings: 0
