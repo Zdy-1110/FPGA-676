@@ -1,163 +1,46 @@
-# E:\Project\nesai2026 工程总说明
+# 基于 FPGA + RK3568 的车载 ADAS 系统
 
-> 最后整理：2026-10-07（第二批）。本文档是整个工作区的总索引：项目背景、每条工作线的状态、每个目录/关键文件的角色、外部依赖位置，以及历次清理记录。
-> 新会话 / 新队友从这里开始读。
+2026 年全国大学生嵌入式芯片与系统设计竞赛（紫光同创杯）选题三参赛工程。
+紫光同创 PG2L100H FPGA 承担视频接入、车道线/斑马线硬件检测与多图层视频合成，
+RK3568 承担 NPU 目标检测与 ADAS 决策，两者通过 PCIe 2.0 x2 互联。
 
----
+源码仓库：<https://github.com/Zdy-1110/FPGA-676>
 
-## 一、项目背景
+## 系统组成
 
-**2026 年全国大学生嵌入式芯片与系统设计竞赛 · FPGA 赛道（紫光同创杯），选题 3：ADAS。**
-硬件方案：紫光同创盘古 100Pro+（PG2L100H，Logos2）做图像/加速 + RK3568/3566 级主板做主机，互联核心是 **PCIe（RC↔EP）**。
+1. 视频输入：USB UVC 摄像头采集，RK3568 侧经 MPP/RGA 硬件解码与预处理。
+2. 智能感知：RK3568 NPU 运行 INT8 量化模型，C 语言决策引擎输出行驶行为。
+3. 异构互联：PCIe Gen2 x2，控制走 MMIO，图像走物理连续内存零拷贝 DMA（实测约 1 GB/s）。
+4. FPGA 流水：流式车道线与斑马线检测、自适应夜间增强、ZOOM 2X 分析，多路视频汇聚写入板载 32 位 DDR3 帧缓存。
+5. 显示输出：四宫格图层合成与矢量 OSD 叠加，1080P@60Hz HDMI 输出（MS7210）。
 
-工作区各工作线状态：
-
-| 工作线 | 状态 | 主文档 / 位置 |
-|---|---|---|
-| ① PCIe x2 提速（核心） | ✅ 已达成 Gen2 x2 ≈ 1GB/s（P29 槽） | `PCIe_x2提速_进度与交接文档.md`（第 2 版）；自研工程在 `D:\pango_build\4_15_PCIE_DMA\` |
-| ② UP4 调试串口排障 | ✅ 已闭环（XR21V1414 驱动，Ch A=COM14 控制台） | `PCIe_x2提速_进度与交接文档.md` §串口；工具在 `tools\` |
-| ③ 竞赛资料包校验 | ✅ 重下后 104 包全部完好 | 根目录 `_report_redownload.txt`；脚本 `tools\check_archives.py` |
-| ④ FPGA 仿真环境 | ✅ Questa + PDS 库已就绪（库在 D 盘） | `fpga_sim\README.md` |
-| ⑤ PCIe 电源隔离转接板（扩展板 PCB 设计） | ❌ **已终止**：2026-10-07 按用户指示彻底删除（design/delivery/archive 及 review 内板卡证据，回收站可恢复） | 历史记录见 `README.md` 旧版与回收站；根目录 `00_最新PCIe评审_禁止直接打板.md`、`PCIe中间件_CEM触点映射_已核实.md` 为该线遗留文档，暂保留 |
-
----
-
-## 二、目录地图（整理后共约 128MB）
-
-| 目录 | 大小 | 内容 | 性质 |
-|---|---|---|---|
-| `pcie_demo\` | 68M | 盘古官方 PCIe 例程解压（2_13 枚举测试 + 4_15 DMA） | 官方例程 + 保留的官方位流 |
-| `fpga_docs\` | 23M | 官方资料 PDF（PDS、盘古、RK3568 板卡手册）+ 文本提取 | 参考资料 |
-| `tools\` | 20M | 工具脚本（串口排障 11 个 + 校验 1 个 + 生成器 3 个）+ 驱动/资料 | 工具箱 |
-| `review\` | 18M | 与板卡设计无关的互联/实测证据：厂商例程代码审计、实板实测记录、RK UP4 手册解析 | 历史记录，只读 |
-| `fpga_sim\` | 21K | 仿真自检 testbench + 环境踩坑 README | 活跃工作区 |
-| `log\` | 8K | PDS 下载器烧写日志 | 证据留存 |
-
----
-
-## 三、根目录文件逐项说明
-
-| 文件 | 说明 |
-|---|---|
-| `README.md` | 本文档（工作区总索引） |
-| `PCIe_x2提速_进度与交接文档.md` | **核心交接文档**（第 2 版）：x2 提速全过程、RK 侧枚举/DTB/devmem 的全部坑、U-Boot 命令、下一步 |
-| `00_最新PCIe评审_禁止直接打板.md` | 〔扩展板工作线遗留〕REV_C 评审结论（打板前必须解决的问题清单）。设计内容已删，本文档暂保留；其引用的 `review\hardware_connected_20261003\` 仍在，链接有效 |
-| `PCIe中间件_CEM触点映射_已核实.md` | 〔扩展板工作线遗留〕PCIe CEM 金手指触点逐 pin 映射表（已实板核实）。对接线/延长线方案仍有参考价值，暂保留 |
-| `_report_redownload.txt` | 百度网盘静默损坏排查后**重下资料包的校验报告：104 包全部完好**（配 `tools\check_archives.py` 与 `tools\known_sizes.txt`） |
-| `contest_pymupdf.txt` | 紫光同创赛道选题指南的全文提取（源 PDF 在 `D:\QQ\文件\` 与 `E:\download\`） |
-| `anlogic_2026_topics.txt` | 安路科技赛道选题指南全文提取（35 页，源 PDF 在 `D:\QQ\文件\`） |
-| `fpga_architecture.html` | 自制教学页《FPGA 工作原理·架构图解（以盘古100Pro+ 为例）》，单文件无依赖 |
-| `.zcodeignore` | ZCode 工作区搜索忽略规则 |
-| `.zcode\plans\` | ZCode 会话计划存档 |
-
----
-
-## 四、各目录详解
-
-### 1. `pcie_demo\` — 官方例程解压区（非自研工程）
-
-来源：竞赛资料包 `盘古100Pro+配套资料\2_Demo\` 下两个 RAR 的原样解压（RAR 及其 SHA-256 记录于 `review\pango100pro_evidence.md` 与 `review\pcie_code_audit_20261003\archive_provenance.json`）。
-
-- `2_13_pcie_test\` — 通用 PCIe 通信测试（EP，Gen2 x4）：工程壳 `pcie_test.pds` + `ipcore\pcie_test\`（IP 配置 `.idf`、IP RTL、仿真模型、example_design 源码）。
-- `4_15_PCIE_DMA\` — PCIe DMA 参考设计：`src\`（DMA RTL + 加密 .vp 桥）、`ip\`（PCIe_IP + 4 个 RAM IP）、`simulation\`（ModelSim 仿真工程，含 Pango 官方仿真模型 arch\vendor）、`linux\`（驱动源码 pango_pci_driver.c + 测试程序源码 + 使用文档）、`docs\`（RD04005 参考设计手册）、`bench\`（testbench）、`pnr\`（板级工程 + 约束 `pango_pcie_top.fdc`）。
-- **保留的官方位流**（各 3.6MB）：`2_13\...\pnr\example_design\generate_bitstream\pango_pcie_top.sbit` 与 `4_15\pnr\generate_bitstream\pango_pcie_dma_top.sbit`。
-- **注意**：x2 提速的自研改造**不在本目录**，在 `D:\pango_build\4_15_PCIE_DMA\`（见交接文档）。
-- 2026-10-07 清理：删除了厂商跑的 P&R 中间产物（compile/device_map/synthesize/place_route/report_timing、bak、日志、x86-64 预编译二进制，约 96MB）；完整原始包可随时从 F 盘 RAR 重解（见 §六）。
-
-### 2. `review\` — 互联工作线证据仓库（历史记录，只读）
-
-2026-10-07 起只保留**与扩展板 PCB 设计无关**的证据（板卡相关部分已随该工作线删除）：
-
-- `pcie_code_audit_20261003\` — 厂商 PCIe 例程只读审计结论：`代码分析汇总结论.md`、`dma_findings.md`、`pcie_test_findings.md`、`archive_provenance.json`（记录源 RAR 路径与 SHA-256，是 pcie_demo 的恢复依据）。DMA 寄存器行为等结论支撑了 x2 数据面验证。
-- `hardware_connected_20261003\` — **实板实测记录（不可再生）**：`README_本轮进展.md`、FPGA 连接只读实测、JTAG 扫描、板卡照片等。
-- `pango100pro_evidence.md` — 盘古 100Pro+ 证据汇集（含 pcie_demo 两个 RAR 的 SHA-256 登记）。
-- `cable_options.md` — PCIe x4 延长线（接线方案 A）选型分析。
-- `rk_up4_*`（13 份逐页文本 + 5 张截图 + `rk_up4_schematic.txt`）、`p29/p30*.png` — 飞凌 OK3568/OK3568J-UP4 手册解析与 RK3568 主板原理图第 29/30 页截图（PCIe x4 槽、12V 供电、EXTP_EN 电路），串口排障与互联调试的输入。
-- `read_rk_manual.py`、`read_rk_pdf.py`、`extract_rk_clean.py` — 上述手册文本提取脚本。
-
-### 3. `tools\` — 工具箱
-
-**串口排障脚本**（UP4 工作线，迭代关系 probe→probe2、catch_boot→catch_robust、rk_pcie_check→rk_session_check→pcie_console）：
-`serial_probe.py`、`serial_probe2.py`、`serial_listen_all.py`、`serial_catch_boot.py`、`serial_catch_robust.py`、`com_watch.py`、`usb_watch.py`、`rk_boot_capture.py`（XR21 四通道抓取）、`rk_pcie_check.py`、`rk_session_check.py`、`pcie_console.py`（带 TX 写守护）。
-
-**其他脚本**：`check_archives.py`（资料包完整性校验，全零块扫描 + 压缩包 CRC）、`make_kicad_interposer.py`（REV_A KiCad 工程生成器，输出到 `kicad_out\`，属已终止的板卡工作线）、`make_wiring_diagram.py`（依赖前者取触点表）、`make_pcie_interposer.py`（旧路线：直接生成嘉立创 epro 草稿）、`cleanup_20261007.ps1` / `cleanup_20261007_phase2.ps1`（两次清理脚本，兼清理记录）。
-
-**数据/资料**：`boot_console.log`（UP4 完整启动日志，COM14，排障现场证据）、`known_sizes.txt`（9-23 资料包实测记录）、`lcsc_page.html`（C1509727 连接器商品页快照，板卡线遗留）、`datasheet\`（UMAX 91613-110141D PCIe x4 夹板连接器手册 + 渲染图，板卡线遗留）、`kicad_lib\`（C1509727 转出的封装/3D，板卡线遗留）、`kicad_out\`（REV_A KiCad 工程输出 + 接线图，板卡线遗留）、`xr_usb_driver\`（XR21V1414 驱动，**换机必装**）、`platform-tools.zip`（Android platform-tools 37.0.1，用时解压）。
-
-### 4. `fpga_docs\` — 官方资料（6 PDF + 3 文本提取，无自写笔记）
-
-PDS 安装手册 V1.2、PDS_2022.2-SP6.4 Release Notes、教程1 盘古 676 系列硬件实验手册（含 PCIe x4 引脚表）、盘古 MINI 硬件手册、RK3568 主板产品手册、RK3568 硬件使用手册 v1.1；三个 PDF 各有一份逐页文本提取（便于检索）。
-覆盖缺口：无 DDR3/HDMI/PCIe IP 用户指南；PDS 2025.2 的 UG 文档集在 `D:\Program Files\pango\PDS_2025.2-ads\doc\`。
-
-### 5. `fpga_sim\` — 仿真工作区
-
-`smoke\`（纯 Verilog 计数器自检）、`pango_prim\`（GTP_GRS/GTP_LUT4 等真实原语自检，实例名必须 `GRS_INST`）、`README.md`（Questa 2025.3 + PDS 2025.2-ads 环境四坑与运行方法）。
-**Pango 仿真库本体在 `D:\pango_sim_libraries\`**（56MB，usim/vsim 已编好，可由 compile_simlib 重建）。
-
-### 6. `log\` — 证据留存
-
-`configuration.log` — PDS 下载器日志（2026-10-05 首次成功烧写 progress 100%，10 秒后二次连接 scan chain）。
-
----
-
-## 五、关键结论速查（详情见对应文档）
-
-1. **PCIe 已达成 Gen2 x2 ≈ 1GB/s**；RK 上电只识别一次 PCIe，FPGA 必须先加载好；x2 的真因是 WIDTH/CAPABLE/HSST_LANE_NUM 而非 NUM_OF_LANES（bool 型）。→ 交接文档
-2. **U-Boot 0x09000000 是 TrustZone 保护区**，一律用 0x08300000；数字参数按十六进制；DTB 修复六条命令见交接文档。
-3. **UP4 串口**：必须装 XR21V1414 厂商驱动（usbser 只通输出），装完 COM11-14，Ch A=COM14 是控制台；GL 集线器吞数据要直连。→ 交接文档 §串口
-4. **扩展板 PCB 工作线已终止**（2026-10-07 用户指示）：设计/交付/归档内容已全部删除走回收站；若重启该线，从回收站恢复或按 `tools\cleanup_20261007_phase2.ps1` 里的清单反推来源。
-5. **资料包**：百度网盘会静默写 MB 对齐全零块，字节数对≠完整；新下载必跑 `tools\check_archives.py`。
-6. **仿真**：license 变量认 `SALT_LICENSE_SERVER`；中文路径建库失败的问题已于 2026-10-07 把工作区改名 `nesai2026` 根治（subst X: 映射已拆除，详见 `fpga_sim\README.md` 坑 2）；testbench 必须例化 `GTP_GRS GRS_INST(.GRS_N(1'b1))`。→ `fpga_sim\README.md`
-
-## 六、外部资源依赖（工作区外，删除工作区内容前先确认这些还在）
+## 目录
 
 | 路径 | 内容 |
-|---|---|
-| `D:\pango_build\4_15_PCIE_DMA\` | **x2 提速自研工程**（当前主力工程） |
-| `D:\pango_work\` | 官方预编译位流备份 |
-| `D:\pango_sim_libraries\` | Pango 仿真库（Questa 用） |
-| `F:\BaiduNetdiskDownload\【竞赛】2026FPGA创新设计竞赛紫光同创杯资料包\` | 竞赛资料包原件（含 2_Demo 的 `2_13_pcie_test.rar` / `4_15_PCIE_DMA.rar`，SHA-256 见 `review\pango100pro_evidence.md` 与 `review\pcie_code_audit_20261003\archive_provenance.json`，2026-10-07 实测在位） |
-| `D:\QQ\文件\`、`E:\download\` | 赛道选题指南源 PDF（紫光同创/安路） |
-| `D:\Program Files\pango\PDS_2025.2-ads\` | PDS 工具链（license 2026-11-03 到期需续） |
-| Questa Altera Starter 2025.3 | license 到 2027-10-02；认 `SALT_LICENSE_SERVER` |
+| --- | --- |
+| `fpga/` | PDS 工程与管脚约束、RTL 源码（`src/`）、IP 核、仿真工程（`sim*/`）、历史位流（`out/`） |
+| `tools/usb_feed/` | 板端主程序：采集、MPP 解码、四分屏调度、NPU 推理、ADAS 决策 |
+| `tools/menu/` | 车载菜单、开机模式选择与守护脚本 |
+| `tools/adas/`、`tools/npu_det/` | 决策引擎、NPU 后处理与板端基准 |
+| `tools/lane_fpga/`、`tools/zebra_fpga/` | 车道线与斑马线检测的 PC 端黄金模型与评测 |
+| `models/npu/` | 预量化 RKNN 模型 |
+| `docs/` | 技术文档、附录、演示与答辩材料 |
+| `docs/submit/` | 构建、部署与第三方组件说明（随源码包提交） |
 
-## 七、历次清理记录
+## 构建与运行
 
-### 2026-10-07 第一批：全工作区整理（释放约 305MB，脚本 `tools\cleanup_20261007.ps1`）
+- FPGA 位流：`fpga/pnr/build_cam23.tcl`（PDS 2025.2，PG2L100H-6FBG676），详见 `docs/submit/BUILD.md`
+- RK3568 交叉编译：`sh tools/rk_build.sh tools/usb_feed/usb_feed`
+- 板端部署与开机脚本：`docs/submit/DEPLOY.md`
+- 全量自检：`python tools/selftest.py`
 
-| 类别 | 内容 | 理由 | 恢复方式 |
-|---|---|---|---|
-| 零信息量残留 | `({text`(0字节)、`debug.log`、`mailto_UserChoice_backup.reg`、`tools\api.py`、`filelist*.json`(HTTP错误残留)、boot_chB/C/D.log(0字节)、`.cache.mk`、`.swp`、`__pycache__`×2、`.pds.lock` | 意外产物/报错残留/编译缓存 | 无需恢复 |
-| 逐字节重复体 | `review\pcie_code_audit_20261003\extracted\`(164MB，与 pcie_demo 全树 md5 抽查一致)、`design\...\eda_native\`(FINAL.epro 解包副本)、`manufacturing\gerber\`(原始zip解包)、`*_UTF8.tsv`(转码件)、`eda_bom_cpl_netlist_response.json`(解码结果=保留的三份文件) | 已验证与保留件逐字节相同 | `decode_eda_final_exports.py` 可一键重建 |
-| 可再生产物 | `contest_doc.txt`(劣化提取)、`contest_utf8.txt`(近似重复)、`_extract_anlogic.py`、`tools\up4_*.png`×8、`tools\platform-tools\`(留zip)、`tools\xr_usb_driver_win10.zip`(留目录)、`tools\gerber_preview_deps\`(gerbonara 依赖树，无脚本引用) | 源件在盘或 pip 一条命令重装 | 见 §六 外部路径 / `pip install gerbonara==1.6.3` |
-| 厂商编译中间产物 | 两个官方例程 `pnr\` 下的 compile/device_map/synthesize/place_route/report_timing/constraint_check、`bak\`×4、全部 `*.log`、`logbackup\`、x86-64 预编译二进制×3（RK3568 用不了） | 可从 F 盘原始 RAR 重解；源码/IP配置/文档/位流全保留 | 重解 `2_13_pcie_test.rar` / `4_15_PCIE_DMA.rar`（F 盘，SHA-256 已登记核对） |
+## 文档
 
-### 2026-10-07 第二批：扩展板 PCB 工作线终止（释放约 118MB，脚本 `tools\cleanup_20261007_phase2.ps1`）
+- 技术文档：`docs/技术文档_最终稿.md`（寄存器映射见附录 A，验证复现见附录 B）
+- 运行手册：`docs/演示现场运行手册.md`
+- 答辩要点：`docs/答辩要点_评委问答.md`
+- 开发过程记录：`docs/工作区索引.md`
 
-用户确认该区域作用仅为扩展板（PCIe 电源隔离转接板 REV_C）的 PCB 设计后，指示彻底清理：
+## 第三方组件
 
-| 删除项 | 说明 |
-|---|---|
-| `design\` | REV_C 设计工作区全删（生成/验证脚本、EDA 会话证据 JSON、制造文件 Gerber/BOM/CPL、FINAL.epro） |
-| `delivery\` | REV_C 发布包全删（文件夹 + zip，46 文件；板从未制造、未电气认证） |
-| `archive\` | 10 个旧云端 EDA 工程的本地备份 + 旧评审工作区全删（均为该板卡的旧版本） |
-| `review\` 板卡专属部分 | `final_isolator_rev_c`（REV_C 验证）、`two_manuals`/`pcie_two_variants`（手册证据/双方案评审）、`bom_sourcing`/`cleanup_bom`（选型与云端清理证据）、`baseline_export`、`native_v4/v5` 快照、根目录 5 个 epro、52 个嘉立创 API 文档快照（api_*，源站 prodocs.lceda.cn 在线可重取）、Rev A 基线（baseline_*）、Rev B 会话日志（eda_*）、PCB 分析 md 与自动化脚本 |
-
-review/ 中**保留**了与打板无关的证据：`pcie_code_audit_20261003\`（厂商例程审计，支撑 x2 数据面工作）、`hardware_connected_20261003\`（实板实测记录）、`pango100pro_evidence.md`（pcie_demo 恢复源 SHA-256 登记）、`cable_options.md`（延长线方案选型）、`rk_up4_*` 与 `p29/p30` 原理图截图（RK 板手册解析）。
-
-**范围内暂未删的板卡线遗留**（如确认不再需要可再删，约 8.7MB + 2 个根文档）：`tools\make_kicad_interposer.py`、`make_wiring_diagram.py`、`make_pcie_interposer.py`、`kicad_lib\`、`kicad_out\`、`datasheet\`、`lcsc_page.html`，以及根目录 `00_最新PCIe评审_禁止直接打板.md`、`PCIe中间件_CEM触点映射_已核实.md`。
-
-### 2026-10-07 第三批：工作区改名 `E:\Project\嵌赛` → `E:\Project\nesai2026`
-
-**目的**：根治 Questa/PDS 无法在中文路径下建库的问题（`fpga_sim\README.md` 坑 2），从根上免除 `subst X:` 盘符映射——"此电脑"里多出来的 `Game (X:)` 虚拟盘即源于此。
-
-执行内容：
-- 工作区全部内容移入 `E:\Project\nesai2026`（活动会话持有旧根目录句柄，整树搬移而非直接改名；旧位置只剩**空壳目录** `E:\Project\嵌赛`，已由启动文件夹的自清理脚本 `del-old-workspace-shell.cmd` 在下次登录自动删除——成功后脚本自删，仍被占用则保留到下次登录重试）。
-- 24 个文件内写死的旧路径（`E:\Project\嵌赛`、`/e/Project/嵌赛`、`X:\fpga_sim` 等各种形式）批量替换为新路径。
-- 拆除 `subst X:` 映射；删除开机自启脚本 `%APPDATA%\...\Start Menu\Programs\Startup\map-chisai-x.cmd`。
-- `fpga_sim\README.md` 坑 2 标注"已根治"，历史记录保留；冒烟工程路径改为直连新路径。
-- 外部依赖核查：`D:\pango_sim_libraries`、`D:\pango_build` 均未引用旧路径，不受影响。
-
-**注意**：ZCode 的项目记忆按"工作区路径小写"的 SHA-256 前 16 位建目录索引（旧 `E:\Project\嵌赛` → `project-47239e3a2b261587`）。新路径对应的记忆目录 **`nesai2026-cd419279655abc34`** 已于 2026-10-07 预先建好并全量迁移全部记忆，旧目录保留作备份——在 `E:\Project\nesai2026` 打开的新会话可无缝延续记忆。
-
-保留判据：源码/IP配置/约束/工程文件/文档/位流/实测证据一律保留；只删"验证过与保留件相同、可从外部源重建、或所属工作线已按用户指示终止"的内容。
+MPP、RKNN、librga 等组件来源与许可证见 `docs/submit/THIRD_PARTY.md`。

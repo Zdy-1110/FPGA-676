@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>车载 ADAS 异构感知平台 · 软硬件框架</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    margin: 0;
+    padding: 0;
+    background: #F5F7FB;
+    font-family: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "SimHei", sans-serif;
+    color: #0F172A;
+    -webkit-font-smoothing: antialiased;
+  }
+  .num {
+    font-family: "Segoe UI", "Bahnschrift", sans-serif;
+  }
+  #canvas {
+    position: relative;
+    width: 1920px;
+    height: 1080px;
+    background: #F5F7FB;
+    overflow: hidden;
+  }
+
+  /* Tags */
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 1px 7px;
+    line-height: 1.35;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+  .tag-yellow {
+    background: #FEF3C7;
+    color: #92400E;
+  }
+  .tag-green {
+    background: #DCFCE7;
+    color: #166534;
+  }
+
+  /* Cards / Boxes Common */
+  .card {
+    background: #FFFFFF;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(15,23,42,.08);
+  }
+
+  /* A. Title Zone */
+  .title-main {
+    position: absolute;
+    left: 32px;
+    top: 20px;
+    font-size: 34px;
+    font-weight: 700;
+    color: #0F172A;
+    line-height: 1.15;
+    letter-spacing: 0.5px;
+  }
+  .title-sub {
+    position: absolute;
+    left: 32px;
+    top: 66px;
+    font-size: 17px;
+    color: #475569;
+    line-height: 1.2;
+  }
+  .badge-top {
+    position: absolute;
+    right: 32px;
+    top: 30px;
+    background: #0F766E;
+    color: #FFFFFF;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 6px 18px;
+    border-radius: 999px;
+    box-shadow: 0 2px 4px rgba(15,118,110,.2);
+  }
+
+  /* B. Left Column: Input */
+  .col-input-title {
+    position: absolute;
+    left: 24px;
+    top: 108px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #475569;
+  }
+  .input-card {
+    position: absolute;
+    left: 24px;
+    width: 236px;
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    box-shadow: 0 1px 3px rgba(15,23,42,.08);
+  }
+  .input-card-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0F172A;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .input-card-desc {
+    font-size: 12.5px;
+    color: #475569;
+    line-height: 1.35;
+  }
+
+  /* C. RK3568 Zone */
+  .rk-zone {
+    position: absolute;
+    left: 290px;
+    top: 108px;
+    width: 1250px;
+    height: 340px;
+    background: #EFF4FF;
+    border: 2px solid #1D4ED8;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(15,23,42,.08);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .rk-header {
+    height: 40px;
+    background: #1D4ED8;
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    flex-shrink: 0;
+  }
+  .rk-header-left {
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  .rk-header-right {
+    font-size: 13px;
+    color: #DBEAFE;
+    font-family: "Segoe UI", sans-serif;
+  }
+  .rk-body {
+    flex: 1;
+    padding: 7px 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .rk-row {
+    display: flex;
+    gap: 8px;
+    height: 65px;
+    align-items: stretch;
+  }
+  .layer-label {
+    width: 96px;
+    background: #DBE6FF;
+    color: #1D4ED8;
+    font-weight: 700;
+    font-size: 13.5px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    flex-shrink: 0;
+    line-height: 1.3;
+    padding: 0 4px;
+    letter-spacing: 0.5px;
+  }
+  .layer-chips {
+    flex: 1;
+    display: flex;
+    gap: 6px;
+    min-width: 0;
+  }
+  .chip {
+    flex: 1;
+    background: #FFFFFF;
+    border: 1px solid #C7D7FE;
+    border-radius: 6px;
+    padding: 5px 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    box-shadow: 0 1px 2px rgba(15,23,42,.04);
+  }
+  .chip-highlight {
+    background: #FFF4EC;
+    border-color: #FDBA8C;
+  }
+  .chip-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    margin-bottom: 2px;
+  }
+  .chip-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0F172A;
+    white-space: nowrap;
+  }
+  .chip-desc {
+    font-size: 11.5px;
+    color: #475569;
+    line-height: 1.25;
+  }
+
+  /* D. PCIe Interconnect Band */
+  .pcie-bus {
+    position: absolute;
+    left: 290px;
+    top: 470px;
+    width: 1250px;
+    height: 56px;
+    border-radius: 12px;
+    background: #1E293B;
+    color: #FFFFFF;
+    display: flex;
+    align-items: stretch;
+    box-shadow: 0 2px 6px rgba(15,23,42,.15);
+    overflow: hidden;
+  }
+  .pcie-bus-left {
+    width: 300px;
+    border-right: 1px solid #334155;
+    padding: 6px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .pcie-bus-left-title {
+    font-size: 15.5px;
+    font-weight: 700;
+    color: #F8FAFC;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .pcie-bus-left-desc {
+    font-size: 11.5px;
+    color: #CBD5E1;
+    margin-top: 3px;
+    white-space: nowrap;
+  }
+  .pcie-channel {
+    display: flex;
+    align-items: center;
+    border-right: 1px solid #334155;
+    padding: 6px 10px;
+    gap: 8px;
+    min-width: 0;
+  }
+  .pcie-channel:last-child {
+    border-right: none;
+  }
+  .pcie-channel-symbol {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+    width: 20px;
+    text-align: center;
+  }
+  .pcie-channel-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+  }
+  .pcie-channel-title {
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .pcie-channel-desc {
+    font-size: 10.5px;
+    color: #94A3B8;
+    margin-top: 3px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  /* E. FPGA Zone */
+  .fpga-zone {
+    position: absolute;
+    left: 290px;
+    top: 548px;
+    width: 1250px;
+    height: 340px;
+    background: #ECFDF8;
+    border: 2px solid #0F766E;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(15,23,42,.08);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .fpga-header {
+    height: 40px;
+    background: #0F766E;
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    flex-shrink: 0;
+  }
+  .fpga-header-left {
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  .fpga-header-right {
+    font-size: 13px;
+    color: #CCFBF1;
+    font-family: "Segoe UI", sans-serif;
+  }
+  .fpga-body {
+    flex: 1;
+    padding: 6px 12px 10px 12px;
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    min-height: 0;
+  }
+  .fpga-col {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .fpga-col-head {
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748B;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    padding-left: 2px;
+    margin-bottom: 2px;
+  }
+  .fpga-col-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+  }
+  .fpga-sep {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    flex-shrink: 0;
+  }
+  .fpga-chip {
+    background: #FFFFFF;
+    border: 1px solid #A7E3D5;
+    border-radius: 6px;
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    box-shadow: 0 1px 2px rgba(15,23,42,.04);
+  }
+  .fpga-chip-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    margin-bottom: 2px;
+  }
+  .fpga-chip-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #0F172A;
+    white-space: nowrap;
+  }
+  .fpga-chip-desc {
+    font-size: 12px;
+    color: #475569;
+    line-height: 1.25;
+  }
+
+  /* F. Right Column */
+  .right-features {
+    position: absolute;
+    left: 1570px;
+    top: 108px;
+    width: 326px;
+    height: 340px;
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(15,23,42,.08);
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .features-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0F172A;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .features-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .feature-item {
+    font-size: 13.5px;
+    color: #1E293B;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    line-height: 1.35;
+  }
+  .feature-item-left {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+  }
+  .feature-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #0F766E;
+    flex-shrink: 0;
+  }
+
+  .hdmi-title {
+    position: absolute;
+    left: 1570px;
+    top: 556px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #0F172A;
+  }
+  .display-monitor {
+    position: absolute;
+    left: 1570px;
+    top: 584px;
+    width: 326px;
+    height: 183px;
+    background: #000000;
+    border: 4px solid #0F172A;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(15,23,42,.15);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 2px;
+    overflow: hidden;
+  }
+  .monitor-quad {
+    position: relative;
+    overflow: hidden;
+  }
+  .monitor-label {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #FFFFFF;
+    background: rgba(15, 23, 42, 0.75);
+    padding: 1px 6px;
+    border-radius: 999px;
+    line-height: 1.3;
+    z-index: 10;
+    white-space: nowrap;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+  .st2c-card {
+    position: absolute;
+    left: 1570px;
+    top: 780px;
+    width: 326px;
+    height: 108px;
+    background: #FFFFFF;
+    border: 1.5px dashed #94A3B8;
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    box-shadow: 0 1px 2px rgba(15,23,42,.04);
+  }
+
+  /* G. Bottom Metrics Band */
+  .metrics-band {
+    position: absolute;
+    left: 24px;
+    top: 904px;
+    width: 1872px;
+    height: 110px;
+    display: flex;
+    gap: 16px;
+  }
+  .metric-card {
+    flex: 1;
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(15,23,42,.08);
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .metric-num {
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+  .metric-desc1 {
+    font-size: 12.5px;
+    color: #475569;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+  .metric-desc2 {
+    font-size: 12px;
+    color: #64748B;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+
+  /* Legend */
+  .legend-bar {
+    position: absolute;
+    left: 24px;
+    top: 1028px;
+    width: 1872px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: #475569;
+  }
+  .legend-items {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .line-sample-orange {
+    width: 24px;
+    height: 3px;
+    background: #EA580C;
+    border-radius: 2px;
+  }
+  .line-sample-cyan {
+    width: 24px;
+    height: 3px;
+    background: #0891B2;
+    border-radius: 2px;
+  }
+  .line-sample-gray {
+    width: 24px;
+    border-top: 3px dashed #64748B;
+  }
+
+  /* SVG Overlays for arrows */
+  .svg-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1920px;
+    height: 1080px;
+    pointer-events: none;
+    z-index: 20;
+  }
+</style>
+</head>
+<body>
+
+<div id="canvas">
+
+  <!-- ==================== A. 标题区 ==================== -->
+  <div class="title-main">车载 ADAS 异构感知平台 · 软硬件框架</div>
+  <div class="title-sub">紫光同创 PG2L100H FPGA × 瑞芯微 RK3568 SoC ｜ 控制走 MMIO · 数据走零拷贝 DMA · 显示走全硬件流水线</div>
+  <div class="badge-top">FPGA 位流 cam23 · 0x20261106</div>
+
+  <!-- ==================== B. 左列：输入 ==================== -->
+  <div class="col-input-title">感知与人机输入</div>
+
+  <!-- 卡片 U1 -->
+  <div class="input-card" style="top: 140px; height: 105px; border: 1px solid #C7D7FE; background: #FFFFFF;">
+    <div class="input-card-title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <span>3 × UVC USB 摄像头</span>
+    </div>
+    <div class="input-card-desc">MJPEG 1280×720</div>
+    <div class="input-card-desc">后视 / 左后 / 右后</div>
+  </div>
+
+  <!-- 卡片 U2 -->
+  <div class="input-card" style="top: 257px; height: 95px; border: 1px solid #C7D7FE; background: #FFFFFF;">
+    <div class="input-card-title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      <span>U 盘评测素材</span>
+    </div>
+    <div class="input-card-desc">MP4（H.264 / H.265）· JPG / PNG</div>
+    <div class="input-card-desc">中文文件名</div>
+  </div>
+
+  <!-- 卡片 C1：四路摄像头布置 (新增) -->
+  <div class="input-card" style="top: 366px; height: 220px; border: 1px solid #CBD5E1; background: #FFFFFF; padding: 8px 10px;">
+    <div class="input-card-title" style="margin-bottom: 2px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <span>四路摄像头布置</span>
+    </div>
+    <svg width="100%" height="180" viewBox="0 0 236 180" style="display: block;">
+      <!-- 前视扇形多边形 -->
+      <polygon points="118,40 80,4 156,4" fill="#0F766E" fill-opacity="0.18" stroke="#0F766E" stroke-width="1" />
+      <text x="162" y="16" font-size="11.5" font-weight="700" fill="#0F766E" text-anchor="start">前视 FMC</text>
+      <!-- 车身圆角矩形 -->
+      <rect x="86" y="40" width="64" height="110" rx="18" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1.5" />
+      <!-- 前挡风玻璃 -->
+      <rect x="92" y="60" width="52" height="16" rx="4" fill="#CBD5E1" />
+      <!-- 左后扇形与小圆与文字 -->
+      <polygon points="84,74 36,146 64,154" fill="#1D4ED8" fill-opacity="0.15" stroke="#1D4ED8" stroke-width="1" />
+      <circle cx="84" cy="74" r="3.5" fill="#1D4ED8" />
+      <text x="14" y="112" font-size="11.5" font-weight="700" fill="#1D4ED8" text-anchor="start">左后</text>
+      <!-- 右后扇形与小圆与文字 -->
+      <polygon points="152,74 172,154 200,146" fill="#1D4ED8" fill-opacity="0.15" stroke="#1D4ED8" stroke-width="1" />
+      <circle cx="152" cy="74" r="3.5" fill="#1D4ED8" />
+      <text x="196" y="112" font-size="11.5" font-weight="700" fill="#1D4ED8" text-anchor="start">右后</text>
+      <!-- 后视小圆与小扇形与文字 -->
+      <polygon points="118,92 100,142 136,142" fill="#1D4ED8" fill-opacity="0.15" stroke="#1D4ED8" stroke-width="0.8" />
+      <circle cx="118" cy="92" r="3.5" fill="#1D4ED8" />
+      <text x="118" y="163" font-size="11" font-weight="700" fill="#1D4ED8" text-anchor="middle">后视</text>
+      <!-- 底部图例一行 -->
+      <circle cx="36" cy="172" r="3.5" fill="#0F766E" />
+      <text x="44" y="175" font-size="11" fill="#475569">直连 FPGA</text>
+      <circle cx="134" cy="172" r="3.5" fill="#1D4ED8" />
+      <text x="142" y="175" font-size="11" fill="#475569">经 RK 接入</text>
+    </svg>
+  </div>
+
+  <!-- 卡片 F1 -->
+  <div class="input-card" style="top: 600px; height: 105px; border: 1px solid #A7E3D5; background: #FFFFFF;">
+    <div class="input-card-title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2"><circle cx="6" cy="12" r="4"/><circle cx="18" cy="12" r="4"/><line x1="10" y1="12" x2="14" y2="12"/><rect x="2" y="6" width="20" height="12" rx="2"/></svg>
+      <span>FMC 前视摄像头</span>
+    </div>
+    <div class="input-card-desc">OV5640 · 1280×720</div>
+    <div class="input-card-desc">前视主通道（DVP 直连 FPGA）</div>
+  </div>
+
+  <!-- 卡片 K1 -->
+  <div class="input-card" style="top: 717px; height: 95px; border: 1px solid #CBD5E1; background: #FFFFFF;">
+    <div class="input-card-title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="6" cy="12" r="1.5"/><circle cx="10" cy="12" r="1.5"/><circle cx="14" cy="12" r="1.5"/><circle cx="18" cy="12" r="1.5"/></svg>
+      <span>5 个板载按键 KEY0–4</span>
+    </div>
+    <div class="input-card-desc">换道 · 起步/停车 · 转向 · 菜单</div>
+  </div>
+
+  <!-- ==================== C. 中部上：RK3568 区 ==================== -->
+  <div class="rk-zone">
+    <div class="rk-header">
+      <div class="rk-header-left">RK3568 SoC（飞凌 OK3568-C）· 软件栈</div>
+      <div class="rk-header-right">4 × Cortex-A55 2.0 GHz ｜ NPU 1 TOPS INT8 ｜ MPP ｜ RGA ｜ Linux 5.10</div>
+    </div>
+    <div class="rk-body">
+      <!-- 行1 应用交互层 -->
+      <div class="rk-row">
+        <div class="layer-label">应用<br>交互层</div>
+        <div class="layer-chips">
+          <div class="chip">
+            <div class="chip-title">run_boot.sh</div>
+            <div class="chip-desc">开机自启 · 0x838 版本握手</div>
+          </div>
+          <div class="chip">
+            <div class="chip-title">mode_select</div>
+            <div class="chip-desc">开机二选一：实时监控 / U 盘测评</div>
+          </div>
+          <div class="chip">
+            <div class="chip-title">menu_daemon</div>
+            <div class="chip-desc">实时四路监控 · 3×3 参数浮窗</div>
+          </div>
+          <div class="chip">
+            <div class="chip-title">usb_menu</div>
+            <div class="chip-desc">U 盘测评 · 中文界面 · 1–4 路 / 单路满屏</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 行2 感知决策层 -->
+      <div class="rk-row">
+        <div class="layer-label">感知<br>决策层</div>
+        <div class="layer-chips">
+          <div class="chip chip-highlight" style="flex: 1.15;">
+            <div class="chip-title" style="color: #C2410C;">NPU · YOLOv6n INT8</div>
+            <div class="chip-desc">960×320 道路带 · 9 类目标 · 17.55 ms/帧</div>
+          </div>
+          <div class="chip" style="flex: 1.0;">
+            <div class="chip-title">tl_det 红绿灯识别</div>
+            <div class="chip-desc">纯 C99 · 0 malloc · 4–6 ms（PC 基准）</div>
+          </div>
+          <div class="chip" style="flex: 1.5;">
+            <div class="chip-title">adas 决策状态机</div>
+            <div class="chip-desc">红绿灯 + 车道线 + 障碍物 + 按键 → 箭头 / 告警</div>
+          </div>
+          <div class="chip" style="flex: 0.85;">
+            <div class="chip-head">
+              <span class="chip-title">导航示例</span>
+              <span class="tag tag-yellow">示例</span>
+            </div>
+            <div class="chip-desc">.nav 路线文件驱动</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 行3 媒体调度层 -->
+      <div class="rk-row">
+        <div class="layer-label">媒体<br>调度层</div>
+        <div class="layer-chips">
+          <div class="chip" style="flex: 0.75;">
+            <div class="chip-title">usb_feed</div>
+            <div class="chip-desc">多线程零拷贝推流流水线</div>
+          </div>
+          <div class="chip" style="flex: 1.05;">
+            <div class="chip-title">MPP 硬件解码</div>
+            <div class="chip-desc">MJPEG / H.264 / H.265 → NV12</div>
+          </div>
+          <div class="chip" style="flex: 1.45;">
+            <div class="chip-title">RGA 2D 加速</div>
+            <div class="chip-desc">缩放转色 960×540 ×4 · 道路带 960×320</div>
+          </div>
+          <div class="chip" style="flex: 0.85;">
+            <div class="chip-title">quad_sched</div>
+            <div class="chip-desc">四路 NPU 加权轮询 2:1:1:1</div>
+          </div>
+          <div class="chip" style="flex: 1.35;">
+            <div class="chip-head">
+              <span class="chip-title">fcam_rb 前摄回读</span>
+              <span class="tag tag-green">cam19+</span>
+            </div>
+            <div class="chip-desc">FPGA 前视画面 → NPU / 红绿灯 · 15 fps</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 行4 驱动内存层 -->
+      <div class="rk-row">
+        <div class="layer-label">驱动<br>内存层</div>
+        <div class="layer-chips">
+          <div class="chip">
+            <div class="chip-head">
+              <span class="chip-title">V4L2 / UVC + 夜视</span>
+              <span class="tag tag-green">夜视</span>
+            </div>
+            <div class="chip-desc">3 路采集 · usb_night 亮度自适应三档参数</div>
+          </div>
+          <div class="chip">
+            <div class="chip-title">CMA 256 MB + dma-buf</div>
+            <div class="chip-desc">物理连续内存 · 零拷贝 · 缓存回写</div>
+          </div>
+          <div class="chip">
+            <div class="chip-title">RKNN Runtime</div>
+            <div class="chip-desc">NPU INT8 推理</div>
+          </div>
+          <div class="chip">
+            <div class="chip-title">PCIe RC + BAR 映射</div>
+            <div class="chip-desc">MMIO 寄存器 · DMA 门铃</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== D. 中部：PCIe 互连带 ==================== -->
+  <div class="pcie-bus">
+    <div class="pcie-bus-left">
+      <div class="pcie-bus-left-title">PCIe Gen2 ×2 · MPS 256</div>
+      <div class="pcie-bus-left-desc">实测 896 / 861 MB/s · 5 分钟双向压测 0 错误</div>
+    </div>
+    <!-- 格1 视频帧 DMA -->
+    <div class="pcie-channel" style="width: 280px; flex-shrink: 0;">
+      <div class="pcie-channel-symbol" style="color: #EA580C;">↓</div>
+      <div class="pcie-channel-content">
+        <div class="pcie-channel-title" style="color: #FB923C;">视频帧 DMA（RK → FPGA）</div>
+        <div class="pcie-channel-desc">门铃 0x190–0x19C · FPGA 主动拉取四路帧</div>
+      </div>
+    </div>
+    <!-- 格2 前摄回读 MWr -->
+    <div class="pcie-channel" style="width: 280px; flex-shrink: 0;">
+      <div class="pcie-channel-symbol" style="color: #0891B2;">↑</div>
+      <div class="pcie-channel-content">
+        <div class="pcie-channel-title" style="color: #22D3EE;">前摄回读 MWr（FPGA → RK）</div>
+        <div class="pcie-channel-desc">DDR3 → CMA · 3.2 ms/帧</div>
+      </div>
+    </div>
+    <!-- 格3 控制 / 状态 MMIO -->
+    <div class="pcie-channel" style="flex: 1; min-width: 0;">
+      <div class="pcie-channel-symbol" style="color: #94A3B8;">⇅</div>
+      <div class="pcie-channel-content">
+        <div class="pcie-channel-title" style="color: #CBD5E1;">控制 / 状态 MMIO（双向）</div>
+        <div class="pcie-channel-desc">检测框 0x900 · 文本 0xC00 · 决策 0x850 · 车道 0x8D0 · 车道统计 0x8F4</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== E. 中部下：FPGA 区 ==================== -->
+  <div class="fpga-zone">
+    <div class="fpga-header">
+      <div class="fpga-header-left">PG2L100H FPGA（紫光同创盘古 100Pro+）· 硬件流水线</div>
+      <div class="fpga-header-right">LUT 36.5% ｜ FF 19.4% ｜ DRM 64.8% ｜ APM 25.4% ｜ WNS +0.050 ns · TNS 0</div>
+    </div>
+    <div class="fpga-body">
+      <!-- 列1 接入 -->
+      <div class="fpga-col" style="width: 234px;">
+        <div class="fpga-col-head">接入</div>
+        <div class="fpga-col-body">
+          <div class="fpga-chip" style="flex: 1;">
+            <div class="fpga-chip-title">PCIe 端点 + SG-DMA</div>
+            <div class="fpga-chip-desc">16 深门铃队列 · DMA 读 / MWr 写</div>
+          </div>
+          <div class="fpga-chip" style="flex: 1;">
+            <div class="fpga-chip-head">
+              <span class="fpga-chip-title">OV5640 采集</span>
+              <span class="tag tag-green">cam23</span>
+            </div>
+            <div class="fpga-chip-desc">FMC DVP 输入 · 双缓冲 · SCCB 调参</div>
+          </div>
+          <div class="fpga-chip" style="flex: 1;">
+            <div class="fpga-chip-title">rt_keys</div>
+            <div class="fpga-chip-desc">5 键消抖 · 短按 / 长按事件</div>
+          </div>
+          <div class="fpga-chip" style="flex: 1;">
+            <div class="fpga-chip-title">rt_ext_regs</div>
+            <div class="fpga-chip-desc">BAR1 寄存器池 0x800–0xCFF</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fpga-sep">
+        <svg width="10" height="16" viewBox="0 0 10 16">
+          <polygon points="0,0 10,8 0,16" fill="#0F766E" />
+        </svg>
+      </div>
+
+      <!-- 列2 帧存 -->
+      <div class="fpga-col" style="width: 194px;">
+        <div class="fpga-col-head">帧存</div>
+        <div class="fpga-col-body">
+          <div class="fpga-chip" style="flex: 1; padding: 10px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; background: #FFFFFF;">
+            <div style="font-size: 14.5px; font-weight: 700; color: #0F766E; line-height: 1.2;">rt_ddr_hub</div>
+            <div style="font-size: 12px; font-weight: 600; color: #0F172A; margin-top: 5px; line-height: 1.25; white-space: nowrap;">DDR3 1 GB · 32 bit</div>
+            <div style="font-size: 12px; font-weight: 600; color: #0F172A; margin-top: 2px; line-height: 1.25; white-space: nowrap;">400 MHz</div>
+            <div style="height: 10px;"></div>
+            <div style="font-size: 12.5px; font-weight: 700; color: #0F766E; line-height: 1.25; white-space: nowrap;">4 槽视频帧缓冲</div>
+            <div style="font-size: 11.5px; color: #475569; margin-top: 4px; line-height: 1.25; white-space: nowrap;">独立 Commit：</div>
+            <div style="font-size: 11.5px; color: #475569; margin-top: 2px; line-height: 1.25; white-space: nowrap;">消隐期换帧，无撕裂</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fpga-sep">
+        <svg width="10" height="16" viewBox="0 0 10 16">
+          <polygon points="0,0 10,8 0,16" fill="#0F766E" />
+        </svg>
+      </div>
+
+      <!-- 列3 流式感知（前视通道） -->
+      <div class="fpga-col" style="width: 274px;">
+        <div class="fpga-col-head">流式感知（前视通道）</div>
+        <div class="fpga-col-body">
+          <div class="fpga-chip" style="flex: 1;">
+            <div class="fpga-chip-head">
+              <span class="fpga-chip-title">rt_night 夜间增强</span>
+              <span class="tag tag-yellow">合成暗化验证</span>
+            </div>
+            <div class="fpga-chip-desc">亮度统计 · AUTO 迟滞 · γ 0.5 查找表</div>
+          </div>
+          <div class="fpga-chip" style="flex: 1;">
+            <div class="fpga-chip-head">
+              <span class="fpga-chip-title">rt_lane_det 车道线</span>
+              <span class="tag tag-green">cam22</span>
+            </div>
+            <div class="fpga-chip-desc">单遍流式最小二乘拟合 · 虚 / 实 / 双黄</div>
+            <div class="fpga-chip-desc" style="color: #0F766E; font-size: 11.5px;">逐帧统计 0x8F4 → RK 桶式判定</div>
+          </div>
+          <div class="fpga-chip" style="flex: 1;">
+            <div class="fpga-chip-head">
+              <span class="fpga-chip-title">rt_zebra_det 斑马线</span>
+              <span class="tag tag-yellow">实验性</span>
+            </div>
+            <div class="fpga-chip-desc">流式条纹统计</div>
+          </div>
+          <div class="fpga-chip" style="flex: 1;">
+            <div class="fpga-chip-title">VIEW 图像模式</div>
+            <div class="fpga-chip-desc">原彩 / 灰度 / 二值化</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fpga-sep">
+        <svg width="10" height="16" viewBox="0 0 10 16">
+          <polygon points="0,0 10,8 0,16" fill="#0F766E" />
+        </svg>
+      </div>
+
+      <!-- 列4 显示合成 -->
+      <div class="fpga-col" style="width: 260px;">
+        <div class="fpga-col-head">显示合成</div>
+        <div class="fpga-col-body">
+          <div class="fpga-chip" style="flex: 1;">
+            <div class="fpga-chip-title">rt_disp_win_reader</div>
+            <div class="fpga-chip-desc">四宫格 4 × 960×540 → 1920×1080</div>
+          </div>
+          <div class="fpga-chip" style="flex: 1;">
+            <div class="fpga-chip-head">
+              <span class="fpga-chip-title">rt_zoom_ana</span>
+              <span class="tag tag-green">cam19+</span>
+            </div>
+            <div class="fpga-chip-desc">ZOOM2X 单路 2 倍满屏</div>
+          </div>
+          <div class="fpga-chip" style="flex: 1.2;">
+            <div class="fpga-chip-title">rt_osd 图层叠加</div>
+            <div class="fpga-chip-desc" style="white-space: nowrap;">16 检测框 · 4×64 字符</div>
+            <div class="fpga-chip-desc" style="white-space: nowrap; margin-top: 2px;">24×24 箭头 · 全屏告警红框</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fpga-sep">
+        <svg width="10" height="16" viewBox="0 0 10 16">
+          <polygon points="0,0 10,8 0,16" fill="#0F766E" />
+        </svg>
+      </div>
+
+      <!-- 列5 输出 -->
+      <div class="fpga-col" style="width: 154px;">
+        <div class="fpga-col-head">输出</div>
+        <div class="fpga-col-body">
+          <div class="fpga-chip" style="flex: 1;">
+            <div class="fpga-chip-title">MS7210 HDMI 发送</div>
+            <div class="fpga-chip-desc">1080p60 · 148.5 MHz</div>
+          </div>
+          <div class="fpga-chip" style="flex: 1;">
+            <div class="fpga-chip-title">LED0–3</div>
+            <div class="fpga-chip-desc">LED3 = 告警指示</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==================== F. 右列：功能与显示 ==================== -->
+  <!-- 上半：面向驾驶员的功能 -->
+  <div class="right-features">
+    <div class="features-title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span>面向驾驶员的功能</span>
+    </div>
+    <div class="features-list">
+      <div class="feature-item">
+        <div class="feature-item-left"><span class="feature-dot"></span>四路环视 · 硬件四宫格拼接</div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-item-left"><span class="feature-dot"></span>车道线虚实识别 · 变道合规提示</div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-item-left"><span class="feature-dot"></span>红绿灯识别 · 闯红灯告警</div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-item-left"><span class="feature-dot"></span>行人 / 骑行者 / 锥桶 / 路障 / 前车近距预警</div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-item-left"><span class="feature-dot"></span>限速标志提示</div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-item-left"><span class="feature-dot"></span>两级夜视（FPGA + USB 摄像头）</div>
+        <span class="tag tag-yellow">合成/模拟暗场</span>
+      </div>
+      <div class="feature-item">
+        <div class="feature-item-left"><span class="feature-dot"></span>路线文件导航</div>
+        <span class="tag tag-yellow">示例</span>
+      </div>
+      <div class="feature-item">
+        <div class="feature-item-left"><span class="feature-dot"></span>单路 2 倍满屏放大</div>
+        <span class="tag tag-green">cam19+</span>
+      </div>
+      <div class="feature-item">
+        <div class="feature-item-left"><span class="feature-dot"></span>中文界面 · 5 键全操控</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 下半：HDMI 显示与夜视 -->
+  <div class="hdmi-title">HDMI 1080p60 显示</div>
+
+  <!-- 显示器 2x2 四宫格 -->
+  <div class="display-monitor">
+    <!-- 左上格：前视通道 -->
+    <div class="monitor-quad" style="background: #141E2E;">
+      <div class="monitor-label">前视 · FMC / U 盘</div>
+      <!-- SVG 绘制透视车道线、检测框、底端箭头 -->
+      <svg width="100%" height="100%" viewBox="0 0 160 89" style="position: absolute; left: 0; top: 0;">
+        <!-- 地平线与天空微弱渐变 (y=36 为 40% 处) -->
+        <rect x="0" y="0" width="160" height="36" fill="#0A0F1D" />
+        <line x1="0" y1="36" x2="160" y2="36" stroke="#1E293B" stroke-width="1" />
+        <!-- 左侧透视实线 (黄)：从格左下角附近汇向地平线中点 (80, 36) -->
+        <line x1="18" y1="89" x2="76" y2="36" stroke="#EAB308" stroke-width="2.5" />
+        <!-- 右侧透视虚线 (绿)：从格右下角附近汇向同一点 (80, 36) -->
+        <line x1="142" y1="89" x2="84" y2="36" stroke="#22C55E" stroke-width="2.5" stroke-dasharray="6,4" />
+        <!-- 绿色检测框：小，约格宽 18% (26px)，放在两车道线之间、地平线下方 -->
+        <rect x="67" y="44" width="26" height="18" fill="rgba(34,197,94,0.15)" stroke="#22C55E" stroke-width="1.5" rx="2" />
+        <!-- 底部三个小箭头：← 灰、↑ 绿、→ 灰，放在格底部中央，不与车道线重叠 -->
+        <g transform="translate(66, 73)">
+          <text x="0" y="10" font-size="10" fill="#94A3B8" font-family="sans-serif">←</text>
+          <text x="13" y="10" font-size="11" fill="#22C55E" font-weight="bold" font-family="sans-serif">↑</text>
+          <text x="25" y="10" font-size="10" fill="#94A3B8" font-family="sans-serif">→</text>
+        </g>
+      </svg>
+    </div>
+
+    <!-- 右上格：后视 -->
+    <div class="monitor-quad" style="background: #1E293B;">
+      <div class="monitor-label">后视</div>
+      <svg width="100%" height="100%" viewBox="0 0 160 89" style="position: absolute; left: 0; top: 0;">
+        <line x1="0" y1="36" x2="160" y2="36" stroke="#334155" stroke-width="1"/>
+        <line x1="10" y1="89" x2="74" y2="36" stroke="#475569" stroke-width="1.8" stroke-dasharray="5,4"/>
+        <line x1="150" y1="89" x2="86" y2="36" stroke="#475569" stroke-width="1.8" stroke-dasharray="5,4"/>
+        <line x1="80" y1="89" x2="80" y2="36" stroke="#334155" stroke-width="1.2" stroke-dasharray="3,5"/>
+      </svg>
+    </div>
+
+    <!-- 左下格：左后 -->
+    <div class="monitor-quad" style="background: #0F172A;">
+      <div class="monitor-label">左后</div>
+      <svg width="100%" height="100%" viewBox="0 0 160 89" style="position: absolute; left: 0; top: 0;">
+        <line x1="0" y1="40" x2="160" y2="40" stroke="#1E293B" stroke-width="1"/>
+        <line x1="100" y1="89" x2="30" y2="40" stroke="#475569" stroke-width="1.5" stroke-dasharray="4,4"/>
+      </svg>
+    </div>
+
+    <!-- 右下格：右后 -->
+    <div class="monitor-quad" style="background: #182232;">
+      <div class="monitor-label">右后</div>
+      <svg width="100%" height="100%" viewBox="0 0 160 89" style="position: absolute; left: 0; top: 0;">
+        <line x1="0" y1="40" x2="160" y2="40" stroke="#1E293B" stroke-width="1"/>
+        <line x1="60" y1="89" x2="130" y2="40" stroke="#475569" stroke-width="1.5" stroke-dasharray="4,4"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- 两级夜视协同卡片 -->
+  <div class="st2c-card">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+      <span style="font-size: 14px; font-weight: 700; color: #0F172A;">两级夜视协同</span>
+      <span class="tag tag-yellow">合成/模拟暗场</span>
+    </div>
+    <div style="font-size: 12.5px; color: #475569; line-height: 1.35;">FPGA rt_night γ0.5 + USB 摄像头三档成像参数 · 0x800[11:10] 统一开关</div>
+  </div>
+
+  <!-- ==================== G. 底部指标带 ==================== -->
+  <div class="metrics-band">
+    <!-- 指标1 -->
+    <div class="metric-card">
+      <div class="metric-num num" style="color: #EA580C;">896 MB/s</div>
+      <div class="metric-desc1">PCIe Gen2 ×2 实测吞吐（FPGA → RK）</div>
+      <div class="metric-desc2">双向压测 0 错误</div>
+    </div>
+    <!-- 指标2 -->
+    <div class="metric-card">
+      <div class="metric-num num" style="color: #1D4ED8;">119.4 fps</div>
+      <div class="metric-desc1">四路 960×540 并发合计帧率</div>
+      <div class="metric-desc2">PCIe 总线负载 ≤ 14.5%</div>
+    </div>
+    <!-- 指标3 -->
+    <div class="metric-card">
+      <div class="metric-num num" style="color: #0F766E;">1080p60</div>
+      <div class="metric-desc1">硬件四宫格 + OSD 叠加</div>
+      <div class="metric-desc2">独立 Commit 无撕裂</div>
+    </div>
+    <!-- 指标4 -->
+    <div class="metric-card">
+      <div class="metric-num num" style="color: #EA580C;">17.55 ms</div>
+      <div class="metric-desc1">NPU YOLOv6n INT8 单帧（900 MHz）</div>
+      <div class="metric-desc2">验证集 mAP50 66.05%</div>
+    </div>
+    <!-- 指标5 -->
+    <div class="metric-card">
+      <div class="metric-num num" style="color: #1D4ED8;">63 / 69</div>
+      <div class="metric-desc1">红绿灯官方用例通过</div>
+      <div class="metric-desc2">tl_det 单帧 4–6 ms</div>
+    </div>
+    <!-- 指标6 -->
+    <div class="metric-card">
+      <div class="metric-num num" style="color: #0F766E;">36.5%</div>
+      <div class="metric-desc1">FPGA LUT 占用（cam23）</div>
+      <div class="metric-desc2">DRM 64.8% · WNS +0.050 ns</div>
+    </div>
+  </div>
+
+  <!-- 图例行 -->
+  <div class="legend-bar">
+    <div class="legend-items">
+      <div class="legend-item">
+        <div class="line-sample-orange"></div>
+        <span>视频帧 DMA</span>
+      </div>
+      <div class="legend-item">
+        <div class="line-sample-cyan"></div>
+        <span>前摄回读</span>
+      </div>
+      <div class="legend-item">
+        <div class="line-sample-gray"></div>
+        <span>控制 / 状态 MMIO</span>
+      </div>
+      <div class="legend-item">
+        <span class="tag tag-yellow">功能边界</span>
+      </div>
+      <div class="legend-item">
+        <span class="tag tag-green">cam19–cam23 新增</span>
+      </div>
+    </div>
+    <div style="font-size: 12px; color: #64748B;">
+      数据来源：技术文档最终稿 · cam19–cam23 板测与构建报告（2026-11-03）
+    </div>
+  </div>
+
+  <!-- ==================== SVG 全局箭头连线层 ==================== -->
+  <svg class="svg-overlay" viewBox="0 0 1920 1080">
+    <defs>
+      <!-- 蓝色箭头 -->
+      <marker id="arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#1D4ED8" />
+      </marker>
+      <!-- 青绿箭头 -->
+      <marker id="arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#0F766E" />
+      </marker>
+      <!-- 灰色箭头 (卡片 K1) -->
+      <marker id="arrow-gray" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#64748B" />
+      </marker>
+      <!-- 灰色箭头 (MMIO 细虚线) -->
+      <marker id="arrow-gray-mmio" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#94A3B8" />
+      </marker>
+      <!-- 橙色箭头 -->
+      <marker id="arrow-orange" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#EA580C" />
+      </marker>
+      <!-- 青色箭头 -->
+      <marker id="arrow-cyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#0891B2" />
+      </marker>
+    </defs>
+
+    <!-- 1. 左侧卡片指向芯片区箭头 -->
+    <!-- U1 -> RK (mid y = 140 + 52.5 = 192.5) -->
+    <line x1="260" y1="192" x2="288" y2="192" stroke="#1D4ED8" stroke-width="2.5" marker-end="url(#arrow-blue)" />
+    <!-- U2 -> RK (mid y = 257 + 47.5 = 304.5) -->
+    <line x1="260" y1="304" x2="288" y2="304" stroke="#1D4ED8" stroke-width="2.5" marker-end="url(#arrow-blue)" />
+    <!-- F1 -> FPGA (mid y = 600 + 52.5 = 652.5) -->
+    <line x1="260" y1="652" x2="288" y2="652" stroke="#0F766E" stroke-width="2.5" marker-end="url(#arrow-green)" />
+    <!-- K1 -> FPGA (mid y = 717 + 47.5 = 764.5) -->
+    <line x1="260" y1="764" x2="288" y2="764" stroke="#64748B" stroke-width="2.5" stroke-dasharray="4,4" marker-end="url(#arrow-gray)" />
+
+    <!-- 2. 中部 PCIe 互连带垂直箭头 (三通道均按格中心对齐) -->
+    <!-- 格1 X中心 = 290 + 300 + 280/2 = 730 -->
+    <!-- 格1 上段 (RK -> 总线): 向下 -->
+    <line x1="730" y1="448" x2="730" y2="468" stroke="#EA580C" stroke-width="3" marker-end="url(#arrow-orange)" />
+    <!-- 格1 下段 (总线 -> FPGA): 向下 -->
+    <line x1="730" y1="526" x2="730" y2="546" stroke="#EA580C" stroke-width="3" marker-end="url(#arrow-orange)" />
+
+    <!-- 格2 X中心 = 290 + 300 + 280 + 280/2 = 1010 -->
+    <!-- 格2 上段 (总线 -> RK): 向上 -->
+    <line x1="1010" y1="470" x2="1010" y2="450" stroke="#0891B2" stroke-width="3" marker-end="url(#arrow-cyan)" />
+    <!-- 格2 下段 (FPGA -> 总线): 向上 -->
+    <line x1="1010" y1="548" x2="1010" y2="528" stroke="#0891B2" stroke-width="3" marker-end="url(#arrow-cyan)" />
+
+    <!-- 格3 X中心 = 290 + 300 + 280 + 280 + 390/2 = 1345 -->
+    <!-- 格3 每段两条并排细虚线 (灰 #94A3B8，线宽 2.5，间距 12px，左条向下、右条向上) -->
+    <!-- 格3 上段 -->
+    <line x1="1339" y1="448" x2="1339" y2="468" stroke="#94A3B8" stroke-width="2.5" stroke-dasharray="3,3" marker-end="url(#arrow-gray-mmio)" />
+    <line x1="1351" y1="468" x2="1351" y2="448" stroke="#94A3B8" stroke-width="2.5" stroke-dasharray="3,3" marker-end="url(#arrow-gray-mmio)" />
+    <!-- 格3 下段 -->
+    <line x1="1339" y1="526" x2="1339" y2="546" stroke="#94A3B8" stroke-width="2.5" stroke-dasharray="3,3" marker-end="url(#arrow-gray-mmio)" />
+    <line x1="1351" y1="546" x2="1351" y2="526" stroke="#94A3B8" stroke-width="2.5" stroke-dasharray="3,3" marker-end="url(#arrow-gray-mmio)" />
+
+    <!-- 3. FPGA 右侧指向显示器箭头 (只保留箭头) -->
+    <!-- (x 1540, y 675) -> (x 1568, y 675) -->
+    <line x1="1540" y1="675" x2="1568" y2="675" stroke="#0F766E" stroke-width="2.5" marker-end="url(#arrow-green)" />
+  </svg>
+
+</div>
+
+</body>
+</html>

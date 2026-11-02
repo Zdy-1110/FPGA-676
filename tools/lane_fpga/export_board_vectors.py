@@ -15,6 +15,7 @@
 
 import csv
 import os
+import tempfile
 import sys
 
 # 保证根目录在 sys.path
@@ -28,7 +29,7 @@ from tools.lane_fpga.model import LaneFPGAModel, load_params
 from tools.lane_fpga.export_vectors import compute_decision, get_request, check_segment
 
 VECTORS_ROOT = os.path.abspath(os.path.join(REPO_ROOT, "log", "lane_fpga", "vectors"))
-DUMP_DIR = r"C:\Users\Zdy\AppData\Local\Temp\opencode\slot0_dump"
+DUMP_DIR = os.path.join(tempfile.gettempdir(), "nesai", "slot0_dump")
 
 
 def export_board_segment(params):

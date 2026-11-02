@@ -311,7 +311,7 @@ python single_port_tftp.py
 - 串口：COM14（XR21 Ch A 控制台，115200）；盘古 JTAG 调试器 = **FT2232H（本次 COM15/COM16）**
 - RK Buildroot root 密码 = `root`
 - U-Boot 静态 IP：板 169.254.33.200 ↔ PC 169.254.33.151（APIPA，网线直连；PC 网卡"以太网 5"）
-- PDS 2025.2-ads（装于 `D:\pango_pds`，工具在 `bin\`）+ license 2026-11-03 到期；Questa 2025.3 license 到 2027-10-02
+- PDS 2025.2-ads（装于 `D:\pango_pds`，工具在 `bin\`）+ license 到 2029-09-09（host `00E04CF107DF`）；Questa 2025.3 license 到 2027-10-02
 - EP 枚举（P29）：`0002:21:00.0` vendor=device=**0x0755**，**Gen2 x2**；BAR0=0xf0200000(8K)、BAR1=**0xf0204000(4K, DMA 寄存器)**、BAR2=0xf0202000(8K)
 - devmem 访问 BAR 前必须 `echo 1 > .../enable`；DMA 测试缓冲区用 **0x110000**（ramoops 保留区）
 - FPGA 板：**别断电**（配置是 SRAM 的）

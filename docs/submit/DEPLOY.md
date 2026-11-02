@@ -34,7 +34,7 @@ chmod +x /etc/init.d/S99adas_menu
 ## 三、FPGA Flash 固化步骤
 
 参考 `FPGA_flash固化方案_20261018.md` 规范：
-1. **生成 SFC 镜像与烧录脚本**：利用 PDS 工具 `cfg_gen_sfc` 将 `quad_cam18.sbit` 转换为 `quad_cam18.sfc`（默认单线 Fast Read 0x0B，起始地址 0x0），并引用 `tools/flash/flash_program_cam18.tcl` 自动化执行 Flash 擦除、编程与校验。
+1. **生成 SFC 镜像与烧录脚本**：利用 PDS 工具 `cfg_gen_sfc` 将 `quad_cam23.sbit` 转换为 `quad_cam23.sfc`（默认单线 Fast Read 0x0B，起始地址 0x0），并引用 `tools/flash/flash_program_cam23.tcl` 自动化执行 Flash 擦除、编程与校验。
 2. **安全断开 PCIe 链路**：在 RK3568 端移除 EP 设备 `0002:21:00.0` 并设置根端口链路禁用，防止烧写期间总线操作引发 SoC 挂死。
 3. **识别 Flash 型号**：通过 Fabric Configuration 的 JTAG 间接烧写扫描识别 SPI NOR Flash（如 W25Q128JV 或芯天下 XT25BF128F）。
 4. **擦除与编程**：执行 Flash 擦除（Auto 范围），烧录 SFC 固化镜像并执行 Verify 校验。

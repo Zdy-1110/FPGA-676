@@ -18,7 +18,8 @@
 ├── tools/       # RK3568 ADAS 软件栈 (usb_feed/menu/adas/npu_det) 与构建工具链
 ├── models/      # 预量化的 RKNN INT8 目标检测模型与结构配置
 ├── prebuilt/    # 预编译 FPGA 比特流 (.sbit) 与车载菜单素材 (ui_cjk.bin, tile/sel)
-└── docs/        # 系统技术文档、大纲与构建部署说明
+├── evidence/    # FPGA 时序/资源报告与关键板测日志
+└── docs/submit/ # 构建、部署与第三方组件说明
 ```
 
 ## 三、Quick Start
@@ -26,7 +27,7 @@
 1. 交叉编译 RK 端程序：
    `sh tools/rk_build.sh tools/usb_feed/usb_feed`
 2. 加载 FPGA 比特流：
-   在上位机通过 Fabric Configuration 将 `prebuilt/fpga/quad_cam18.sbit` 下载至 FPGA（固件版本寄存器 `0x838 = 0x20261101`）
+   在上位机通过 Fabric Configuration 将 `prebuilt/fpga/quad_cam23.sbit` 下载至 FPGA（固件版本寄存器 `0x838 = 0x20261106`，与开发板 Flash 中固化的位流一致）
 3. 板端启动 ADAS 主控：
    `/userdata/quad/usb_feed --bar1 0xf0204000 --dst 960x540 --slot0-rgb565`
 
@@ -45,3 +46,8 @@
 - 指导教师：[教师姓名占位]
 - 参赛高校：[高校名称占位]
 - 日期：2026-10-30
+
+## 六、源码仓库
+
+- GitHub：<https://github.com/Zdy-1110/FPGA-676>
+- 仓库为源码快照，预编译位流、源码包与证据日志随本目录同级的提交包提供。

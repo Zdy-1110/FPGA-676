@@ -1,4 +1,4 @@
-# 板端 NPU 检测程序设计（N-3，2026-10-26，设计者 Claude）
+# 板端 NPU 检测程序设计（N-3，2026-10-26）
 
 本文件是 N-3 各子任务的唯一依据。上游设计：`RK_NPU检测程序设计_20261018.md`（§3 程序结构）、`RK_NPU模型训练与部署规划_20261020.md` §6。
 
@@ -64,7 +64,7 @@
     4. 输出：`pack_box_regs` 后一次写完 0x900–0x97F；每秒更新一次文字行（fps = 1 s 内完成的 NPU 帧数，ms = 单帧 RGA+推理+后处理平均耗时，n = 当前帧框数）；每帧检测追加写 CSV（帧号、单调时钟 ms、cls、score、原图坐标 x0,y0,x1,y1）。
   - 命令行参数：沿用 test_feeder 的参数，另加 `--model`、`--conf`、`--iou`、`--nms {agnostic,class,pr_split}`、`--csv <path>`、`--no-npu`（只送帧，等价 test_feeder）。
   - 退出时：框寄存器全部清 0（color=0），文字行清空格，释放所有缓冲。
-- 板上测试脚本 `tools/npu_det/board_npu.sh`：仿照 `tools/test_feeder/board_test.sh`（自动识别 P29/P30、MPS、上传、运行、取回 CSV）。**只生成，开机后由 Claude 执行**。
+- 板上测试脚本 `tools/npu_det/board_npu.sh`：仿照 `tools/test_feeder/board_test.sh`（自动识别 P29/P30、MPS、上传、运行、取回 CSV）。**只生成，开机后执行**。
 
 ## 6 验收（PC 端，开发板关机期间）
 - N-3a：host 对拍 ALL MATCH（浮点路径必须；INT8 路径若 scale/zp 反推成功也必须）；单元测试全过；`npu_post.c` 用 `-std=c99 -Wall -Wextra` 在 x86_64 与 aarch64 下都 0 警告。

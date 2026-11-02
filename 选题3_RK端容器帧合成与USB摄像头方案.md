@@ -277,8 +277,8 @@ which v4l2-ctl media-ctl python3
 
 ## 7. 分工
 
-- **Claude：** 本方案、写给 DeepSeek 的 Spec、审代码、上板操作（只读核实；停启 Weston 这类改动要你同意）。
-- **DeepSeek（OpenCode）：** 按 Spec 编写 adas_vsrc（预计 1000–1500 行 C）和构建脚本。按 S2 → S5 分四次交付，每次我审完 diff 再上板。
+- **方案与审阅：** 本方案、adas_vsrc 接口规范、代码审查、上板操作（只读核实；停启 Weston 这类改动先确认）。
+- **实现：** 按规范编写 adas_vsrc（预计 1000–1500 行 C）和构建脚本，按 S2 → S5 分四次交付，每次审完 diff 再上板。
 
 ## 8. 待确认事项
 

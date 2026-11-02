@@ -41,7 +41,7 @@ osd1c 目前只通过 JTAG 加载，FPGA 一断电就丢失。flash 里存的是
 | `flash_program_osd1c.tcl` | 擦除 → 写入 osd1c.sfc → 校验 |
 | `flash_restore_orig.tcl` | 回退：把备份写回 → 校验 |
 
-## 4. 执行步骤（第 1–6 步由 Claude 执行，第 7 步需要用户断电）
+## 4. 执行步骤（第 7 步需断电后执行）
 
 1. **安全断链。** 在 RK 上移除 EP 0000:01:00.0，并对根端口 0000:00:00.0 置 LnkCtl.Link Disable，与 `fpga_reload.sh` 第 1 步相同。
 2. **识别与备份（只读）。** 运行 `flash_scan_backup.tcl`。

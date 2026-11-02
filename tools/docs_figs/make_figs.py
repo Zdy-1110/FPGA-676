@@ -158,7 +158,7 @@ def build_fig1():
             fontproperties=font_reg, size=10.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
     draw_box(ax, 3.5, 38.0, 16.0, 22.0)
-    ax.text(11.5, 49.0, "FMC 双目 CMOS\n(OV5640 ×2 专用子卡)\n专用高速差分通道\n双目同步像素输入",
+    ax.text(11.5, 49.0, "FMC 前视 CMOS\n(OV5640 专用子卡)\nDVP 并行像素输入\n前视主通道",
             fontproperties=font_reg, size=10.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
     draw_box(ax, 3.5, 14.0, 16.0, 18.0)
@@ -167,7 +167,7 @@ def build_fig1():
 
     # RK3568 SoC 容器
     draw_box(ax, 23.5, 26.0, 24.5, 62.0, bg_color=COLOR_CONTAINER_BG, border_color=COLOR_CYAN, lw=1.5)
-    ax.text(35.75, 85.0, "瑞芯微 RK3568 主控 SoC (Linux 4.19)",
+    ax.text(35.75, 85.0, "瑞芯微 RK3568 主控 SoC (Linux 5.10)",
             fontproperties=font_bold, size=11.5, color=COLOR_CYAN, ha="center", va="center")
 
     draw_box(ax, 25.5, 70.0, 20.5, 11.0)
@@ -236,7 +236,7 @@ def build_fig1():
     ax.plot([p[0] for p in fmc_path], [p[1] for p in fmc_path],
             color=COLOR_CYAN, lw=1.8, solid_capstyle="round", zorder=3)
     draw_arrow(ax, (52.0, 47.5), (58.0, 47.5), color=COLOR_CYAN, lw=1.8)
-    ax.text(36.75, 15.4, "FMC 双目 OV5640 像素流直连 FPGA 视频中枢",
+    ax.text(36.75, 15.4, "FMC OV5640 像素流直连 FPGA 视频中枢",
             fontproperties=font_bold, size=9.0, color=COLOR_CYAN, ha="center", va="bottom")
 
     # 5. 按键模块 -> 0x844 -> FPGA (虚线 控制)
@@ -352,7 +352,7 @@ def build_fig3():
             fontproperties=font_bold, size=10.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
     draw_box(ax, 52.0, 71.0, 26.0, 17.0)
-    ax.text(65.0, 79.5, "run_boot.sh 硬件联调\n(0x838: 0x20261101 cam18；兼容 cam17)\n────────────\n[屏幕: 蓝色清屏 / 等待固件]",
+    ax.text(65.0, 79.5, "run_boot.sh 硬件联调\n(0x838: 0x20261106 cam23；兼容 cam17+)\n────────────\n[屏幕: 蓝色清屏 / 等待固件]",
             fontproperties=font_bold, size=9.5, color=COLOR_TEXT_MAIN, ha="center", va="center")
 
     # 启动箭头

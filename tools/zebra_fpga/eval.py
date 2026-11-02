@@ -12,6 +12,7 @@
 """
 
 import os
+import tempfile
 import sys
 import time
 import cv2
@@ -33,7 +34,7 @@ VIDEO_NAMES = [
     "113539",
 ]
 
-CACHE_DIR = r"C:\Users\Zdy\AppData\Local\Temp\opencode\zebra_eval_cache"
+CACHE_DIR = os.path.join(tempfile.gettempdir(), "zebra_eval_cache")
 os.makedirs(CACHE_DIR, exist_ok=True)
 REPORT_MD_PATH = os.path.join(os.path.dirname(__file__), "eval_report.md")
 CONTACT_SHEET_PATH = os.path.join(REPO_ROOT, "log", "zebra_fpga", "contact_sheet.png")
