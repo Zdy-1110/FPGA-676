@@ -32,7 +32,7 @@ Rev C 四层 55×54mm；PCIe x4 信号直通、两层内层保留 GND 参考；�
 
 两版不是“正确/错误代码”两种判决，也不保证二选一必通。官方例程未改动。两版均断开跨板电源、保留公共 GND，SB1 复位默认 OPEN；**原理图 DRC 各 0，PCB DRC 各仍有 6 项键槽间距违规**，时钟球位/最终 lane 映射/断电信号容限/阻抗与机械配合仍未放行。
 
-此前 Rev B 评审仍保留：[原 Rev B 说明](E:/Project/nesai2026/design/PCIE_EXT_RK3568_PANGO_REV_B_REVIEW/README.md)。原 zcode 下“已核实”等标题不能作为制造或上电依据。
+此前 Rev B 评审仍保留：[原 Rev B 说明](E:/Project/nesai2026/design/PCIE_EXT_RK3568_PANGO_REV_B_REVIEW/README.md)。文中“已核实”等标题不能作为制造或上电依据。
 
 ## 2026-10-03：实物已接入，只读JTAG成功
 
