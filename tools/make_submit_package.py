@@ -379,7 +379,7 @@ def prepare_memory_docs(repo_root):
     不存在则使用内置最小模板并警告。
     """
     docs_to_inject = {}
-    doc_names = ["README.md", "BUILD.md", "DEPLOY.md", "THIRD_PARTY.md"]
+    doc_names = ["README.md", "BUILD.md", "DEPLOY.md", "PORTING.md", "THIRD_PARTY.md"]
     for name in doc_names:
         submit_path = os.path.join(repo_root, "docs", "submit", name)
         if os.path.exists(submit_path):
