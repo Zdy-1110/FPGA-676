@@ -187,7 +187,7 @@ def collect_whitelist_files(repo_root, with_assets):
     )
 
     def _sim_filter(f, p):
-        if not f.lower().endswith((".v", ".sv", ".do", ".sh", ".py", ".md")):
+        if not f.lower().endswith((".v", ".sv", ".do", ".sh", ".py", ".md", ".hex")):
             return False
         parts = p.replace("\\", "/").split("/")
         if "work" in parts:
@@ -248,6 +248,10 @@ def collect_whitelist_files(repo_root, with_assets):
         add_single_file(rk_tool, rk_tool)
     add_single_file("tools/jtag_run_tcl.ps1", "tools/jtag_run_tcl.ps1", optional=True)
 
+    # 一键构建与便携工程入口（评委换机器后无需改路径）
+    add_single_file("tools/build_all.sh", "tools/build_all.sh")
+    add_single_file("fpga/pnr/build_portable.tcl", "fpga/pnr/build_portable.tcl")
+
     # 导航示例 (tools/nav_proto)
     for nav_f in [
         "tools/nav_proto/make_navfile.py",
@@ -277,7 +281,7 @@ def collect_whitelist_files(repo_root, with_assets):
     ]:
         add_single_file(dark_img, dark_img)
 
-    # 关键证据日志（放 evidence/，便于评委核对文档数字）
+    # 关键证据日志：保持仓库内原始路径，文档中的 `log/...` 引用可直接对上
     for ev in [
         "log/rk_env/build_cam17.log",
         "log/rk_env/pcie_mrd1_L3_20261018.log",
@@ -286,11 +290,13 @@ def collect_whitelist_files(repo_root, with_assets):
         "log/lane_gl_repro_20261030/repro_board.log",
         "log/lane_gl_repro_20261030/repro_recover40.log",
         "log/board_20261101/cam18_timing.rtr",
+        "log/board_20261101/cam18_device_map.dmr",
         "log/board_20261101/nav112739_cam18_samples.txt",
         "log/board_20261101/night_still_cam18_lane_points.txt",
         "log/board_20261101/quad4_cam18_result.txt",
+        "log/train_b5_v6n_20261027_030923.log",
     ]:
-        add_single_file(ev, "evidence/" + os.path.basename(ev), optional=True)
+        add_single_file(ev, ev, optional=True)
 
     for ev_src, ev_arc in [
         ("D:/pango_work/quad/out/cam23_reports/pango_pcie_dma_top.rtr", "evidence/cam23_timing.rtr"),
@@ -306,6 +312,32 @@ def collect_whitelist_files(repo_root, with_assets):
         "tools/ref_algo",
         filter_fn=lambda f, p: f.lower().endswith((".py", ".json", ".md")),
     )
+
+    # 3b. 模型训练/转换脚本与 PCIe 测速工具（完整代码，便于复现与二次开发）
+    def _code_filter(f, p):
+        return f.lower().endswith((".c", ".h", ".py", ".sh", ".md", ".json", ".yaml", ".yml", ".csv"))
+
+    add_directory("tools/npu_train", filter_fn=_code_filter)
+    add_directory("tools/npu_convert", filter_fn=_code_filter)
+    add_directory("tools/pcie_bench", filter_fn=_code_filter, optional=True)
+
+    # 3c. 全部仿真工程源码（去掉 work/ 编译产物）
+    for sim_dir in [
+        "fpga/sim", "fpga/sim_ddr", "fpga/sim_disp", "fpga/sim_ms72",
+        "fpga/sim_lane_thr", "fpga/sim_sccb", "fpga/sim_zoom", "fpga/sim_night",
+        "fpga/sim_lane_thr_par",
+    ]:
+        add_directory(sim_dir, filter_fn=_sim_filter, optional=True)
+
+    # 3d. 第三方构建依赖（交叉编译必需，评委无需另行下载）
+    for tp_dir in ["third_party/mpp-1.0.1", "third_party/rknpu2-1.5.0", "third_party/librga-1.9.1"]:
+        add_directory(tp_dir, optional=True)
+    add_directory(
+        "third_party/rk_sysroot/usr/lib",
+        filter_fn=lambda f, p: ".so" in f.lower(),
+        optional=True,
+    )
+    add_single_file("third_party/DOWNLOADS_20261026.md", "third_party/DOWNLOADS_20261026.md", optional=True)
 
     # 4. 模型
     for model_f in [

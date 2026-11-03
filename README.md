@@ -24,13 +24,16 @@ RK3568 承担 NPU 目标检测与 ADAS 决策，两者通过 PCIe 2.0 x2 互联�
 | `tools/adas/`、`tools/npu_det/` | 决策引擎、NPU 后处理与板端基准 |
 | `tools/lane_fpga/`、`tools/zebra_fpga/` | 车道线与斑马线检测的 PC 端黄金模型与评测 |
 | `models/npu/` | 预量化 RKNN 模型 |
+| `prebuilt/` | cam23 预编译位流（`fpga/quad_cam23.sbit`）与菜单字库/图素 |
+| `evidence/` | cam23 时序（rtr）、资源（dmr）与多 seed 结果 |
 | `docs/` | 技术文档、附录、演示与答辩材料 |
 | `docs/submit/` | 构建、部署与第三方组件说明（随源码包提交） |
 
 ## 构建与运行
 
-- FPGA 位流：`fpga/pnr/build_cam23.tcl`（PDS 2025.2，PG2L100H-6FBG676），详见 `docs/submit/BUILD.md`
-- RK3568 交叉编译：`sh tools/rk_build.sh tools/usb_feed/usb_feed`
+- FPGA 位流：直接用 `prebuilt/fpga/quad_cam23.sbit`，或运行 `pds_shell -f fpga/pnr/build_portable.tcl` 重建（PDS 2025.2，PG2L100H-6FBG676）
+- RK3568 交叉编译：`sh tools/build_all.sh`（或单模块 `sh tools/rk_build.sh tools/usb_feed/usb_feed`）
+- 移植与部署：`docs/submit/PORTING.md`
 - 板端部署与开机脚本：`docs/submit/DEPLOY.md`
 - 全量自检：`python tools/selftest.py`
 

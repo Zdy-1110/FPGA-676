@@ -1,0 +1,57 @@
+##### cat /tmp/mrd_L3.log
+BAR1=0xf0204000 bufA=0x001b0000 bufB=0x001b8000 iters=3
+
+=== MRD2 long-read ===
+L    4096   1 max_out=1 issued=16 best=140.8 avg=137.5 MB/s host=33347 ns/op fail=0
+L    4096   2 max_out=2 issued=16 best=277.5 avg=270.3 MB/s host=18374 ns/op fail=0
+L    4096   4 max_out=4 issued=16 best=500.9 avg=493.8 MB/s host=11666 ns/op fail=0
+L    4096   8 max_out=8 issued=16 best=653.8 avg=651.3 MB/s host=9139 ns/op fail=0
+L    4096  12 max_out=12 issued=16 best=653.0 avg=651.1 MB/s host=9333 ns/op fail=0
+L    4096  16 max_out=16 issued=16 best=653.8 avg=639.7 MB/s host=9625 ns/op fail=0
+L    4096  24 max_out=16 issued=16 best=655.5 avg=649.7 MB/s host=9236 ns/op fail=0
+L    4096  32 max_out=16 issued=16 best=652.2 avg=642.1 MB/s host=9625 ns/op fail=0
+L   16384   1 max_out=1 issued=64 best=141.2 avg=139.4 MB/s host=120944 ns/op fail=0
+L   16384   2 max_out=2 issued=64 best=279.5 avg=277.9 MB/s host=62416 ns/op fail=0
+L   16384   4 max_out=4 issued=64 best=543.3 avg=539.1 MB/s host=33736 ns/op fail=0
+L   16384   8 max_out=8 issued=64 best=799.3 avg=799.3 MB/s host=23916 ns/op fail=0
+L   16384  12 max_out=12 issued=64 best=801.8 avg=801.4 MB/s host=24208 ns/op fail=0
+L   16384  16 max_out=16 issued=64 best=799.0 avg=798.0 MB/s host=24013 ns/op fail=0
+L   16384  24 max_out=21 issued=64 best=799.3 avg=796.4 MB/s host=23819 ns/op fail=0
+L   16384  32 max_out=21 issued=64 best=799.3 avg=799.3 MB/s host=23917 ns/op fail=0
+L   65536   1 max_out=1 issued=256 best=141.1 avg=140.9 MB/s host=468708 ns/op fail=0
+L   65536   2 max_out=2 issued=256 best=281.8 avg=280.9 MB/s host=236736 ns/op fail=0
+L   65536   4 max_out=4 issued=256 best=554.2 avg=551.0 MB/s host=122014 ns/op fail=0
+L   65536   8 max_out=8 issued=256 best=846.8 avg=846.5 MB/s host=80402 ns/op fail=0
+L   65536  12 max_out=12 issued=256 best=847.5 avg=846.8 MB/s host=80888 ns/op fail=0
+L   65536  16 max_out=16 issued=256 best=847.3 avg=847.1 MB/s host=80500 ns/op fail=0
+L   65536  24 max_out=21 issued=256 best=847.2 avg=846.4 MB/s host=80694 ns/op fail=0
+L   65536  32 max_out=21 issued=256 best=847.7 avg=847.2 MB/s host=80305 ns/op fail=0
+L  131072   1 max_out=1 issued=512 best=141.1 avg=141.1 MB/s host=932166 ns/op fail=0
+L  131072   2 max_out=2 issued=512 best=282.1 avg=281.2 MB/s host=469000 ns/op fail=0
+L  131072   4 max_out=4 issued=512 best=556.0 avg=554.8 MB/s host=239653 ns/op fail=0
+L  131072   8 max_out=8 issued=512 best=855.9 avg=855.6 MB/s host=155750 ns/op fail=0
+L  131072  12 max_out=12 issued=512 best=856.0 avg=855.8 MB/s host=156042 ns/op fail=0
+L  131072  16 max_out=16 issued=512 best=856.2 avg=856.0 MB/s host=156236 ns/op fail=0
+L  131072  24 max_out=21 issued=512 best=856.0 avg=855.9 MB/s host=156333 ns/op fail=0
+L  131072  32 max_out=21 issued=512 best=856.1 avg=855.7 MB/s host=156333 ns/op fail=0
+L  262144   1 max_out=1 issued=1024 best=141.3 avg=141.1 MB/s host=1860930 ns/op fail=0
+L  262144   2 max_out=2 issued=1024 best=282.4 avg=282.2 MB/s host=932264 ns/op fail=0
+L  262144   4 max_out=4 issued=1024 best=558.6 avg=558.1 MB/s host=473180 ns/op fail=0
+L  262144   8 max_out=8 issued=1024 best=859.8 avg=859.3 MB/s host=308097 ns/op fail=0
+L  262144  12 max_out=12 issued=1024 best=860.3 avg=859.8 MB/s host=308388 ns/op fail=0
+L  262144  16 max_out=16 issued=1024 best=860.4 avg=860.3 MB/s host=308389 ns/op fail=0
+L  262144  24 max_out=21 issued=1024 best=860.6 avg=860.4 MB/s host=307805 ns/op fail=0
+L  262144  32 max_out=20 issued=1024 best=860.3 avg=860.0 MB/s host=308097 ns/op fail=0
+L  327680   1 max_out=1 issued=1280 best=141.3 avg=141.2 MB/s host=2322736 ns/op fail=0
+L  327680   2 max_out=2 issued=1280 best=282.1 avg=281.6 MB/s host=1166861 ns/op fail=0
+L  327680   4 max_out=4 issued=1280 best=558.8 avg=558.7 MB/s host=589653 ns/op fail=0
+L  327680   8 max_out=8 issued=1280 best=861.0 avg=860.9 MB/s host=383542 ns/op fail=0
+L  327680  12 max_out=12 issued=1280 best=861.3 avg=861.2 MB/s host=384125 ns/op fail=0
+L  327680  16 max_out=16 issued=1280 best=861.1 avg=861.1 MB/s host=384319 ns/op fail=0
+L  327680  24 max_out=21 issued=1280 best=861.2 avg=861.1 MB/s host=383639 ns/op fail=0
+L  327680  32 max_out=20 issued=1280 best=861.6 avg=861.3 MB/s host=383833 ns/op fail=0
+mrd image frames=3 fail=0 fpga=1204.9 us/frame 860.4 MB/s host=6910.9 us/frame
+loopback 4096B verify  : OK
+MRD2 long-read: ALL PASS
+[rc=0]
+
