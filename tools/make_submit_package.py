@@ -351,6 +351,14 @@ def collect_whitelist_files(repo_root, with_assets):
     # 5. 构建/部署说明（官方"上传全部代码"只要求代码：技术报告、附录、插图等文档不入包）
     add_directory("docs/submit", optional=True)
 
+    # 5b. 文档引用的溯源材料（表 3-1 / 表 D-1 的出处，纯文本，便于评委核对数字）
+    for trace_doc in [
+        "PCIe_DMA提速_20261018.md",
+        "RK_CMA扩容方案_20261018.md",
+        "FPGA_flash固化方案_20261018.md",
+    ]:
+        add_single_file(trace_doc, trace_doc, optional=True)
+
     # 6. 预编译 (--with-assets)
     if with_assets:
         add_single_file("D:/pango_work/quad/out/quad_cam23.sbit", "prebuilt/fpga/quad_cam23.sbit")
