@@ -1,0 +1,14 @@
+Sun Oct 18 01:14:54 UTC 2026
+=== END rounds=485 bad=0 link=5.0 GT/s PCIe/x2
+root: UE=0x00000000 CE=0x00000000 RootErr=0x48000000 | ep: UE=0x00000000 CE=0x00000000
+lane0: ebuf_ovf=0 ebuf_unf=0 decode=0 disparity=0 rxvalid_deassert=0 skp_add=0 skp_del=0
+lane1: ebuf_ovf=0 ebuf_unf=0 decode=0 disparity=0 rxvalid_deassert=0 skp_add=0 skp_del=0
+common: ei_infer=0 rx_err=0 rx_recov_req=0 nfts_to=0 deskew=0
+dll: bad_tlp=0 lcrc=0 bad_dllp=0 replay_roll=0 replay_to=0 rx_nak=0 tx_nak=0 retry_tlp=0
+ltssm: l0_to_recov=0 l1_to_recov=0 speed_chg=0 width_chg=0
+ext S=262144 ns/op=292541 MB/s=896 verify=OK
+loopback 4096B verify  : OK
+fit host->FPGA : slope-BW ~ 901.4 MB/s, per-op overhead ~ 3867 ns
+fit FPGA->host : slope-BW ~ 775.5 MB/s, per-op overhead ~ 2683 ns
+[rc=0]
+

@@ -2,6 +2,16 @@
 
 本文件说明 FPGA 逻辑工程构建、RK3568 软件栈交叉编译及目标检测模型配置流程。
 
+## 零、一键流程
+
+```sh
+pds_shell -f fpga/pnr/build_portable.tcl   # FPGA 位流（相对路径，换机器无需修改）
+sh tools/build_all.sh                      # 板端全部程序
+python tools/selftest.py                   # 构建 + 脚本 + 资产自检
+```
+
+完整移植步骤见 `docs/submit/PORTING.md`。
+
 ## 一、FPGA 逻辑工程构建
 
 ### 1.1 开发环境要求
@@ -10,7 +20,7 @@
 - 约束文件：`fpga/pnr/pango_pcie_top.fdc`
 
 ### 1.2 工程文件与生成命令
-- 自动化构建脚本：`fpga/pnr/build_cam23.tcl`（脚本内部使用 `D:/pango_build` 绝对路径，与既有构建环境口径一致；在 build_cam18 基础上增加 `rt_zoom_ana.v`（ZOOM2X 全屏模式下为分析核抽取 960×540 分析流），运行 6 seed 布局布线）
+- 自动化构建脚本：`fpga/pnr/build_portable.tcl`（推荐，纯相对路径）；`fpga/pnr/build_cam23.tcl` 为原始脚本，内部为 `D:/pango_build` 绝对路径（脚本内部使用 `D:/pango_build` 绝对路径，与既有构建环境口径一致；在 build_cam18 基础上增加 `rt_zoom_ana.v`（ZOOM2X 全屏模式下为分析核抽取 960×540 分析流），运行 6 seed 布局布线）
 - 构建流程（Tcl 交互模式或 `pds_shell` 执行）：
   ```tcl
   # 直接运行构建脚本：
