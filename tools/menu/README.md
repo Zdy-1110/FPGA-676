@@ -21,9 +21,9 @@ RK3568 用户态程序，全部只用 libc + 直接 mmap BAR1，不依赖 Qt/GTK
 ```
 
 开机三选一模式：
-- **MODE 01（模式 0）**：四路摄像头，拉起 `menu_daemon`（3×USB + 1×FPGA 实时画面，ADAS 算法联动）；
-- **MODE 02（模式 1）**：U 盘视频流，拉起 `usb_menu`（1~4 路视频自适应分屏回放）；
-- **MODE 03（模式 2）**：单路显示，拉起 `./usb_menu --bar1 0xf0204000 --single`（任选一路满屏检测，支持 FPGA 前摄 / USB 摄像头 1–3 / U 盘单文件）。
+- MODE 01（模式 0）：四路摄像头，拉起 `menu_daemon`（3×USB + 1×FPGA 实时画面，ADAS 算法联动）；
+- MODE 02（模式 1）：U 盘视频流，拉起 `usb_menu`（1~4 路视频自适应分屏回放）；
+- MODE 03（模式 2）：单路显示，拉起 `./usb_menu --bar1 0xf0204000 --single`（任选一路满屏检测，支持 FPGA 前摄 / USB 摄像头 1–3 / U 盘单文件）。
   - FPGA 前摄：FPGA 车道线检测常开；进入时另起 `usb_feed --fcam:15 --zoom2x`，把 DDR 中的前摄画面回读给 NPU 与红绿灯识别（弹窗 5 项含 NPU）。
 
 ## 编译
@@ -60,26 +60,26 @@ sh tools/rk_build.sh tools/menu/usb_menu   tools/menu/usb_menu.c
 
 ## 弹窗与夜间增强交互 (NIGHT)
 
-- **实时模式弹窗（9 项 3×3 布局）**：
+- 实时模式弹窗（9 项 3×3 布局）：
   - 布局：
     - 行 1：CAM1、CAM2、CAM3
     - 行 2：NPU、LANE、VIEW（COLOR / GRAY / BIN 循环）
     - 行 3：ZEBRA、USB VIDEO、NIGHT
   - KEY0 移动光标（0–8 循环），KEY1 执行/切换项；短按 KEY4 开关弹窗，长按退出回选择界面。
-- **U 盘播放弹窗（5 项布局）**：
+- U 盘播放弹窗（5 项布局）：
   - 项包含：NPU、LANE、VIEW、ZEBRA、NIGHT。
-- **NIGHT 控制逻辑**：
+- NIGHT 控制逻辑：
   - 按 KEY1 循环切换：`AUTO` (0) → `ON` (1) → `OFF` (2) → `AUTO` (0)，对应写 `0x800[11:10]`。
   - 在 `AUTO` 模式下，若 FPGA 硬件当前判定达到暗光阈值并正在执行增强（读 `0x820` bit3 `night_active == 1`），文本动态显示为 `AUTO*`，未触发时显示 `AUTO`。
-- **UI 界面 0x865 配置原因**：
+- UI 界面 0x865 配置原因：
   - 开机模式选择界面（`mode_select`）和 U 盘文件列表界面（`usb_menu`）统一向 `0x800` 写入 `0x865`（即 `0x65` 通路配置 + `[11:10]=10` NIGHT 强制 OFF）。
   - 原因：选择界面和文件列表均为深色/暗底 UI，若置于 `AUTO` 模式会被 FPGA 统计平均亮度误判为夜间暗光场景而误触发 gamma 增强，导致界面发灰变白；因此在 UI 停留期间强制写入 `0x865`（NIGHT OFF），进入实际播放或实时画面时再恢复为 `AUTO`。
 
 ## 已知边界
 
-- 静态图片解码走板端 GStreamer `decodebin`，已于 10-30 完成板端实测验证（静态图片推流与按键基线，详见 `docs/提交清单与待办.md:21-31`）；
+- 静态图片解码走板端 GStreamer `decodebin`，已完成板端实测验证（静态图片推流与按键基线）；
 - `usb_menu` 的 SIGUSR1 基线重置已接入但未实测；
-- 返回选择界面的 DMA 卡死已从进程回收/等待/重试三处加固，待上板复测；
+- 返回选择界面的 DMA 卡死已从进程回收/等待/重试三处加固，尚未上板复测；
 - 单图播放走四宫格 slot0（左上格），其余三格黑：cam18 legacy 单窗全屏通路会花屏且退出后显示损坏，且 FPGA 车道线检测只读 slot0；
 - `.scene` 场景预设仅在单张图片模式生效，多图或视频时自动清空环境变量；
 - `.nav` 导航文件同目录不存在时，自动回退查找板端本地导航库 `/userdata/quad/nav/<stem>.nav`。

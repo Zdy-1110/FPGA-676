@@ -24,7 +24,7 @@ fpga/             PDS 工程（pnr/pg2l_pcie_dma.pds，全部相对路径）+ RT
   ip/                      PCIe、DDR3、RAM IP
 tools/
   rk_build.sh      交叉编译封装（自动定位仓库根目录与 zig）
-  build_all.sh     一键编译全部板端程序
+  build_all.sh     单命令编译全部板端程序
   usb_feed/        主程序：采集、解码、四分屏调度、NPU、ADAS 决策
   menu/            开机选择、U 盘浏览器、守护脚本
   npu_det/         NPU 后处理与板端基准
@@ -45,7 +45,7 @@ docs/submit/      本说明、构建说明（BUILD.md）、部署说明（DEPLOY
 
 直接用包内预编译位流，无需综合：
 
-1. PDS 打开 **Fabric Configuration**，连接下载器；
+1. PDS 打开 Fabric Configuration，连接下载器；
 2. 选择 `prebuilt/fpga/quad_cam23.sbit` 下载到 FPGA（掉电丢失）；
 3. 需要掉电保持时，用 `prebuilt/fpga/quad_cam23.sfc` 烧写板载 SPI Flash（W25Q128 / XT25BF128 系列），烧写前先在 RK 上断开 PCIe 链路，步骤见 `docs/submit/DEPLOY.md §三`。
 
@@ -125,11 +125,11 @@ python tools/rk_diag.py <板卡IP>     # 现场体检：PCIe 端点/速率/带�
 
 ## 五、常见问题
 
-1. **PDS 打开工程报找不到源文件**：确认是从 `fpga/pnr/pg2l_pcie_dma.pds` 打开（工程内为 `../src/...` 相对路径），不要单独拷贝 `.pds`。
-2. **`tools/rk_build.sh: zig not found`**：安装 Zig 0.14.1 并加入 PATH，或用 `ZIG=` 指定可执行文件。
-3. **板端起不来、`/tmp/run_boot.log` 记录 `mode_select failed 3x`**：先 `python tools/rk_diag.py` 查 PCIe 枚举与固件版本，再确认 `/userdata/quad/menu/` 素材齐全。
-4. **HDMI 黑屏**：确认位流为 cam23（`0x838 = 0x20261106`），并检查 `0x800` 显示主控寄存器。
-5. **NPU 初始化失败**：确认 `/userdata/quad/b5_v6n_band.rknn` 存在，板端 `librknnrt` 为 1.5.0（`strings /usr/lib/librknnrt.so | grep -i version`）。
+1. PDS 打开工程报找不到源文件：确认是从 `fpga/pnr/pg2l_pcie_dma.pds` 打开（工程内为 `../src/...` 相对路径），不要单独拷贝 `.pds`。
+2. `tools/rk_build.sh: zig not found`：安装 Zig 0.14.1 并加入 PATH，或用 `ZIG=` 指定可执行文件。
+3. 板端起不来、`/tmp/run_boot.log` 记录 `mode_select failed 3x`：先 `python tools/rk_diag.py` 查 PCIe 枚举与固件版本，再确认 `/userdata/quad/menu/` 素材齐全。
+4. HDMI 黑屏：确认位流为 cam23（`0x838 = 0x20261106`），并检查 `0x800` 显示主控寄存器。
+5. NPU 初始化失败：确认 `/userdata/quad/b5_v6n_band.rknn` 存在，板端 `librknnrt` 为 1.5.0（`strings /usr/lib/librknnrt.so | grep -i version`）。
 
 ## 六、随包文档
 

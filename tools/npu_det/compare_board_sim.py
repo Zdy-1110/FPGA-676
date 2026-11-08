@@ -49,7 +49,7 @@ for _d in (os.path.join(_ROOT, "tools", "npu_convert"),
 import convert_rknn
 import rknn_postprocess
 
-# --- board pipeline geometry (tools/npu_det/PROGRESS.md N-3b/N-3c1) ---
+# --- board pipeline geometry ---
 SRC_W, SRC_H = 1920, 1080
 CROP_X, CROP_Y, CROP_W, CROP_H = 0, 360, 1920, 640
 NET_W, NET_H = 960, 320

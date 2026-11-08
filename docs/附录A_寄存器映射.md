@@ -1,6 +1,6 @@
 # 附录 A  BAR1 寄存器映射手册
 
-> 适用固件：cam18（版本寄存器 `0x838 = 0x20261101`；兼容 cam17 = `0x20261029`）
+> 适用固件：cam18 位流（版本寄存器 `0x838 = 0x20261101`；开机脚本同时接受 `0x20261029`）
 > 依据：`fpga/src/disp/rt_ext_regs.v`（地址译码与位域）、`fpga/src/disp/rt_osd.v`、`fpga/src/disp/rt_osd_ctl.v`、`fpga/src/disp/rt_disp_top.v`
 > 说明：偏移均相对 BAR1 起始地址（板端实测 `0xf0204000`，即 `0x800` 对应物理地址 `0xf0204800`）。未标“只读”的寄存器均可写。
 
@@ -59,7 +59,7 @@
 | `0x82C` | `STAT_UNDERFLOW` | 32 位 | FIFO 欠载计数（应为 0） | `rt_ext_regs.v:478` |
 | `0x830` | `STAT_DBG` | 32 位 | 调试位，见 `i_stat_bus[146:115]` | `rt_ext_regs.v:479` |
 | `0x834` | `HDMI_STAT` | `[31:24]` sta_0502，`[23:16]` nack_cnt，`[15]` init_over_rx，`[14]` sta_valid，`[13:8]` ms7210_state，`[7:4]` reinit_cnt，`[3]` ri_hold，`[2]` rx_go，`[1]` nack_sticky，`[0]` init_over | MS7210 状态 | `rt_ext_regs.v:15, 654` |
-| `0x838` | `VERSION` | 32 位 | 固件版本，cam18 = `0x20261101`（cam17 = `0x20261029`） | `rt_ext_regs.v:662` |
+| `0x838` | `VERSION` | 32 位 | 固件版本，cam18 位流 = `0x20261101`（开机脚本同时接受 `0x20261029`） | `rt_ext_regs.v:662` |
 | `0x83C` | `OSD_ID` | 32 位 | 固定 `0x4F534431`（"OSD1"） | `rt_ext_regs.v:654` |
 | `0x840` | `KEY_STAT` | 5 位 | 按键实时电平 | `rt_ext_regs.v:655` |
 | `0x844` | `KEY_EVT` | 见 A.4.2 | 按键事件（序号/键号/类型/步进） | `rt_ext_regs.v:416, 655` |

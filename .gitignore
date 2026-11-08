@@ -141,3 +141,4 @@ fpga/sim_lane_thr_par/run_seg_*/
 *.qdb
 *.qpg
 tools/fcam_rb/fcam_rb
+tools/rk_net_info.log

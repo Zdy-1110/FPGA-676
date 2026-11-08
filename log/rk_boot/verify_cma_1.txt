@@ -1,0 +1,30 @@
+##### uptime; echo "== 1 cmdline"; cat /proc/cmdline; echo "== 2 dmesg cma"; dmesg | grep -iE "cma:|cma-reserved|Reserved memory"; echo "== 3 meminfo"; grep -i cma /proc/meminfo; echo "== iomem low"; grep -E "reserved|System RAM" /proc/iomem | head -12; echo "== pcie"; dmesg | grep -E "3c0000000.pcie: PCIe Link (up|Fail)"
+ 21:55:27 up 0 min,  0 users,  load average: 0.29, 0.08, 0.02
+== 1 cmdline
+storagemedia=emmc androidboot.storagemedia=emmc androidboot.mode=normal cma=256M androidboot.verifiedbootstate=orange rw rootwait earlycon=uart8250,mmio32,0xfe660000 console=ttyFIQ0 root=PARTUUID=614e0000-0000
+== 2 dmesg cma
+[    2.766799] cma: Reserved 256 MiB at 0x00000000ddc00000
+[    2.967714] Memory: 3729732K/4175872K available (18560K kernel code, 3390K rwdata, 6176K rodata, 6784K init, 540K bss, 183996K reserved, 262144K cma-reserved)
+[    5.533370] rkcifhw fdfe0000.rkcif: No reserved memory region assign to CIF
+== 3 meminfo
+CmaTotal:         262144 kB
+CmaAllocated:       2576 kB
+CmaReleased:      259568 kB
+CmaFree:          195828 kB
+== iomem low
+00200000-083fffff : System RAM
+  01a40000-020dffff : reserved
+  08300000-0831bfff : reserved
+09400000-efffffff : System RAM
+  d9c00000-edbfffff : reserved
+  edf00000-ee05ffff : reserved
+  eff00000-eff07fff : reserved
+1f0000000-1ffffffff : System RAM
+  1fb000000-1ff5fffff : reserved
+  1ff691000-1ff6f0fff : reserved
+  1ff6f1000-1ff769fff : reserved
+  1ff76c000-1ff76cfff : reserved
+== pcie
+[    4.723975] rk-pcie 3c0000000.pcie: PCIe Link up, LTSSM is 0x130011
+[rc=0]
+

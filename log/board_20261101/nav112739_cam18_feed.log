@@ -1,0 +1,343 @@
+adas: loaded 15 nav entries from /userdata/quad/video_20260929_112739.nav
+adas: baseline lane=1 moving=0
+bar1=0xF0204000 fb_base=0x04000000 fb_slot=0x00400000 dst=960x540 cams=1
+  cam0: /mnt/udisk/紫光同创杯赛题三参考素材/video_20260929_112739.mp4 -> slot 0 (ddr dst 0x04000000) dst=960x540 RGB565 (1036800B) fps=30
+rga_api version 1.9.3_[0]
+cam0: /mnt/udisk/紫光同创杯赛题三参考素材/video_20260929_112739.mp4 slot=0 fps=30 dst=960x540 RGB565(1040384B) phys[0]=0xde600000 phys[1]=0xde700000
+cam0: gst: gst-launch-1.0 -q filesrc location=/mnt/udisk/紫光同创杯赛题三参考素材/video_20260929_112739.mp4 ! qtdemux ! h265parse config-interval=-1 ! video/x-h265,stream-format=byte-stream,alignment=au ! fdsink fd=1
+cam0: gst: stderr -> /tmp/usb_feed_gst.log
+cam0: gst child pid=1440 pipe fd=37
+vdec: 1920x1080 hor_stride=2304 ver_stride=1080 buf_size=4478976 nbufs=10
+cam0: RGA imcheck ok: 1920x1080 (stride 2304x1080) NV12 -> 960x540 RGB565
+[   116s] cam0=24.0fps | total=24.0fps err=0 late=0
+npu: NPU total: 0.0fps [0:0.0 1:0.0 2:0.0 3:0.0] run:15.74ms bind:0.32ms wait:15.88ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=1, fps=0.0, sig=0/0/0, dec=0x008
+[   117s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 24.3fps [0:24.3 1:0.0 2:0.0 3:0.0] run:15.74ms bind:0.27ms wait:16.64ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=3, fps=0.0, sig=0/0/0, dec=0x008
+[   118s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.76ms bind:0.25ms wait:16.81ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=4, fps=0.0, sig=0/0/0, dec=0x028
+[   119s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.78ms bind:0.25ms wait:16.88ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=6, fps=0.0, sig=0/0/0, dec=0x028
+[   120s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.83ms bind:0.25ms wait:16.90ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=8, fps=0.0, sig=0/0/0, dec=0x028
+[   121s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.85ms bind:0.25ms wait:16.91ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=9, fps=0.0, sig=0/0/0, dec=0x028
+[   122s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.88ms bind:0.25ms wait:16.90ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=11, fps=0.0, sig=0/0/0, dec=0x028
+[   123s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.88ms bind:0.25ms wait:16.93ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=13, fps=0.0, sig=0/0/0, dec=0x028
+[   124s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.88ms bind:0.24ms wait:16.95ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=14, fps=0.0, sig=0/0/0, dec=0x008
+[   125s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.89ms bind:0.24ms wait:16.95ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=16, fps=0.0, sig=3/3/0, dec=0x008
+[   126s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.89ms bind:0.24ms wait:16.96ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=18, fps=0.0, sig=3/3/0, dec=0x028
+[   127s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:16.96ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=20, fps=0.0, sig=3/3/0, dec=0x028
+[   128s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:16.95ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=21, fps=0.0, sig=3/3/0, dec=0x028
+[   129s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.92ms bind:0.24ms wait:16.95ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=23, fps=0.0, sig=3/3/0, dec=0x028
+[   130s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.92ms bind:0.24ms wait:16.94ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=25, fps=0.0, sig=3/3/0, dec=0x028
+[   131s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.94ms bind:0.24ms wait:16.93ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=26, fps=0.0, sig=3/3/0, dec=0x028
+[   132s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.95ms bind:0.24ms wait:16.93ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=28, fps=0.0, sig=3/3/0, dec=0x008
+[   133s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.94ms bind:0.24ms wait:16.93ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=30, fps=0.0, sig=3/3/0, dec=0x008
+[   134s] cam0=30.9fps | total=30.9fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.94ms bind:0.24ms wait:16.93ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=31, fps=0.0, sig=3/3/0, dec=0x008
+[   135s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.95ms bind:0.24ms wait:16.93ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=33, fps=0.0, sig=3/3/0, dec=0x008
+[   136s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.95ms bind:0.24ms wait:16.94ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=35, fps=0.0, sig=3/3/0, dec=0x028
+[   137s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.94ms bind:0.24ms wait:16.94ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=36, fps=0.0, sig=3/3/0, dec=0x028
+[   138s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.95ms bind:0.24ms wait:16.94ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=38, fps=0.0, sig=3/3/0, dec=0x028
+[   139s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.94ms bind:0.24ms wait:16.95ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=40, fps=0.0, sig=3/3/0, dec=0x028
+[   140s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.94ms bind:0.24ms wait:16.94ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=41, fps=0.0, sig=3/3/0, dec=0x028
+[   141s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.94ms bind:0.24ms wait:16.95ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=43, fps=0.0, sig=3/3/0, dec=0x028
+[   142s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.93ms bind:0.24ms wait:16.96ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=45, fps=0.0, sig=3/3/0, dec=0x008
+[   143s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.93ms bind:0.24ms wait:16.96ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=46, fps=0.0, sig=3/3/0, dec=0x008
+[   144s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.93ms bind:0.24ms wait:16.96ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=48, fps=0.0, sig=1/3/0, dec=0x008
+[   145s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.93ms bind:0.24ms wait:16.97ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=50, fps=0.0, sig=1/3/0, dec=0x008
+[   146s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.93ms bind:0.24ms wait:16.96ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=51, fps=0.0, sig=1/3/0, dec=0x028
+[   147s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.93ms bind:0.24ms wait:16.96ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=53, fps=0.0, sig=1/3/0, dec=0x028
+[   148s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.93ms bind:0.24ms wait:16.96ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=55, fps=0.0, sig=3/3/0, dec=0x028
+[   149s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.93ms bind:0.24ms wait:16.96ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=56, fps=0.0, sig=3/3/0, dec=0x028
+[   150s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.93ms bind:0.24ms wait:16.96ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=58, fps=0.0, sig=3/3/0, dec=0x028
+[   151s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.93ms bind:0.24ms wait:16.96ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=60, fps=0.0, sig=3/3/0, dec=0x028
+[   152s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.92ms bind:0.24ms wait:16.96ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=61, fps=0.0, sig=3/3/0, dec=0x008
+[   153s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.92ms bind:0.24ms wait:16.96ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=63, fps=0.0, sig=3/3/0, dec=0x008
+[   154s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.93ms bind:0.24ms wait:16.96ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=65, fps=0.0, sig=3/3/0, dec=0x028
+[   155s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.92ms bind:0.24ms wait:16.97ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=66, fps=0.0, sig=3/3/0, dec=0x028
+[   156s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.92ms bind:0.24ms wait:16.97ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=68, fps=0.0, sig=3/3/0, dec=0x028
+[   157s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.92ms bind:0.24ms wait:16.97ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=70, fps=0.0, sig=1/1/0, dec=0x02c
+[   158s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.92ms bind:0.24ms wait:16.97ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=71, fps=0.0, sig=1/1/0, dec=0x02c
+[   159s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.92ms bind:0.24ms wait:16.97ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=73, fps=0.0, sig=1/1/0, dec=0x02c
+[   160s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.92ms bind:0.24ms wait:16.98ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=75, fps=0.0, sig=1/1/0, dec=0x02c
+[   161s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.92ms bind:0.24ms wait:16.98ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=76, fps=0.0, sig=1/1/0, dec=0x02c
+[   162s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.92ms bind:0.24ms wait:16.98ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=78, fps=0.0, sig=1/1/0, dec=0x02c
+[   163s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.92ms bind:0.24ms wait:16.98ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=80, fps=0.0, sig=1/1/0, dec=0x02c
+[   164s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.92ms bind:0.24ms wait:16.98ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=81, fps=0.0, sig=1/1/0, dec=0x00e
+[   165s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.92ms bind:0.24ms wait:16.98ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=83, fps=0.0, sig=1/1/0, dec=0x00e
+[   166s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.92ms bind:0.24ms wait:16.98ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=85, fps=0.0, sig=1/1/0, dec=0x00e
+[   167s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.92ms bind:0.24ms wait:16.98ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=86, fps=0.0, sig=1/1/0, dec=0x00c
+[   168s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.92ms bind:0.24ms wait:16.98ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=88, fps=0.0, sig=1/1/0, dec=0x00e
+[   169s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.98ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=90, fps=0.0, sig=1/1/0, dec=0x00e
+[   170s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=91, fps=0.0, sig=1/1/0, dec=0x00e
+[   171s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=93, fps=0.0, sig=1/1/0, dec=0x00c
+[   172s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=95, fps=0.0, sig=1/1/0, dec=0x00c
+[   173s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=96, fps=0.0, sig=1/1/0, dec=0x00c
+[   174s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=98, fps=0.0, sig=1/1/0, dec=0x00e
+[   175s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=100, fps=0.0, sig=1/1/0, dec=0x00e
+[   176s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=101, fps=0.0, sig=1/1/0, dec=0x00c
+[   177s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=103, fps=0.0, sig=1/1/0, dec=0x00e
+[   178s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=105, fps=0.0, sig=1/1/0, dec=0x00e
+[   179s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=106, fps=0.0, sig=1/1/1, dec=0x00e
+[   180s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=108, fps=0.0, sig=1/1/1, dec=0x00e
+[   181s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=110, fps=0.0, sig=1/1/1, dec=0x00e
+[   182s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=111, fps=0.0, sig=1/1/1, dec=0x00e
+[   183s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=113, fps=0.0, sig=1/1/1, dec=0x00e
+[   184s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=115, fps=0.0, sig=1/1/1, dec=0x00c
+[   185s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=116, fps=0.0, sig=1/1/1, dec=0x00e
+[   186s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=118, fps=0.0, sig=1/1/1, dec=0x00e
+[   187s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=120, fps=0.0, sig=1/1/1, dec=0x00c
+[   188s] cam0=31.0fps | total=31.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=121, fps=0.0, sig=1/1/1, dec=0x00c
+[   189s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=123, fps=0.0, sig=1/1/1, dec=0x00c
+[   190s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=125, fps=0.0, sig=1/1/1, dec=0x00c
+[   191s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=126, fps=0.0, sig=1/1/1, dec=0x00c
+[   192s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=128, fps=0.0, sig=3/3/1, dec=0x008
+[   193s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=130, fps=0.0, sig=3/3/1, dec=0x008
+[   194s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=131, fps=0.0, sig=3/3/1, dec=0x008
+[   195s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=133, fps=0.0, sig=3/3/1, dec=0x008
+[   196s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=135, fps=0.0, sig=3/3/1, dec=0x008
+[   197s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=136, fps=0.0, sig=3/3/1, dec=0x008
+[   198s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=138, fps=0.0, sig=3/3/1, dec=0x008
+[   199s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=140, fps=0.0, sig=3/3/1, dec=0x008
+[   200s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=141, fps=0.0, sig=3/3/1, dec=0x008
+[   201s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=143, fps=0.0, sig=3/3/1, dec=0x00a
+[   202s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=145, fps=0.0, sig=3/3/1, dec=0x00a
+[   203s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=146, fps=0.0, sig=3/3/1, dec=0x00a
+[   204s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=148, fps=0.0, sig=3/3/1, dec=0x00a
+[   205s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=150, fps=0.0, sig=3/3/1, dec=0x00a
+[   206s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=151, fps=0.0, sig=3/3/1, dec=0x00a
+[   207s] cam0=30.0fps | total=30.0fps err=0 late=0
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:16.99ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=153, fps=0.0, sig=3/3/1, dec=0x00a
+cam0: gst child exited status=0
+cam0: gst: gst-launch-1.0 -q filesrc location=/mnt/udisk/紫光同创杯赛题三参考素材/video_20260929_112739.mp4 ! qtdemux ! h265parse config-interval=-1 ! video/x-h265,stream-format=byte-stream,alignment=au ! fdsink fd=1
+cam0: gst: stderr -> /tmp/usb_feed_gst.log
+cam0: gst child pid=8550 pipe fd=37
+[   208s] cam0=30.0fps | total=30.0fps err=0 late=1
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=155, fps=0.0, sig=1/1/1, dec=0x00c
+[   209s] cam0=30.0fps | total=30.0fps err=0 late=1
+npu: NPU total: 29.1fps [0:29.1 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=156, fps=0.0, sig=1/1/1, dec=0x00c
+[   210s] cam0=30.0fps | total=30.0fps err=0 late=1
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=158, fps=0.0, sig=1/1/1, dec=0x02c
+[   211s] cam0=30.0fps | total=30.0fps err=0 late=1
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:17.01ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=160, fps=0.0, sig=1/1/1, dec=0x02c
+[   212s] cam0=30.0fps | total=30.0fps err=0 late=1
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:17.01ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=161, fps=0.0, sig=1/1/1, dec=0x02c
+[   213s] cam0=30.0fps | total=30.0fps err=0 late=1
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:17.00ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=163, fps=0.0, sig=1/1/1, dec=0x02c
+[   214s] cam0=30.0fps | total=30.0fps err=0 late=1
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:17.01ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=165, fps=0.0, sig=1/1/1, dec=0x02c
+[   215s] cam0=30.0fps | total=30.0fps err=0 late=1
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.01ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=166, fps=0.0, sig=1/1/1, dec=0x02c
+[   216s] cam0=30.0fps | total=30.0fps err=0 late=1
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:17.01ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=168, fps=0.0, sig=1/1/1, dec=0x00c
+[   217s] cam0=30.0fps | total=30.0fps err=0 late=1
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.01ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=170, fps=0.0, sig=1/1/1, dec=0x00c
+[   218s] cam0=30.0fps | total=30.0fps err=0 late=1
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.01ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=171, fps=0.0, sig=1/1/1, dec=0x00c
+[   219s] cam0=30.0fps | total=30.0fps err=0 late=1
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.01ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=173, fps=0.0, sig=3/3/1, dec=0x028
+[   220s] cam0=30.0fps | total=30.0fps err=0 late=1
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.01ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=175, fps=0.0, sig=3/3/1, dec=0x028
+[   221s] cam0=30.0fps | total=30.0fps err=0 late=1
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.01ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=176, fps=0.0, sig=3/3/1, dec=0x028
+[   222s] cam0=30.0fps | total=30.0fps err=0 late=1
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.91ms bind:0.24ms wait:17.01ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=178, fps=0.0, sig=3/3/1, dec=0x028
+[   223s] cam0=30.0fps | total=30.0fps err=0 late=1
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.01ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=180, fps=0.0, sig=3/3/1, dec=0x028
+[   224s] cam0=30.0fps | total=30.0fps err=0 late=1
+npu: NPU total: 30.0fps [0:30.0 1:0.0 2:0.0 3:0.0] run:15.90ms bind:0.24ms wait:17.01ms to:0 (0:0 1:0 2:0 3:0)
+adas: on, frames=181, fps=0.0, sig=3/3/1, dec=0x028
+[ 

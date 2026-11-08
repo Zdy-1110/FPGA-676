@@ -1,7 +1,7 @@
 # 附录 B  验证复现记录
 
 > 目的：把技术报告中的关键指标变成**可复现**的结果。每条记录包含环境、命令、原始输出与对照结论。
-> 复现时间：2026-10-30；代码基线：`12d2156`（复现时的 HEAD）。
+> 代码基线：标签 `baseline-20261030`（提交 `bdbbdef`）。
 
 ## B.1 环境
 
@@ -67,15 +67,15 @@
 |---|---|---|---|---|---|---|
 | 100（默认） | 100% / 1 事件 | 0.0% | 0 事件 | 0 | 0 | 4 事件 |
 | 200 | 100% / 1 | 37.3% / 1 | 0 事件 | 0 | 2 事件（1.5 s） | 4 事件 |
-| 400 | 100% / 1 | 88.2% / 1 | **1 事件（1.0 s）** | 1 事件（0.5 s） | 2 事件 | 5 事件 |
-| 600 | 100% / 1 | 100% / 1 | **1 事件（1.0 s）** | 1 事件（0.5 s） | 2 事件 | 5 事件 |
+| 400 | 100% / 1 | 88.2% / 1 | 1 事件（1.0 s） | 1 事件（0.5 s） | 2 事件 | 5 事件 |
+| 600 | 100% / 1 | 100% / 1 | 1 事件（1.0 s） | 1 事件（0.5 s） | 2 事件 | 5 事件 |
 
-结论：放宽门限能救回遮挡段，但会击穿瓦楞板负样本并放大路口误报。**保持默认 100，不做 RTL 重综合**；完整表见 `tools/zebra_fpga/gap_sweep.md`。
+结论：放宽门限能救回遮挡段，但会击穿瓦楞板负样本并放大路口误报。保持默认 100，不做 RTL 重综合；完整表见 `tools/zebra_fpga/gap_sweep.md`。
 
 ## B.6 车道线门级后仿
 
-- 工作区：`D:/pango_build/4_15_PCIE_DMA/sim/lane_gl`（`work_r6`），Questa `vsim`。
-- **网表归属**：`impl.tcl`（2026-10-28）对 `rt_lane_det.v` 做**独立综合**，输入源 rt_lane_det.v 与提交位流 cam18 所用文件 MD5 一致（`0bced8fb6fffdd4f450c2d4a15a06b67`），网表取自 cam10f r6 独立综合。
+- 工作区：`fpga/sim/lane_gl`（`work_r6`），Questa `vsim`。
+- 网表归属：`impl.tcl` 对 `rt_lane_det.v` 做独立综合，输入源 rt_lane_det.v 与提交位流 cam18 所用文件 MD5 一致（`0bced8fb6fffdd4f450c2d4a15a06b67`），网表取自 cam10f r6 独立综合。
 - `seg_board`（2 帧）：`SEG seg_board: row_mismatch=0 frame_field_mismatch=0`，`Errors: 0`；日志 `log/lane_gl_repro_20261030/repro_board.log`。
 - `seg_recover`（40 帧）：`SEG seg_recover: row_mismatch=0 frame_field_mismatch=0`，`Errors: 0`；日志 `log/lane_gl_repro_20261030/repro_recover40.log`（重跑耗时约 2 小时 15 分）。
 - 结论：42 帧（2 + 40）逐帧一致，与第九章结论一致；全芯片 PnR 后的 SDF 反标未执行，时序收敛以 PDS STA 报告为准。
@@ -104,13 +104,13 @@ vsim -c -do run.do
 python tools/nav_proto/make_navfile.py
 zig cc -O2 -Itools/usb_feed tools/nav_proto/test_nav.c tools/usb_feed/nav.c -o test_nav && ./test_nav
 
-# 一键构建与文档不变量自检
+# 单命令构建与文档不变量自检
 python tools/selftest.py
 ```
 
 ## B.8 复现过程中发现的实现缺陷
 
-1. **斑马线配置总线错位**：`rt_ext_regs.v:145` 把 `reg_zebra_gap[7:0]` 拼到 `o_zebra_cfg_bus[47:40]`，而 `rt_disp_top.v:606` 从 `[39:32]` 取 `zebra_gap_pix`，该段恒为 0；`n_min`/`span` 也因总线宽度只含 `ctrl` 而取不到主机写入值。
-   - 影响：`0xA20` 的高位与 `0xA2C` 实际无效，硬件始终使用 `rt_zebra_det.v` 的默认参数（`n_min=7`、`span_q10=550`、`gap_max_w=100`）。由于核内对 0 值有默认回退，功能不因此崩溃，但**参数不可调**。
+1. 斑马线配置总线错位：`rt_ext_regs.v:145` 把 `reg_zebra_gap[7:0]` 拼到 `o_zebra_cfg_bus[47:40]`，而 `rt_disp_top.v:606` 从 `[39:32]` 取 `zebra_gap_pix`，该段恒为 0；`n_min`/`span` 也因总线宽度只含 `ctrl` 而取不到主机写入值。
+   - 影响：`0xA20` 的高位与 `0xA2C` 实际无效，硬件始终使用 `rt_zebra_det.v` 的默认参数（`n_min=7`、`span_q10=550`、`gap_max_w=100`）。由于核内对 0 值有默认回退，功能不因此崩溃，但参数不可调。
    - 处置：列入第十一章改进项；是否重综合取决于门限扫描结论与许可证窗口。
-2. **`0x82C` 只统计窗口 0**：`rt_disp_top.v:974` 在四宫格模式选通 `q0_sbus`，窗口 1–3 的欠载计数未引出（见第九章说明）。
+2. `0x82C` 只统计窗口 0：`rt_disp_top.v:974` 在四宫格模式选通 `q0_sbus`，窗口 1–3 的欠载计数未引出（见第九章说明）。

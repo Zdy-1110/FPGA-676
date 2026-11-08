@@ -2,7 +2,7 @@
 
 本文件说明 FPGA 逻辑工程构建、RK3568 软件栈交叉编译及目标检测模型配置流程。
 
-## 零、一键流程
+## 零、单命令流程
 
 ```sh
 pds_shell -f fpga/pnr/build_portable.tcl   # FPGA 位流（相对路径，换机器无需修改）
@@ -20,7 +20,7 @@ python tools/selftest.py                   # 构建 + 脚本 + 资产自检
 - 约束文件：`fpga/pnr/pango_pcie_top.fdc`
 
 ### 1.2 工程文件与生成命令
-- 自动化构建脚本：`fpga/pnr/build_portable.tcl`（推荐，纯相对路径）；`fpga/pnr/build_cam23.tcl` 为原始脚本，内部为 `D:/pango_build` 绝对路径（脚本内部使用 `D:/pango_build` 绝对路径，与既有构建环境口径一致；在 build_cam18 基础上增加 `rt_zoom_ana.v`（ZOOM2X 全屏模式下为分析核抽取 960×540 分析流），运行 6 seed 布局布线）
+- 自动化构建脚本：`fpga/pnr/build_portable.tcl`（推荐，纯相对路径）；`fpga/pnr/build_cam23.tcl` 使用原开发机的绝对工程路径，换机请用 build_portable.tcl。脚本含 `rt_zoom_ana.v`（ZOOM2X 全屏模式下为分析核抽取 960×540 分析流），运行 6 seed 布局布线
 - 构建流程（Tcl 交互模式或 `pds_shell` 执行）：
   ```tcl
   # 直接运行构建脚本：
@@ -28,7 +28,7 @@ python tools/selftest.py                   # 构建 + 脚本 + 资产自检
   ```
   其核心流程等价展开为：
   ```tcl
-  open_project D:/pango_build/4_15_PCIE_DMA/pnr/pg2l_pcie_dma.pds
+  open_project <原开发机工程目录>/4_15_PCIE_DMA/pnr/pg2l_pcie_dma.pds
   # 加载 rt_disp_win_reader.v, rt_lane_det.v, rt_zebra_det.v, rt_night.v, rt_zoom_ana.v 等源码
   compile -top_module pango_pcie_dma_top -force_to_run
   synthesize -ads -selected_syn_tool_opt 2 -force_to_run
@@ -44,7 +44,7 @@ python tools/selftest.py                   # 构建 + 脚本 + 资产自检
 交叉编译基于 Zig 0.14.1（`zig cc -target aarch64-linux-gnu.2.36`），编译脚本统一采用 `tools/rk_build.sh`。
 
 ### 2.1 主数据流与 ADAS 综合程序 (usb_feed)
-命令如实源自 `tools/rk_build.sh:9-11`：
+命令源自 `tools/rk_build.sh:9-11`：
 ```sh
 sh tools/rk_build.sh tools/usb_feed/usb_feed
 ```
@@ -69,7 +69,7 @@ sh tools/rk_build.sh tools/menu/menu_daemon tools/menu/menu_daemon.c -lpthread
 ```
 
 ### 2.3 NPU 性能基准测试程序
-源自 `tools/npu_det/PROGRESS.md:74`：
+NPU 性能基准测试程序的交叉编译命令（编译 0 错误、0 警告）：
 ```sh
 sh tools/rk_build.sh tools/npu_det/npu_bench tools/npu_det/npu_bench.c tools/npu_det/npu_post.c -lrknnrt -lm -std=gnu99 -Wextra
 ```
@@ -83,7 +83,7 @@ sh tools/rk_build.sh tools/npu_det/npu_bench tools/npu_det/npu_bench.c tools/npu
 - 离线模型转换脚本：
   脚本路径为 `tools/npu_convert/convert_rknn.py`，依赖 `rknn-toolkit2 1.5.0`，用于将 ONNX 模型量化转换为 RKNN 格式。
 
-## 四、一键自检
+## 四、单命令自检
 
 ```sh
 python tools/selftest.py          # 全量：menu_daemon / mode_select / usb_menu / usb_feed + 脚本语法 + 文档不变量
